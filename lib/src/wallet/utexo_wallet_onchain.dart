@@ -1,6 +1,220 @@
 part of 'utexo_wallet.dart';
 
+// A fresh command can initialize its outbox only on its first status attempt.
+// This session latch is deliberately absent from the persisted JSON envelope.
+final _recoverableStatusAttempted = Expando<bool>('recoverableStatusAttempted');
+
 mixin _UtexoWalletOnchain on _UtexoWalletInternals {
+  /// Constructs wallet-bound Bitcoin inputs without preparing or broadcasting.
+  /// Check [onchainSendStatus] once before saving an app marker; then persist
+  /// the returned command before invoking [prepareOnchainSend].
+  Future<RecoverableOnchainSendCommand> createRecoverableBtcSendCommand({
+    required String operationId,
+    required int amount,
+    required String address,
+    double feeRate = 1,
+  }) => _withLifecycle(() async {
+    _requireRecoverableMode();
+    _requireUnlockedNode();
+    _requireFeeRate(feeRate, 'feeRate');
+    return _validatedRecoverableCommand(
+      network: normalizeNativeRlnNetwork(_config.network),
+      walletBinding: await _recoverableWalletBinding(),
+      request: <String, Object?>{
+        'version': 1,
+        'operationId': operationId,
+        'kind': 'bitcoin',
+        'amount': amount,
+        'feeRate': feeRate.toInt(),
+        'address': address,
+        'transportEndpoints': const <String>[],
+        'minConfirmations': 1,
+        'donation': false,
+      },
+    );
+  });
+
+  /// Decodes and validates RGB inputs before any durable prepare dispatch.
+  /// Donation and skip-sync modes are deliberately unsupported by this protocol.
+  Future<RecoverableOnchainSendCommand> createRecoverableRgbSendCommand({
+    required String operationId,
+    required RgbSendRequest request,
+  }) => _withLifecycle(() async {
+    _requireRecoverableMode();
+    _requireUnlockedNode();
+    _requireFeeRate(request.feeRate, 'feeRate');
+    _requireSupportedRgbSendSkipSync(request.skipSync);
+    if (request.donation) _recoverableInvalid('donation');
+    if (request.amount == null) _recoverableInvalid('amount');
+    final decoded = await _decodeRgbInvoiceRaw(request.invoice);
+    if (normalizeNativeRlnNetwork(decoded.network) !=
+        normalizeNativeRlnNetwork(_config.network)) {
+      _recoverableInvalid('invoice.network');
+    }
+    if (decoded.assetId != null &&
+        request.assetId != null &&
+        decoded.assetId != request.assetId) {
+      _recoverableInvalid('invoice.assetId');
+    }
+    return _validatedRecoverableCommand(
+      network: normalizeNativeRlnNetwork(_config.network),
+      walletBinding: await _recoverableWalletBinding(),
+      request: <String, Object?>{
+        'version': 1,
+        'operationId': operationId,
+        'kind': 'rgb',
+        'amount': request.amount,
+        'feeRate': request.feeRate.toInt(),
+        'assetId': request.assetId ?? decoded.assetId,
+        'recipientId': decoded.recipientId,
+        'transportEndpoints': decoded.transportEndpoints,
+        'witnessAmountSat': request.witnessAmountSat,
+        'witnessBlinding': request.witnessBlinding,
+        'minConfirmations': request.minConfirmations,
+        'donation': false,
+        // Bind the pinned native default once, before durable app dispatch.
+        'expirationTimestamp':
+            decoded.expirationTimestamp ??
+            DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 86400,
+      },
+    );
+  });
+
+  Future<String> _recoverableWalletBinding() async {
+    final nodeId = _requireUnlockedNode();
+    final info = await _binding.rlnNodeInfo();
+    if (_requireUnlockedNode() != nodeId) {
+      _recoverableInvalid('command.wallet');
+    }
+    final vanilla = info.accountXpubVanilla;
+    final colored = info.accountXpubColored;
+    if (vanilla == null ||
+        colored == null ||
+        vanilla.isEmpty ||
+        colored.isEmpty ||
+        vanilla != vanilla.trim() ||
+        colored != colored.trim() ||
+        vanilla.length > 16384 ||
+        colored.length > 16384 ||
+        vanilla.contains(RegExp(r'[\x00-\x1f\x7f]')) ||
+        colored.contains(RegExp(r'[\x00-\x1f\x7f]'))) {
+      throw const NativeProtocolException(
+        'Native wallet account identity is unavailable.',
+        field: 'RlnNodeInfo.accountXpubs',
+      );
+    }
+    return crypto.sha256
+        .convert(
+          utf8.encode(
+            jsonEncode(<Object?>[
+              'rgb_sdk_flutter/recoverable-wallet/v2',
+              normalizeNativeRlnNetwork(_config.network),
+              vanilla,
+              colored,
+            ]),
+          ),
+        )
+        .toString();
+  }
+
+  Future<void> _requireRecoverableCommandWallet(
+    RecoverableOnchainSendCommand command, {
+    bool allowMissingOutbox = false,
+  }) async {
+    _requireRecoverableMode();
+    _requireUnlockedNode();
+    if (command.network != normalizeNativeRlnNetwork(_config.network) ||
+        (command.version == 1 &&
+            command.storageDirPath != _config.storageDirPath)) {
+      _recoverableInvalid('command.wallet');
+    }
+    // Check the current physical cohort before any native identity/outbox call.
+    await requireRecoverableStorage(
+      _config.storageDirPath,
+      allowMissingOutbox: allowMissingOutbox,
+    );
+    if (command.version == 2 &&
+        command.walletBinding != await _recoverableWalletBinding()) {
+      _recoverableInvalid('command.wallet');
+    }
+  }
+
+  void _requireRecoverableMode() {
+    if (_config.vssUrl != null ||
+        _config.vssAllowHttp ||
+        _config.vssAllowEmptyRestore) {
+      throw const UnsupportedWalletFeatureException(
+        'Recoverable on-chain sends are unavailable with VSS configuration.',
+        feature: 'recoverableOnchainSendVss',
+      );
+    }
+  }
+
+  /// Prepares/signs exactly one durable operation without authorizing broadcast.
+  /// Native and transport failures never fall back to a one-shot send or retry.
+  Future<RecoverableOnchainSendStatus> prepareOnchainSend(
+    RecoverableOnchainSendCommand command,
+  ) => _withLifecycle(() async {
+    await _requireRecoverableCommandWallet(command);
+    return _decodeRecoverableStatus(
+      await _binding.rlnPrepareOnchainSend(command._nativeRequestJson),
+      command,
+    );
+  });
+
+  /// Explicitly authorizes the prepared operation, using its existing identity.
+  /// Call only after persisting the application's reviewed commit intent.
+  Future<RecoverableOnchainSendStatus> commitOnchainSend(
+    RecoverableOnchainSendCommand command,
+  ) => _withLifecycle(() async {
+    await _requireRecoverableCommandWallet(command);
+    return _decodeRecoverableStatus(
+      await _binding.rlnCommitOnchainSend(command._nativeRequestJson),
+      command,
+    );
+  });
+
+  /// Checks durable status without releasing payment. Native may durably record
+  /// an observed receipt. It never calls prepare, commit, or one-shot send.
+  /// After an in-flight native deadline, identity/status inspection and pure
+  /// RGB invoice decoding for restored-intent validation wait for
+  /// that original native call to finish. It preserves the timeout quarantine;
+  /// ordinary operations still require explicit lifecycle recovery. If native
+  /// never finishes, inspection reaches its own deadline without dispatching.
+  /// Only the first fresh-command preflight may initialize a missing outbox.
+  /// Restored commands and later calls require the intact private directory.
+  Future<RecoverableOnchainSendStatus> onchainSendStatus(
+    RecoverableOnchainSendCommand command,
+  ) => _withLifecycle(() async {
+    final canInitialize =
+        !command._restored && _recoverableStatusAttempted[command] != true;
+    _recoverableStatusAttempted[command] = true;
+    await _requireRecoverableCommandWallet(
+      command,
+      allowMissingOutbox: canInitialize,
+    );
+    final status = _decodeRecoverableStatus(
+      await _binding.rlnOnchainSendStatus(command._nativeRequestJson),
+      command,
+    );
+    await requireRecoverableStorage(_config.storageDirPath);
+    return status;
+  });
+
+  /// Cancels only a native operation whose end/broadcast was never authorized.
+  /// Commit-authorized operations remain fenced and return their actual status.
+  /// Cancellation may require an explicit subsequent cancellation attempt after
+  /// interrupted reservation cleanup; it never dispatches a replacement send.
+  Future<RecoverableOnchainSendStatus> cancelOnchainSend(
+    RecoverableOnchainSendCommand command,
+  ) => _withLifecycle(() async {
+    await _requireRecoverableCommandWallet(command);
+    return _decodeRecoverableStatus(
+      await _binding.rlnCancelOnchainSend(command._nativeRequestJson),
+      command,
+    );
+  });
+
   Future<RlnNodeInfo> _nodeInfoRaw() async {
     _requireNode();
     return _binding.rlnNodeInfo();

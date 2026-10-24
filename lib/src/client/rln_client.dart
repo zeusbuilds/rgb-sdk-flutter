@@ -780,6 +780,42 @@ class RlnClient {
     );
   }
 
+  /// Prepares a durable native operation without authorizing its broadcast.
+  Future<String> prepareOnchainSend({
+    required int nodeId,
+    required String requestJson,
+  }) => _native(
+    'rlnPrepareOnchainSend',
+    () => _hostApi.rlnPrepareOnchainSend(nodeId, requestJson),
+  );
+
+  /// Authorizes only the previously prepared native operation.
+  Future<String> commitOnchainSend({
+    required int nodeId,
+    required String requestJson,
+  }) => _native(
+    'rlnCommitOnchainSend',
+    () => _hostApi.rlnCommitOnchainSend(nodeId, requestJson),
+  );
+
+  /// Reads durable native status without preparing or broadcasting a payment.
+  Future<String> onchainSendStatus({
+    required int nodeId,
+    required String requestJson,
+  }) => _native(
+    'rlnOnchainSendStatus',
+    () => _hostApi.rlnOnchainSendStatus(nodeId, requestJson),
+  );
+
+  /// Revokes only an operation whose end/broadcast has not been authorized.
+  Future<String> cancelOnchainSend({
+    required int nodeId,
+    required String requestJson,
+  }) => _native(
+    'rlnCancelOnchainSend',
+    () => _hostApi.rlnCancelOnchainSend(nodeId, requestJson),
+  );
+
   Future<Map<Object?, Object?>> sendPayment({
     required int nodeId,
     required String invoice,

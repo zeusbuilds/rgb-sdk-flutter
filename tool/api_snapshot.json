@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "description": "AST-normalized public API and bridge snapshot. Update only with a tracker row and migration note.",
   "dartExportedSurface": {
-    "count": 2095,
-    "hash": "f905ee73f80d5f10639eec69f5a7eedaa0a36f649c86331e6a95c90afcb08689",
+    "count": 2131,
+    "hash": "612e91b57209b3969bd397ecf81e71ce75e04db2051c20684e52c943081ce376",
     "files": [
       "lib/rgb_sdk_flutter.dart",
       "lib/rgb_sdk_flutter_advanced.dart",
@@ -49,6 +49,7 @@
       "lib/src/utils/logger.dart",
       "lib/src/wallet/burn_operations.dart",
       "lib/src/wallet/network_defaults.dart",
+      "lib/src/wallet/recoverable_onchain_send.dart",
       "lib/src/wallet/rln_manager.dart",
       "lib/src/wallet/rln_signers.dart",
       "lib/src/wallet/utexo_unlock_config_resolver.dart",
@@ -64,8 +65,8 @@
     ]
   },
   "stableWalletSurface": {
-    "count": 83,
-    "hash": "9b4f0fff99d91c0feca3107ecbbec367a07e7a46722be43c0f7864e44e9039ff",
+    "count": 89,
+    "hash": "e806adb31c0099accf41a2e5f134757ad1ca2c782d90f015b402e9932ac77d65",
     "files": [
       "lib/src/wallet/utexo_wallet.dart",
       "lib/src/wallet/utexo_wallet_bfa.dart",
@@ -111,6 +112,12 @@
       "Future<ListLightningPaymentsResponse> listLightningPayments()",
       "Future<OnchainReceiveResponse> onchainReceive(RgbInvoiceRequest request)",
       "Future<OnchainSendResponse> onchainSend(RgbSendRequest request)",
+      "Future<RecoverableOnchainSendCommand> createRecoverableBtcSendCommand({required String operationId, required int amount, required String address, double feeRate = 1})",
+      "Future<RecoverableOnchainSendCommand> createRecoverableRgbSendCommand({required String operationId, required RgbSendRequest request})",
+      "Future<RecoverableOnchainSendStatus> cancelOnchainSend(RecoverableOnchainSendCommand command)",
+      "Future<RecoverableOnchainSendStatus> commitOnchainSend(RecoverableOnchainSendCommand command)",
+      "Future<RecoverableOnchainSendStatus> onchainSendStatus(RecoverableOnchainSendCommand command)",
+      "Future<RecoverableOnchainSendStatus> prepareOnchainSend(RecoverableOnchainSendCommand command)",
       "Future<RefreshTransfersResult> refreshTransfers({bool skipSync = false})",
       "Future<RlnInvoiceStatusValue> getLightningReceiveStatus(String id)",
       "Future<RlnInvoiceStatusValue> invoiceStatus(String invoice)",
@@ -201,15 +208,15 @@
     ]
   },
   "pigeonSchema": {
-    "count": 92,
-    "hash": "aa316a264b4941fb2f8fcf268b0b42a3393e531546307399b7c7be92fe7a35ce",
+    "count": 96,
+    "hash": "fcfa90d725c5cf05f4f55a3dfdde7152902b6f6f57821493372b88b896e89e04",
     "files": [
       "pigeons/rln_api.dart"
     ]
   },
   "generatedPigeonSurface": {
-    "count": 1279,
-    "hash": "160301353b86ccd3c212f7fab2702351787cd9f07732ea6459155bdfae090a69",
+    "count": 1331,
+    "hash": "3dc8cc78d3d4b4c26efa74df37a5f929bfeca318ea982c6512c819dac317f0e4",
     "files": [
       "lib/src/pigeon/rln_api.g.dart",
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnApi.g.kt",
@@ -217,8 +224,8 @@
     ]
   },
   "nativeBridgeSurface": {
-    "count": 399,
-    "hash": "269bae4c65ed85c83de310cf5c63283c53ccada4a58df77083c61da5e2b04002",
+    "count": 412,
+    "hash": "ed37bc6d32b47e6c70764223213af9de6332a5bdc36c00b56d4e098955148399",
     "files": [
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbSdkFlutterPlugin.kt",
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnAssetMapper.kt",
@@ -226,6 +233,7 @@
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnStorageDirectoryPolicy.kt",
       "ios/Classes/RgbSdkFlutterPlugin.swift",
       "ios/Classes/RlnAssetMapper.swift",
+      "ios/Classes/RlnRecoverableSendBridge.swift",
       "ios/Classes/RlnBridgeErrorDetails.swift",
       "ios/Classes/RlnWireCodec.swift",
       "ios/Classes/RlnNodeStore.swift",

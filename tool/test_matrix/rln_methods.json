@@ -809,6 +809,54 @@
       "android": "required",
       "implementation": "lib/src/client/rln_client.dart::RlnClient.vssBackup",
       "evidenceBucket": "vss_recovery"
+    },
+    {
+      "id": "prepareOnchainSend",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "implemented",
+      "implementation": "lib/src/client/rln_client.dart::RlnClient.prepareOnchainSend",
+      "evidenceBucket": "durable_send_contract",
+      "hostApi": "rlnPrepareOnchainSend",
+      "ios": "required",
+      "android": "required"
+    },
+    {
+      "id": "commitOnchainSend",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "implemented",
+      "implementation": "lib/src/client/rln_client.dart::RlnClient.commitOnchainSend",
+      "evidenceBucket": "durable_send_contract",
+      "hostApi": "rlnCommitOnchainSend",
+      "ios": "required",
+      "android": "required"
+    },
+    {
+      "id": "onchainSendStatus",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "implemented",
+      "implementation": "lib/src/client/rln_client.dart::RlnClient.onchainSendStatus",
+      "evidenceBucket": "durable_send_contract",
+      "hostApi": "rlnOnchainSendStatus",
+      "ios": "required",
+      "android": "required"
+    },
+    {
+      "id": "cancelOnchainSend",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "implemented",
+      "implementation": "lib/src/client/rln_client.dart::RlnClient.cancelOnchainSend",
+      "evidenceBucket": "durable_send_contract",
+      "hostApi": "rlnCancelOnchainSend",
+      "ios": "required",
+      "android": "required"
     }
   ]
 }

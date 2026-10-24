@@ -304,6 +304,7 @@ main() {
   run_step "test matrix validation" "${DART_BIN}" run tool/validate_test_matrix.dart
   run_step "bridge behavior vector validation" "${DART_BIN}" run tool/validate_bridge_vectors.dart
   run_step "codebase hardening validation" "${DART_BIN}" run tool/validate_codebase_hardening.dart
+  run_step "local native candidate admission tests" python3 tool/test_durable_onchain_ios_sim.py
   run_step "public API documentation validation" "${DART_BIN}" run tool/validate_public_api_docs.dart
   run_step "README Dart example compilation" "${DART_BIN}" run tool/validate_readme_examples.dart
   run_step "release language validation" "${DART_BIN}" run tool/validate_release_language.dart

@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "name": "durable-onchain-v1",
+  "status": "passed-scoped-local-qualification",
+  "releaseArtifact": false,
+  "updatedAt": "2026-10-24",
+  "scope": {
+    "protocol": [
+      "Bitcoin on-chain",
+      "RGB fungible non-donation on-chain"
+    ],
+    "storage": "Intact private local wallet cohort across process/native restarts and coherent app-update directory relocation with SDK envelope version 2",
+    "platformCandidate": "arm64 iOS Simulator only",
+    "funds": "Regtest Bitcoin and local qualification EVM only",
+    "existingInfrastructure": "Existing isolated qualification services; no containers created or reset"
+  },
+  "verification": {
+    "nativeHost": {
+      "status": "passed",
+      "unitTests": 27,
+      "fundedIntegrationFixtures": 1,
+      "fundedFunctionalCases": 11,
+      "rustTestResults": {
+        "passed": 28,
+        "failed": 0
+      },
+      "publicSummarySha256": "44274ea803cf891190decd5c692ac6ed5a60f9ac4183eef2f5b25d789e677467",
+      "testSourceAdmissionSha256": "d99074de9fe99d854a371ff506373d7b55029cc9c3f8376d1d0b88381dddf1d7",
+      "hostTestBinarySha256": "8d2314a56cff7b9ac490b7e7a2eb15e7ee1a6edf43467a035e7a96deed75f287"
+    },
+    "candidateTooling": {
+      "status": "passed",
+      "tests": 10
+    },
+    "generatedFixtureVerifier": {
+      "status": "passed",
+      "syntheticAdversarialChecks": 4
+    },
+    "sdkDart": {
+      "status": "passed",
+      "tests": 621,
+      "focusedRecoverySubset": 56
+    },
+    "aster": {
+      "status": "passed",
+      "hostTests": 1424,
+      "paymentRepositorySubset": 54,
+      "sdkAdapterSubset": 23,
+      "analysis": "clean"
+    },
+    "iosSimulator": {
+      "status": "passed",
+      "architecture": "arm64",
+      "operatingSystem": "iOS 27",
+      "paymentAsset": "Bitcoin regtest; funded BFA coverage is separate host-native evidence",
+      "functionalCases": 3,
+      "cases": [
+        "normal-btc",
+        "lost-prepare-cancel",
+        "lost-commit-exact-recovery"
+      ],
+      "processRestarts": 2,
+      "actualPendingInstallUpdateRelocation": true,
+      "privateWalletFilesBytePreservedDuringUpdate": true,
+      "stableFullAccountKeyBindingPreserved": true,
+      "latePrepareAndCommitRejectedAfterCancellation": true,
+      "fixtureManifestSha256": "cc994044a8f176d987449ab892160f0e98001c2437f9aeb854433c7c57e051ea",
+      "nativeArchiveSha256": "d912b9c5eb1ed1e55b92d5427f292aff42bda54d7f2c1401b01fa87f586224f4",
+      "buildInputsSha256": "3ce33460b2c1ac54aa31e33a270d7746b107540ffd099e65e71943743c121a19",
+      "sourceUnchangedDuringBuild": true,
+      "buildProofSha256": "e60d50fd3f4ce410b0efadff53597ff87f6593b5580c05a5f6b55064da89f996",
+      "runtimeReceiptSha256": "db64ff7dec66edf704e24bf28b6530e1bab1e4531d2c737d8bf8e90d2883b58e"
+    }
+  },
+  "qualificationLimits": [
+    "Fault injection covers recorded storage/native boundaries and native restart; physical power loss and SIGKILL at every boundary are not established by these tests.",
+    "Configured VSS is rejected by all four durable native APIs and by SDK command construction and recovery actions.",
+    "Full ZIP restore, selective file loss, reconstructed empty outboxes and mixed-age app/native snapshots are unsupported; absence is not a rejection certificate across such restores.",
+    "Legacy unidentified one-shot attempts remain protected and cannot be resolved by matching similar history.",
+    "Unpublished path-bound SDK envelope version 1 is not silently migrated to stable-identity version 2; it remains strictly bound to its original path and request.",
+    "Consumers must preserve a wallet-wide unresolved-operation guard and must not mix legacy one-shot sends or other wallet mutations into a pending recoverable operation. Aster enforces this guard.",
+    "Settled operation and tombstone retention is not capacity qualified; new preparation scans retained records and no automatic pruning is permitted.",
+    "Simulator qualification does not establish device, Intel Simulator, Android, signed distribution, public native provenance or production-mainnet readiness."
+  ],
+  "remainingReleaseGates": [
+    "Complete required iOS RGB end-to-end, physical-device and Android qualification; Android builds were explicitly deferred.",
+    "Establish approved native provenance and publish matching qualified artifacts with an immutable SDK revision.",
+    "Update Aster's immutable SDK dependency and verify a clean public dependency restore without local overrides.",
+    "Define and qualify supported backup/restore continuity before claiming recovery across restore.",
+    "Establish retention, capacity and migration policy without reviving rejected or settled operation IDs.",
+    "Complete existing security, release configuration and funds-bearing mainnet release gates."
+  ],
+  "verificationAppliesTo": {
+    "rlnPatchSha256": "798062976ccf5676f42c90a7203dece5b3db316dc8899e94438c6e26bb329cf6",
+    "rgbLibPatchSha256": "4bfde1c5a76bdb300c3d48ecf4342cbfbc8a2dc581954a5b32cd803f49995f43",
+    "note": "The funded host and iOS runtime evidence above belongs to the earlier immutable stable-wallet-v2 candidate. It must not be presented as a fresh runtime test of later source or app changes."
+  },
+  "feedbackRevision": {
+    "date": "2026-10-24",
+    "status": "passed-source-sdk-funded-regression-and-ios-simulator-runtime",
+    "rlnPatchSha256": "03af1eb51f9b3382e44f71a178885bd897e9affa316384532c4aed60352003b8",
+    "rgbLibPatchSha256": "4bfde1c5a76bdb300c3d48ecf4342cbfbc8a2dc581954a5b32cd803f49995f43",
+    "changes": [
+      "Typed, payload-free native preparation rejection reasons preserve phase and End-authorization certainty.",
+      "After a native timeout, identity and exact durable status remain serialized behind native completion and cannot lift mutation quarantine or resubmit payment.",
+      "All durable APIs move blocking wallet/HTTP operations onto blocking workers with an owned lifecycle guard; cancelling the waiter does not cancel work or let shutdown overtake it."
+    ],
+    "discoveredCandidateDefect": "Current-candidate funded regression found RGB Prepare could construct/drop a blocking HTTP client runtime inside an async Tokio context. It failed before End; this is a candidate implementation defect, not evidence of a mainnet/signet configuration mismatch.",
+    "verification": {
+      "sdkDartTests": 626,
+      "sdkFocusedTests": 82,
+      "explicitReinitRecoverySubset": 61,
+      "sdkAnalysis": "clean",
+      "candidateToolingTests": 10,
+      "apiSnapshot": "passed",
+      "publicApiDocs": "passed",
+      "nativeJournalUnitTests": 31,
+      "fundedIntegrationFixtures": 1,
+      "fundedFunctionalCases": 12,
+      "nativeRustResults": {
+        "passed": 32,
+        "failed": 0,
+        "manualCleanupEntryPointIgnored": 1
+      },
+      "asterRecoveryAdapterTests": 26
+    },
+    "freshFundedRuntimeEvidence": true,
+    "remainingScope": "Current worker-boundary host-funded and native regressions plus final arm64 iOS Simulator BTC runtime qualification passed. Earlier runtime evidence remains bound to its original source. Current iOS RGB end-to-end, Android, device, public native publication, clean public dependency restore, backup/restore continuity and production-mainnet qualification remain open.",
+    "nativeHost": {
+      "status": "passed",
+      "publicSummarySha256": "da931f9e14b044bec1ce72ef29816f07585dafcfee2bd583ccc5becd3f1a2157",
+      "hostTestBinarySha256": "6152052dbb9bc8705fdc698113bb2370854a6aec6c093752bf9b0da8942577fd",
+      "testSourceAdmissionSha256": "f6a5cfbe6139ab5eb0b7b8e6f94e3a999e08a09d59cdfec4b5c8090b914d1dae",
+      "preservationAuditSha256": "c154c21997659d174452993fec5aa8debae5302a73b585d0150d5125dae6cf03",
+      "scope": "Same 8 existing isolated services, fresh owned wallet cohort and new backed BFA asset, existing test contracts reused."
+    },
+    "simulatorBuild": {
+      "status": "passed",
+      "scope": "local-ios-arm64-simulator-qualification-only",
+      "releaseArtifact": false,
+      "sourceUnchangedDuringBuild": true,
+      "fixtureManifestSha256": "6d581e45c122281f4fbc94dfe3842f79033bdaaa5503983222d445d8f50ec512",
+      "nativeArchiveSha256": "a1fa6d5a1aaba578cd9e64fe1675c4cbea47ed4487026f48f528588969850e1e",
+      "buildInputsSha256": "8ac9b3d6fcbd04d457479cfc83955c5729fc849984475451f62d94980fded18c",
+      "buildResultSha256": "8b121df00f21d27cbfc62b330d883147ea06c7c65b9e5b4476f7b754b54b5392",
+      "runtimeQualification": "The final Dart-inspection fixture using this unchanged native archive passed four current BTC iOS Simulator runtime cases. See iosSimulatorRuntime; the earlier build fixture manifest remains recorded here unchanged."
+    },
+    "dartInspectionRevision": {
+      "status": "passed",
+      "scope": "Dart-only pure RGB decoding inspection allowance; native ABI/archive unchanged.",
+      "sdkDartTests": 626,
+      "sdkRecoveryTests": 61,
+      "sdkAnalysis": "clean",
+      "asterRecoveryAdapterTests": 26,
+      "fixtureManifestSha256": "769f2f81af3d2839fa35492d165d025be04557b60d6ee875824ebeb7d158e1fe",
+      "nativeArchiveSha256": "a1fa6d5a1aaba578cd9e64fe1675c4cbea47ed4487026f48f528588969850e1e",
+      "contract": "Node identity, pure RGB invoice parsing and exact durable status remain serialized behind native completion. None lifts timeout quarantine or dispatches a payment. Full original-invoice intent comparison is retained; a different invoice is rejected.",
+      "logs": {
+        ".buildlog/root01-sdk-feedback-20261024-rgb-revalidation-tests.log": "8817cbdba41c1d0492444e153d41cee2fcbece66603610608605e0279a6cacfd",
+        ".buildlog/root01-sdk-feedback-20261024-full-tests-invoice-inspection.log": "561ab0ba456707ef3afadd716581c8a3d5476c20c68f2a086eb5bf60a632822c",
+        ".buildlog/root01-sdk-feedback-20261024-analyze-invoice-inspection.log": "174fe8699fe00068b931da89e579f361a148f90bb9c7465e0a6ce740426913e1",
+        ".buildlog/root01-sdk-feedback-20261024-invoice-inspection-stage.log": "90450f045bf9d72601652bb6f076071632a0c0fde442badb315f56df02be56d3"
+      }
+    },
+    "iosSimulatorRuntime": {
+      "status": "passed",
+      "architecture": "arm64",
+      "operatingSystem": "iOS 27.0 Simulator",
+      "scope": "Fresh separate qualification bundle and wallet using Aster repository/runtime/storage, final SDK Dart/Pigeon/Swift wrappers and current worker-boundary native archive; existing isolated regtest stack only.",
+      "functionalCases": 4,
+      "cases": [
+        "Typed insufficient BTC",
+        "Normal BTC send",
+        "Dropped Commit reply after native acceptance",
+        "Process restart and repeated read-only recovery"
+      ],
+      "typedInsufficientBitcoinReason": "insufficient_bitcoins",
+      "rejectionCertifiedBeforeCommit": true,
+      "confirmedRecipientAmountSatEach": 20000,
+      "networkFeeSatEach": 143,
+      "exactAmountAndFeeBalanceDebitVerified": true,
+      "droppedReplyRecoveredInsideOriginalSend": true,
+      "additionalPaymentDispatchAfterDroppedReply": false,
+      "processRestarts": 1,
+      "operationAndTransactionIdentityPreservedAfterRestart": true,
+      "repeatedReconciliationAndSyncDidNotRedispatch": true,
+      "nativeOperationTotals": {
+        "actualPrepareCalls": 3,
+        "actualCommitCalls": 2,
+        "legacyOneShotCalls": 0,
+        "confirmedWalletSends": 2,
+        "nativeAccepted": 2,
+        "nativeRejected": 1,
+        "nativeUnresolved": 0
+      },
+      "freshWalletAndStorage": true,
+      "walletProductionSourcesUnchangedDuringBuildAndVerification": true,
+      "existingEightContainerIdentitiesImagesAndCreationTimesPreserved": true,
+      "existingBitcoinTipRemainedAncestor": true,
+      "containerLifecycleActions": 0,
+      "sharedStackOperations": 0,
+      "fixtureManifestSha256": "769f2f81af3d2839fa35492d165d025be04557b60d6ee875824ebeb7d158e1fe",
+      "nativeArchiveSha256": "a1fa6d5a1aaba578cd9e64fe1675c4cbea47ed4487026f48f528588969850e1e",
+      "buildProofSha256": "18d65e9769b06f10cf9f208fdf1921820478f5f8cd52f47ff3ab00a42694a7ae",
+      "kernelSha256": "a854daa0fa228aac762ca87bef75cbc06a81cbb95b682a1f9053cf2a3a9ddbe6",
+      "publicSummarySha256": "099660c3b03a98c9ca30f3545217f1208f4218c4b556c0de512edd81efaf02c4",
+      "limits": [
+        "BTC only in this iOS runtime pass; current candidate funded BFA cases were separately exercised on the host runner.",
+        "Dropped reply is controlled fault injection at the App engine boundary, not an uncontrolled observed platform transport fault.",
+        "Real SDK deadline quarantine/reopen and RGB invoice validation were separately verified with gated real SDK queue tests, not forced via an iOS clock timeout in this pass.",
+        "Test-only App failure-code assertion was corrected against the original saved reply; no payment action was repeated."
+      ]
+    }
+  },
+  "earlierFeedbackRevision": {
+    "date": "2026-10-24",
+    "status": "passed-source-sdk-regression-and-ios-simulator-build",
+    "rlnPatchSha256": "ce661fcf449c967acede6897f145a78a851fdb482bb26bad90b4c0a0a53a8563",
+    "rgbLibPatchSha256": "4bfde1c5a76bdb300c3d48ecf4342cbfbc8a2dc581954a5b32cd803f49995f43",
+    "changes": [
+      "Typed, payload-free native preparation rejection reasons preserve phase and End-authorization certainty.",
+      "After a native timeout, identity and exact durable status remain serialized behind native completion and cannot lift mutation quarantine or resubmit payment."
+    ],
+    "verification": {
+      "nativeJournalUnitTests": 29,
+      "sdkDartTests": 624,
+      "sdkFocusedTests": 80,
+      "sdkAnalysis": "clean",
+      "candidateToolingTests": 10,
+      "apiSnapshot": "passed",
+      "publicApiDocs": "passed"
+    },
+    "freshFundedRuntimeEvidence": false,
+    "remainingScope": "Prior funded and Simulator runtime receipts are retained above under their original source hashes. Current-revision Aster/runtime verification must be recorded independently; no Android or production-mainnet qualification is implied.",
+    "simulatorBuild": {
+      "status": "passed",
+      "scope": "local-ios-arm64-simulator-qualification-only",
+      "releaseArtifact": false,
+      "sourceUnchangedDuringBuild": true,
+      "fixtureManifestSha256": "b398bdbd17de81f3e881f5a0eb4755f00e8900b9a34d737989765283d631eb68",
+      "nativeArchiveSha256": "a8d181fcc069e28450616565bb8169af51139594fde91b318ae1d7b10f48329d",
+      "buildInputsSha256": "5554de53b35ccef624104786c2af79496705331d2e2fcb61b3f80d27098a0cc0",
+      "buildResultSha256": "4e884a3dc166f18a4c39ded07f3cae487639273f578dcc01c3144ab00e7721aa",
+      "runtimeQualification": "No new funded or simulator runtime case was executed by this SDK feedback subtask."
+    }
+  }
+}

@@ -38,6 +38,10 @@ abstract class _RlnBindingInternals {
     String operationName,
     Future<T> Function(int nodeId) operation,
   );
+  Future<T> _withNodeInspection<T>(
+    String operationName,
+    Future<T> Function(int nodeId) operation,
+  );
   int _requireNodeId();
   void _assertRegularOpsAllowed();
   bool _isConflictError(Object error);
@@ -147,6 +151,24 @@ class RLNBinding extends _RlnBindingInternals
       return operation(nodeId);
     });
   }
+
+  // Only native identity, pure RGB invoice decoding and durable send status
+  // use this path. The same
+  // queue waits for an in-flight operation after its Dart deadline; inspection
+  // never races native mutation and never re-enables ordinary operations.
+  // Destroy/shutdown still own lifecycle teardown and cannot be bypassed.
+  @override
+  Future<T> _withNodeInspection<T>(
+    String operationName,
+    Future<T> Function(int nodeId) operation,
+  ) => _withNodeQueue(operationName, () {
+    final nodeId = _requireNodeId();
+    if (_lifecycleState == _RlnLifecycleState.shuttingDown ||
+        _lifecycleState == _RlnLifecycleState.destroying) {
+      throw const WalletError('RLN node is shutting down or destroying');
+    }
+    return operation(nodeId);
+  });
 
   @override
   int _requireNodeId() {

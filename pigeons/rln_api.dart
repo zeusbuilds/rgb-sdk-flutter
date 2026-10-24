@@ -373,6 +373,18 @@ abstract class RlnHostApi {
   );
 
   @TaskQueue(type: TaskQueueType.serialBackgroundThread)
+  String rlnPrepareOnchainSend(int nodeId, String requestJson);
+
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
+  String rlnCommitOnchainSend(int nodeId, String requestJson);
+
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
+  String rlnOnchainSendStatus(int nodeId, String requestJson);
+
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
+  String rlnCancelOnchainSend(int nodeId, String requestJson);
+
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
   RlnWireResponse rlnSendPayment(
     int nodeId,
     String invoice,

@@ -1,9 +1,37 @@
 part of 'rln_binding.dart';
 
 mixin _RlnBindingOnchain on _RlnBindingInternals {
+  Future<String> rlnPrepareOnchainSend(String requestJson) =>
+      _withNodeOperation(
+        'rlnPrepareOnchainSend',
+        (nodeId) => _client.prepareOnchainSend(
+          nodeId: nodeId,
+          requestJson: requestJson,
+        ),
+      );
+
+  Future<String> rlnCommitOnchainSend(String requestJson) => _withNodeOperation(
+    'rlnCommitOnchainSend',
+    (nodeId) =>
+        _client.commitOnchainSend(nodeId: nodeId, requestJson: requestJson),
+  );
+
+  Future<String> rlnOnchainSendStatus(String requestJson) =>
+      _withNodeInspection(
+        'rlnOnchainSendStatus',
+        (nodeId) =>
+            _client.onchainSendStatus(nodeId: nodeId, requestJson: requestJson),
+      );
+
+  Future<String> rlnCancelOnchainSend(String requestJson) => _withNodeOperation(
+    'rlnCancelOnchainSend',
+    (nodeId) =>
+        _client.cancelOnchainSend(nodeId: nodeId, requestJson: requestJson),
+  );
+
   Future<RlnDecodedRgbInvoice> rlnDecodeRgbInvoice(String invoice) async {
     return RlnDecodedRgbInvoice.fromMap(
-      await _withNodeOperation(
+      await _withNodeInspection(
         'rlnDecodeRgbInvoice',
         (nodeId) => _client.decodeRgbInvoice(nodeId: nodeId, invoice: invoice),
       ),

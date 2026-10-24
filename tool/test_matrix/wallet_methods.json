@@ -950,6 +950,60 @@
       "contract": "implemented",
       "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.backupNow",
       "evidenceBucket": "vss_recovery"
+    },
+    {
+      "id": "createRecoverableBtcSendCommand",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "covered",
+      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.createRecoverableBtcSendCommand",
+      "evidenceBucket": "durable_send_contract"
+    },
+    {
+      "id": "createRecoverableRgbSendCommand",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "covered",
+      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.createRecoverableRgbSendCommand",
+      "evidenceBucket": "durable_send_contract"
+    },
+    {
+      "id": "prepareOnchainSend",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "covered",
+      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.prepareOnchainSend",
+      "evidenceBucket": "durable_send_contract"
+    },
+    {
+      "id": "commitOnchainSend",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "covered",
+      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.commitOnchainSend",
+      "evidenceBucket": "durable_send_contract"
+    },
+    {
+      "id": "onchainSendStatus",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "covered",
+      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.onchainSendStatus",
+      "evidenceBucket": "durable_send_contract"
+    },
+    {
+      "id": "cancelOnchainSend",
+      "group": "onchain_recovery",
+      "support": "supported",
+      "fixture": "durable_send_contract",
+      "contract": "covered",
+      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.cancelOnchainSend",
+      "evidenceBucket": "durable_send_contract"
     }
   ]
 }

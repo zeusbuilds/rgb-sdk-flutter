@@ -918,7 +918,18 @@ void _validateLowLevelNativeMethods(
   // OCT-038: RLN already implements contract import, but RN beta.39 has no
   // wrapper for it. Keep this one reviewed Flutter extension explicit and
   // signature-checked; other unmatched methods remain parity failures.
-  const flutterExtensions = <String>{'rlnImportRgbContract'};
+  // ROOT-01: unpublished durable on-chain operation protocol. This extension
+  // requires separately qualified native artifacts; old artifacts fail closed.
+  const recoveryExtensions = <String>{
+    'rlnPrepareOnchainSend',
+    'rlnCommitOnchainSend',
+    'rlnOnchainSendStatus',
+    'rlnCancelOnchainSend',
+  };
+  const flutterExtensions = <String>{
+    'rlnImportRgbContract',
+    ...recoveryExtensions,
+  };
   for (final method in flutterExtensions) {
     if (rnMethods.contains(method)) {
       errors.add(
@@ -930,6 +941,19 @@ void _validateLowLevelNativeMethods(
       errors.add(
         'Reviewed Flutter extension $method is missing from inventory or Pigeon.',
       );
+    }
+  }
+  for (final method in recoveryExtensions) {
+    final signature = pigeonSignatures[method];
+    const inputName = 'requestJson';
+    if (signature != null &&
+        (signature.returnType != _TypeShape.fromDart('String') ||
+            signature.parameters.length != 2 ||
+            signature.parameters[0].name != 'nodeId' ||
+            signature.parameters[0].type != _TypeShape.fromDart('int') ||
+            signature.parameters[1].name != inputName ||
+            signature.parameters[1].type != _TypeShape.fromDart('String'))) {
+      errors.add('ROOT-01 durable send extension signature changed: $method.');
     }
   }
   final importSignature = pigeonSignatures['rlnImportRgbContract'];

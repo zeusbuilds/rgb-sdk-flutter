@@ -104,6 +104,7 @@ Map<String, Object?> _buildSnapshot() {
     'android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnStorageDirectoryPolicy.kt',
     'ios/Classes/RgbSdkFlutterPlugin.swift',
     'ios/Classes/RlnAssetMapper.swift',
+    'ios/Classes/RlnRecoverableSendBridge.swift',
     'ios/Classes/RlnBridgeErrorDetails.swift',
     'ios/Classes/RlnWireCodec.swift',
     'ios/Classes/RlnNodeStore.swift',

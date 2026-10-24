@@ -40,7 +40,7 @@ public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
     )
   }
 
-  private func runRln<T>(_ operation: String, _ block: () throws -> T) throws -> T {
+  func runRln<T>(_ operation: String, _ block: () throws -> T) throws -> T {
     try operationQueue.sync {
       closingLock.lock()
       let isClosing = closing

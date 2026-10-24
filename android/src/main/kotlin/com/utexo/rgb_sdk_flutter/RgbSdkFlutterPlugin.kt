@@ -1243,6 +1243,50 @@ class RgbSdkFlutterPlugin :
         }
     }
 
+    override fun rlnPrepareOnchainSend(nodeId: Long, requestJson: String): String =
+        runRln("rlnPrepareOnchainSend") {
+            recoverableOnchainCall(nodeId, "prepareOnchainSend", requestJson, "rlnPrepareOnchainSend")
+        }
+
+    override fun rlnCommitOnchainSend(nodeId: Long, requestJson: String): String =
+        runRln("rlnCommitOnchainSend") {
+            recoverableOnchainCall(nodeId, "commitOnchainSend", requestJson, "rlnCommitOnchainSend")
+        }
+
+    override fun rlnOnchainSendStatus(nodeId: Long, requestJson: String): String =
+        runRln("rlnOnchainSendStatus") {
+            recoverableOnchainCall(nodeId, "onchainSendStatus", requestJson, "rlnOnchainSendStatus")
+        }
+
+    override fun rlnCancelOnchainSend(nodeId: Long, requestJson: String): String =
+        runRln("rlnCancelOnchainSend") {
+            recoverableOnchainCall(nodeId, "cancelOnchainSend", requestJson, "rlnCancelOnchainSend")
+        }
+
+    // Reflection keeps the published, older AAR source-compatible. Absence is
+    // unsupported, never an absent operation or permission to send again.
+    private fun recoverableOnchainCall(nodeId: Long, methodName: String, input: String, operation: String): String {
+        val node = nodeStore.get(nodeId)
+        val method = try {
+            node.javaClass.getMethod(methodName, String::class.java)
+        } catch (_: NoSuchMethodException) {
+            throw FlutterError(
+                code = "UnsupportedOperationException",
+                message = "This native artifact does not support durable on-chain sends.",
+                details = bridgeErrorDetails(operation = operation, category = "unsupported", retryable = false,
+                    extra = mapOf("feature" to "recoverableOnchainSend"))
+            )
+        }
+        val result = try {
+            method.invoke(node, input)
+        } catch (error: java.lang.reflect.InvocationTargetException) {
+            throw error.targetException
+        }
+        return result as? String ?: throw FlutterError(
+            code = "InvalidRequest", message = "Invalid native durable-send response.", details = null
+        )
+    }
+
     override fun rlnSendPayment(nodeId: Long, invoice: String, amtMsat: Long?, assetId: String?, assetAmount: Long?): RlnWireResponse {
         return runRlnWire("rlnSendPayment") {
             val request = org.utexo.rgblightningnode.SdkSendPaymentRequest(

@@ -372,6 +372,23 @@
         "Canonical bounded Base64 and expected asset identity are validated before dispatch; malformed metadata and out-of-range supplies fail closed.",
         "Existing-stack iOS 27 and Android 17 execution imports the exact canonical BFA public contract into fresh wallets, verifies zero balance and idempotent import. These assertions do not qualify unrelated suite stages or upstream recovery defects."
       ]
+    },
+    "durable_send_contract": {
+      "claimLevel": "unit_contract",
+      "testIds": [
+        "test/recoverable_onchain_send_test.dart::command construction is read-only and canonical envelope roundtrips",
+        "test/recoverable_onchain_send_test.dart::prepare commit and status each dispatch only their named operation",
+        "test/recoverable_onchain_send_test.dart::old native unsupported status never becomes absent or a one-shot fallback"
+      ],
+      "platformReportFamilies": [
+        "native-ios-durable-send",
+        "native-android-durable-send"
+      ],
+      "assertions": [
+        "Canonical commands bind all normalized inputs and the configured wallet to a private fingerprint.",
+        "Strict native status validates identity and phase without implicit commit, retry, or one-shot fallback.",
+        "Unit tests do not prove native transaction recovery, artifact publication, Android execution or mainnet readiness."
+      ]
     }
   }
 }

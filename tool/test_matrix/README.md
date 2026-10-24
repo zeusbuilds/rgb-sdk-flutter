@@ -30,7 +30,7 @@ and assertions. The RN parity validator also checks the exact RN baseline,
 NativeRgb method names, low-level parameter names/types/nullability, return
 categories, wallet method inventory, and runtime exports. The reviewed Flutter-only
 `rlnImportRgbContract` extension is signature-checked separately (OCT-038);
-other extra native methods still fail parity validation.
+ROOT-01 adds four explicitly signature-checked durable-send methods whose native artifacts remain unpublished; all other extra native methods still fail parity validation.
 
 The inventory targets RN `1.0.0-beta.39`, core `1.0.0-beta.9`, and RLN
 `0.17.0-beta.3`. BFA burn and consignment methods require funded runtime

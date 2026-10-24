@@ -105,6 +105,7 @@ android {
     }
 
     defaultConfig {
+        consumerProguardFiles("consumer-rules.pro")
         minSdk = baselineMinSdk
     }
 

@@ -5,6 +5,113 @@ This document is the release-line public API contract for the current
 The release verdict remains controlled by
 `doc/RELEASE_READINESS_TRACKER.md`.
 
+## Durable On-Chain Sends (ROOT-01)
+
+This additive Flutter-only protocol is locally implemented and unpublished.
+The official pinned native artifacts do not implement it. An old artifact
+returns unsupported, including for status; unsupported is never an absent
+operation or permission to retry a payment. No legacy one-shot fallback exists.
+The iOS local qualification build requires a separately verified native rebuild
+and `RGB_RECOVERABLE_ONCHAIN_SEND`; Android source is updated but unbuilt.
+Do not enable the Swift flag against the old binary or bypass artifact checks.
+
+`createRecoverableBtcSendCommand` and `createRecoverableRgbSendCommand` produce
+`RecoverableOnchainSendCommand` before app journal dispatch. RGB invoice decoding
+is read-only and happens here. Amount and fee rate are positive signed-64 native
+integers; fee rate is integer sat/vB, RGB amount uses smallest asset units. RGB
+donation/skip-sync are unsupported. RGB commands bind a concrete expiry; invoices
+without one receive the pinned native default of 86400 seconds at construction.
+Restoring a command never extends that deadline. New SDK envelopes use version 2:
+`{version:2,network,walletBinding,request}`. The wallet binding is a
+SHA-256 digest of a domain label, canonical network and both full native account
+xpubs read through `node_info`; it contains no absolute container path. All
+normalized native inputs, operation ID, network and that stable wallet binding
+are SHA-256 bound into the command fingerprint. Intact iOS application data can
+therefore move to a different container directory during an app update without
+changing the operation, fingerprint or saved transaction. The native journal
+independently binds the actual wallet keys/network and checks full request equality.
+
+Every recovery operation holds the wallet lifecycle lease, checks the current
+physical storage cohort, reads both live native account xpubs and verifies the
+stable digest before native outbox access. Missing or changed account identity
+fails closed. The digest is not the short master-key fingerprint or a Lightning
+node pubkey. Legacy version-1 envelopes preserve their original path-bound
+fingerprint and refuse relocation; they are never silently rewritten or migrated.
+
+Before writing the app marker, explicitly call `onchainSendStatus(command)` once.
+This non-sending preflight checks native protocol support and native request
+validity (including RGB contract identity). A fresh operation must be absent;
+unsupported or rejected validation fails before the app creates a pending marker.
+Only this fresh command's first status attempt may initialize a missing native
+outbox. A first failed attempt is latched too; it cannot be reused to recreate
+lost recovery state. Mutating methods always require an existing real outbox.
+
+Persist `command.requestJson` exactly in private wallet storage before native
+prepare. It includes destination and wallet identity, and is never log data. Restore
+using `RecoverableOnchainSendCommand.fromJson`; canonical encoding, types, bounds,
+unknown fields and fingerprint are rechecked. The envelope is not a MAC and must
+remain in trusted app storage. A command cannot be dispatched on another
+configured wallet or network.
+
+The qualified restore boundary is intact private local storage plus native or
+process restart; normal app-update directory relocation additionally requires
+the same live native account identity and complete private cohort. Restored commands require the existing real wallet directory
+and `durable-onchain-v1` directory before any of the four native calls. Missing,
+file-backed or symlinked directories throw
+`RecoverableSendStorageException` (`RECOVERABLE_SEND_STORAGE_LOST`) without
+recreating them or invoking native. Retain the application's recovery fence.
+This existence check cannot prove individual-record continuity if a directory
+survives selective deletion or a mixed snapshot; it is not an atomic defense
+against concurrent storage tampering. Restore the app intent/receipt journals,
+complete native wallet databases and complete native outbox as one matching
+private cohort. General zip, VSS and mixed/cohort restore remain unqualified.
+Never reconstruct a saved operation with a fresh command factory.
+
+Recoverable APIs reject configured VSS (including VSS restore options) with
+`UnsupportedWalletFeatureException`, feature `recoverableOnchainSendVss`, before
+dispatch. Native VSS restores only the RGB subdirectory and cannot establish this
+outbox's continuity; it must not be advertised as recovery for these operations.
+
+`prepareOnchainSend(command)` builds/signs a durable transaction without granting
+broadcast permission. `commitOnchainSend(command)` explicitly authorizes only
+that operation, checking the full command under the native journal lock before End.
+`onchainSendStatus(command)` never calls End, posts a consignment or broadcasts a
+transaction. Under the native journal lock it may create outbox metadata and
+durably save an acceptance receipt established from the exact native history.
+`cancelOnchainSend(command)` durably revokes a never-authorized operation and
+releases its exact held reservations. It sends the full request so native can
+also tombstone an absent operation before the app clears its own journal.
+Cancellation never authorizes an alternative transaction. Interrupted cleanup
+remains fenced until a subsequent explicit cancel reports matched rejection.
+
+`RecoverableOnchainSendStatus` binds operation ID, fingerprint and
+`RecoverableOnchainSendKind` (bitcoin/rgb) and exposes
+`RecoverableOnchainSendPhase`: absent, preparing, prepared, committing, accepted,
+rejected. An absent record has null fingerprint/kind/identity and is not by itself
+safe journal clearance. Preparing may contain a known exact transaction identity;
+it never authorizes End. A prepared RGB operation may carry invoice_expired
+without End authorization; an explicit cancellation can retire it.
+Prepared/committing/accepted require txid and the RGB
+batch identity; only committing/accepted have endAuthorized=true. Rejected has
+no identity and a reason. An accepted result is native submission, not Bitcoin
+confirmation. RGB's accepted batch index is authoritative and may differ from
+its prepared index after an interrupted SQL transaction; the txid remains exact.
+
+No native exception category, including validation/InvalidRequest, certifies that
+a pending operation was never executed. Only the matched durable rejected
+status with endAuthorized=false permits that conclusion.
+
+Retain a wallet-wide guard while an operation is unresolved. Block other sends,
+legacy one-shot APIs and wallet mutations until the operation is resolved; those
+older APIs do not join this operation journal automatically. Aster enforces this
+guard around its payment workflow.
+
+No method automatically retries, resumes or commits after a transport failure.
+Use an explicit status/cancel/recovery action and retain unknown/malformed
+responses as unresolved. Legacy journals without native operation identity
+remain fenced; do not match payments by amount, address, time or similar history.
+Unit tests and local builds are not published native or mainnet qualification.
+
 ## BFA and Irreversible Burns
 
 `CoreAssetBfa` is a bridged fungible asset in `CoreListAssets.bfa`.
@@ -269,7 +376,8 @@ Public APIs throw `RgbSdkException` subclasses for SDK-owned error domains:
 `ConflictError`, `NetworkError`, `NotFoundError`, `RgbNodeError`,
 `NativeProtocolException`, `RlnOperationTimeoutException`,
 `OperationCancelledError`, `CryptoError`, `ExperimentalCryptoException`,
-`SDKError`, and `UnsupportedWalletFeatureException`.
+`SDKError`, `RecoverableSendStorageException`, and
+`UnsupportedWalletFeatureException`.
 
 Native `PlatformException`s are mapped by the native bridge boundary before they
 reach stable wallet calls. The advanced library exports the mapper and
@@ -372,6 +480,9 @@ also check the output and allocation state, and native reservation remains
 authoritative.
 
 ## Symbol Coverage Checklist
+
+- `RecoverableOnchainSendCommand`, `RecoverableOnchainSendKind`, `RecoverableOnchainSendPhase`, `RecoverableOnchainSendStatus`
+- `RecoverableSendStorageException`
 
 - `ImportedRgbContract`
 - `NativeOperationCause`

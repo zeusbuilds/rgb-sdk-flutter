@@ -137,11 +137,13 @@ void _validateStableWalletBoundary(List<String> errors) {
   final root = File(_barrelPath).readAsStringSync();
   if (!RegExp(
     r"export 'src/wallet/utexo_wallet\.dart'\s+show\s+"
-    r'UtexoWallet\s*,\s*resolveUnlockParams\s*;',
+    r'UtexoWallet\s*,\s*resolveUnlockParams\s*,\s*'
+    r'RecoverableOnchainSendCommand\s*,\s*RecoverableOnchainSendKind\s*,\s*'
+    r'RecoverableOnchainSendPhase\s*,\s*RecoverableOnchainSendStatus\s*;',
   ).hasMatch(root)) {
     errors.add(
-      'The stable root must export only UtexoWallet and the current RN root '
-      'helper resolveUnlockParams from utexo_wallet.dart.',
+      'The stable root must export only the reviewed wallet, helper and '
+      'ROOT-01 durable-send DTOs from utexo_wallet.dart.',
     );
   }
 

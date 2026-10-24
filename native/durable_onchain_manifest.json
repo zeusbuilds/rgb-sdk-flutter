@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "name": "durable-onchain-v1",
+  "purpose": "Local source overlay for crash-safe Bitcoin and non-donation RGB sends; does not replace native release provenance or qualification.",
+  "rln": {
+    "repository": "https://github.com/UTEXO-Protocol/rgb-lightning-node.git",
+    "commit": "ecc69f20308231400561f6f060fea88acfa40cc4",
+    "patch": "patches/rln-017-durable-onchain.patch",
+    "patchSha256": "03af1eb51f9b3382e44f71a178885bd897e9affa316384532c4aed60352003b8"
+  },
+  "rgbLib": {
+    "repository": "https://github.com/UTEXO-Protocol/rgb-lib.git",
+    "commit": "1b951af0c8233308c919975552487be19ad2a930",
+    "checkoutPath": "_recovery-deps/rgb-lib",
+    "patch": "patches/rgb-lib-beta50-durable-begin.patch",
+    "patchSha256": "4bfde1c5a76bdb300c3d48ecf4342cbfbc8a2dc581954a5b32cd803f49995f43"
+  },
+  "lightningCommit": "79b9eb5166546c62692d3a672986f385c7fe047d",
+  "methods": [
+    "prepare_onchain_send(request_json)",
+    "commit_onchain_send(request_json)",
+    "onchain_send_status(request_json)",
+    "cancel_onchain_send(request_json)"
+  ],
+  "supported": [
+    "Bitcoin on-chain",
+    "RGB fungible non-donation on-chain"
+  ],
+  "unsupported": [
+    "Donation sends",
+    "Legacy unidentified one-shot attempt recovery",
+    "Automatic monetary retries"
+  ],
+  "qualification": "Local candidate only. Scoped evidence is recorded in durable_onchain_qualification.json; public native provenance, clean public dependency restore, iOS device, Android, backup/restore and production-mainnet qualification remain release gates."
+}

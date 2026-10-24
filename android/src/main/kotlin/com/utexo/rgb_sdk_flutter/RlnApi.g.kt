@@ -506,6 +506,10 @@ interface RlnHostApi {
   fun rlnRefreshTransfers(nodeId: Long, skipSync: Boolean): RlnRefreshTransfersData
   fun rlnRgbInvoice(nodeId: Long, assetId: String?, assignmentAmount: Long?, durationSeconds: Long?, minConfirmations: Long, witness: Boolean, assignmentKind: String?): RlnWireResponse
   fun rlnSendBtc(nodeId: Long, amount: Long, address: String, feeRate: Double, skipSync: Boolean): RlnWireResponse
+  fun rlnPrepareOnchainSend(nodeId: Long, requestJson: String): String
+  fun rlnCommitOnchainSend(nodeId: Long, requestJson: String): String
+  fun rlnOnchainSendStatus(nodeId: Long, requestJson: String): String
+  fun rlnCancelOnchainSend(nodeId: Long, requestJson: String): String
   fun rlnSendPayment(nodeId: Long, invoice: String, amtMsat: Long?, assetId: String?, assetAmount: Long?): RlnWireResponse
   fun rlnSendRgb(nodeId: Long, donation: Boolean, feeRate: Double, minConfirmations: Long, skipSync: Boolean, assetId: String, recipientId: String, amount: Long, transportEndpoints: List<String>, witnessAmountSat: Long?, witnessBlinding: Long?): RlnWireResponse
   fun rlnShutdown(nodeId: Long)
@@ -1632,6 +1636,78 @@ interface RlnHostApi {
             val skipSyncArg = args[4] as Boolean
             val wrapped: List<Any?> = try {
               listOf(api.rlnSendBtc(nodeIdArg, amountArg, addressArg, feeRateArg, skipSyncArg))
+            } catch (exception: Throwable) {
+              RlnApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnPrepareOnchainSend$separatedMessageChannelSuffix", codec, taskQueue)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val nodeIdArg = args[0] as Long
+            val requestJsonArg = args[1] as String
+            val wrapped: List<Any?> = try {
+              listOf(api.rlnPrepareOnchainSend(nodeIdArg, requestJsonArg))
+            } catch (exception: Throwable) {
+              RlnApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnCommitOnchainSend$separatedMessageChannelSuffix", codec, taskQueue)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val nodeIdArg = args[0] as Long
+            val requestJsonArg = args[1] as String
+            val wrapped: List<Any?> = try {
+              listOf(api.rlnCommitOnchainSend(nodeIdArg, requestJsonArg))
+            } catch (exception: Throwable) {
+              RlnApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnOnchainSendStatus$separatedMessageChannelSuffix", codec, taskQueue)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val nodeIdArg = args[0] as Long
+            val requestJsonArg = args[1] as String
+            val wrapped: List<Any?> = try {
+              listOf(api.rlnOnchainSendStatus(nodeIdArg, requestJsonArg))
+            } catch (exception: Throwable) {
+              RlnApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnCancelOnchainSend$separatedMessageChannelSuffix", codec, taskQueue)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val nodeIdArg = args[0] as Long
+            val requestJsonArg = args[1] as String
+            val wrapped: List<Any?> = try {
+              listOf(api.rlnCancelOnchainSend(nodeIdArg, requestJsonArg))
             } catch (exception: Throwable) {
               RlnApiPigeonUtils.wrapError(exception)
             }

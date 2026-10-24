@@ -113,7 +113,14 @@ export 'src/wallet/rln_signers.dart'
         RlnSeedHexKeyMaterial,
         RlnSigner,
         RlnSignerHost;
-export 'src/wallet/utexo_wallet.dart' show UtexoWallet, resolveUnlockParams;
+export 'src/wallet/utexo_wallet.dart'
+    show
+        UtexoWallet,
+        resolveUnlockParams,
+        RecoverableOnchainSendCommand,
+        RecoverableOnchainSendKind,
+        RecoverableOnchainSendPhase,
+        RecoverableOnchainSendStatus;
 export 'src/wallet/utexo_wallet_types.dart';
 
 /// Flutter entry point for RGB Lightning Node bindings.

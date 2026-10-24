@@ -54,6 +54,8 @@ class UtexoWalletConfig {
   final List<String>? virtualPeerPubkeys;
 
   /// Optional VSS service URL.
+  /// Recoverable on-chain sends reject VSS configuration because its restore
+  /// does not include the durable operation outbox.
   final String? vssUrl;
 
   /// Whether non-loopback plain HTTP is allowed for VSS.

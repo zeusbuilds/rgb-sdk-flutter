@@ -226,7 +226,7 @@ mixin _RlnBindingLifecycle on _RlnBindingInternals {
 
   Future<RlnNodeInfo> rlnNodeInfo() async {
     return RlnNodeInfo.fromMap(
-      await _withNodeOperation('rlnNodeInfo', _client.nodeInfo),
+      await _withNodeInspection('rlnNodeInfo', _client.nodeInfo),
     );
   }
 

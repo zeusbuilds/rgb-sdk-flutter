@@ -227,6 +227,20 @@
         "test/rln_client_contract_test.dart::RlnClient bridge contract",
         "test/utexo_wallet_test.dart::maps HODL invoices, APay, LSP config, and VSS clear fence"
       ]
+    },
+    "onchain_recovery": {
+      "vectors": [
+        "dart-delegation",
+        "dart-platform-error-mapping",
+        "dart-malformed-wire",
+        "native-unknown-node-error",
+        "platform-smoke-or-regtest-success"
+      ],
+      "testIds": [
+        "test/recoverable_onchain_send_test.dart::prepare commit and status each dispatch only their named operation",
+        "test/recoverable_onchain_send_test.dart::old native unsupported status never becomes absent or a one-shot fallback"
+      ],
+      "scope": "ROOT-01 requirements inventory only. Dart delegation/status/error vectors are unit-covered. Native unknown-node and funded restart vectors require separate unpublished iOS qualification and eventual Android qualification; this family is not release-ready. JSON malformed-status validation is stricter than Pigeon string framing."
     }
   },
   "criticalMethods": {
@@ -386,6 +400,66 @@
         "android/src/test/kotlin/com/utexo/rgb_sdk_flutter/RgbSdkFlutterPluginTest.kt::unspentSerializationPreservesPendingBlindedReservations",
         "example/ios/RunnerTests/RunnerTests.swift::testUnspentSerializationPreservesPendingBlindedReservations"
       ]
+    },
+    "prepareOnchainSend": {
+      "tracker": "ROOT-01",
+      "requiredVectors": [
+        "exact-command-fingerprint",
+        "wallet-network-storage-binding",
+        "strict-status-phase",
+        "no-implicit-send-or-retry",
+        "durable-native-restart-outcome"
+      ],
+      "testIds": [
+        "test/recoverable_onchain_send_test.dart::command construction is read-only and canonical envelope roundtrips",
+        "test/recoverable_onchain_send_test.dart::old native unsupported status never becomes absent or a one-shot fallback"
+      ],
+      "scope": "Unit boundary evidence only; native restart qualification and immutable artifact release remain mandatory."
+    },
+    "commitOnchainSend": {
+      "tracker": "ROOT-01",
+      "requiredVectors": [
+        "exact-command-fingerprint",
+        "wallet-network-storage-binding",
+        "strict-status-phase",
+        "no-implicit-send-or-retry",
+        "durable-native-restart-outcome"
+      ],
+      "testIds": [
+        "test/recoverable_onchain_send_test.dart::command construction is read-only and canonical envelope roundtrips",
+        "test/recoverable_onchain_send_test.dart::old native unsupported status never becomes absent or a one-shot fallback"
+      ],
+      "scope": "Unit boundary evidence only; native restart qualification and immutable artifact release remain mandatory."
+    },
+    "onchainSendStatus": {
+      "tracker": "ROOT-01",
+      "requiredVectors": [
+        "exact-command-fingerprint",
+        "wallet-network-storage-binding",
+        "strict-status-phase",
+        "no-implicit-send-or-retry",
+        "durable-native-restart-outcome"
+      ],
+      "testIds": [
+        "test/recoverable_onchain_send_test.dart::command construction is read-only and canonical envelope roundtrips",
+        "test/recoverable_onchain_send_test.dart::old native unsupported status never becomes absent or a one-shot fallback"
+      ],
+      "scope": "Unit boundary evidence only; native restart qualification and immutable artifact release remain mandatory."
+    },
+    "cancelOnchainSend": {
+      "tracker": "ROOT-01",
+      "requiredVectors": [
+        "exact-command-fingerprint",
+        "wallet-network-storage-binding",
+        "strict-status-phase",
+        "no-implicit-send-or-retry",
+        "durable-native-restart-outcome"
+      ],
+      "testIds": [
+        "test/recoverable_onchain_send_test.dart::command construction is read-only and canonical envelope roundtrips",
+        "test/recoverable_onchain_send_test.dart::old native unsupported status never becomes absent or a one-shot fallback"
+      ],
+      "scope": "Unit boundary evidence only; native restart qualification and immutable artifact release remain mandatory."
     }
   }
 }

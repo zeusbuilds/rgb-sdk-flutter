@@ -80,6 +80,30 @@ class _RecordingRlnHostApi extends RlnHostApi {
   }
 
   @override
+  Future<String> rlnPrepareOnchainSend(int nodeId, String requestJson) async {
+    _record('rlnPrepareOnchainSend', [nodeId, requestJson]);
+    return '{}';
+  }
+
+  @override
+  Future<String> rlnCommitOnchainSend(int nodeId, String requestJson) async {
+    _record('rlnCommitOnchainSend', [nodeId, requestJson]);
+    return '{}';
+  }
+
+  @override
+  Future<String> rlnOnchainSendStatus(int nodeId, String requestJson) async {
+    _record('rlnOnchainSendStatus', [nodeId, requestJson]);
+    return '{}';
+  }
+
+  @override
+  Future<String> rlnCancelOnchainSend(int nodeId, String requestJson) async {
+    _record('rlnCancelOnchainSend', [nodeId, requestJson]);
+    return '{}';
+  }
+
+  @override
   Future<RlnWireResponse> rlnImportRgbContract(
     int nodeId,
     String contractBase64,
@@ -960,6 +984,36 @@ void main() {
       '0000000000000000000000000000000000000000000000000000000000000000';
 
   final cases = <_ContractCase>[
+    _ContractCase(
+      name: 'prepareOnchainSend',
+      invoke: (client) => client.prepareOnchainSend(
+        nodeId: nodeId,
+        requestJson: 'opaque-input',
+      ),
+      method: 'rlnPrepareOnchainSend',
+      args: const <Object?>[nodeId, 'opaque-input'],
+    ),
+    _ContractCase(
+      name: 'commitOnchainSend',
+      invoke: (client) =>
+          client.commitOnchainSend(nodeId: nodeId, requestJson: 'opaque-input'),
+      method: 'rlnCommitOnchainSend',
+      args: const <Object?>[nodeId, 'opaque-input'],
+    ),
+    _ContractCase(
+      name: 'onchainSendStatus',
+      invoke: (client) =>
+          client.onchainSendStatus(nodeId: nodeId, requestJson: 'opaque-input'),
+      method: 'rlnOnchainSendStatus',
+      args: const <Object?>[nodeId, 'opaque-input'],
+    ),
+    _ContractCase(
+      name: 'cancelOnchainSend',
+      invoke: (client) =>
+          client.cancelOnchainSend(nodeId: nodeId, requestJson: 'opaque-input'),
+      method: 'rlnCancelOnchainSend',
+      args: const <Object?>[nodeId, 'opaque-input'],
+    ),
     _ContractCase(
       name: 'importRgbContract',
       invoke: (client) => client.importRgbContract(

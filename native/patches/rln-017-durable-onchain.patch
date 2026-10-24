@@ -1,0 +1,2092 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 2da5d18..15e00e3 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -4821,7 +4821,6 @@ dependencies = [
+ [[package]]
+ name = "rgb-lib"
+ version = "0.3.0-beta.7"
+-source = "git+https://github.com/UTEXO-Protocol/rgb-lib.git?tag=v0.3.0-beta.50-bfa#1b951af0c8233308c919975552487be19ad2a930"
+ dependencies = [
+  "amplify",
+  "base64 0.22.1",
+@@ -4864,7 +4863,6 @@ dependencies = [
+ [[package]]
+ name = "rgb-lib-migration"
+ version = "0.3.0-beta.5"
+-source = "git+https://github.com/UTEXO-Protocol/rgb-lib.git?tag=v0.3.0-beta.50-bfa#1b951af0c8233308c919975552487be19ad2a930"
+ dependencies = [
+  "sea-orm-migration 2.0.2",
+  "tokio",
+diff --git a/Cargo.toml b/Cargo.toml
+index 0f0b2b4..6d1006b 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -205,3 +205,6 @@ required-features = ["uniffi", "test-utils"]
+ name = "lib_sdk"
+ path = "src/test/lib_sdk/mod.rs"
+ required-features = ["uniffi", "test-utils", "vls"]
++
++[patch."https://github.com/UTEXO-Protocol/rgb-lib.git"]
++rgb-lib = { path = "_recovery-deps/rgb-lib" }
+diff --git a/bindings/rgb_lightning_node.udl b/bindings/rgb_lightning_node.udl
+index df823f2..f843eee 100644
+--- a/bindings/rgb_lightning_node.udl
++++ b/bindings/rgb_lightning_node.udl
+@@ -3,6 +3,14 @@ namespace rgb_lightning_node {
+ };
+ 
+ interface SdkNode {
++    [Throws=RlnError]
++    string prepare_onchain_send(string request_json);
++    [Throws=RlnError]
++    string commit_onchain_send(string request_json);
++    [Throws=RlnError]
++    string onchain_send_status(string request_json);
++    [Throws=RlnError]
++    string cancel_onchain_send(string request_json);
+     [Throws=RlnError, Name=create]
+     constructor(SdkInitRequest request);
+     void shutdown();
+diff --git a/src/lib.rs b/src/lib.rs
+index 5279eed..23cdbe9 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -32,6 +32,8 @@ mod crypto;
+ mod custom_msg_rpc;
+ mod database;
+ mod disk;
++#[cfg(feature = "uniffi")]
++mod durable_payment;
+ mod error;
+ #[cfg(test)]
+ #[path = "test/fee_mock.rs"]
+diff --git a/src/sdk/mod.rs b/src/sdk/mod.rs
+index 77680dd..5808928 100644
+--- a/src/sdk/mod.rs
++++ b/src/sdk/mod.rs
+@@ -6,19 +6,19 @@ use crate::asset_link::{
+     send_linked_asset_payment,
+ };
+ use crate::async_order::{
+-    write_async_payments_next_hash_index, AsyncOrderNewResultWire,
+-    AsyncOrderOutboundInvoiceResultWire,
++    AsyncOrderNewResultWire, AsyncOrderOutboundInvoiceResultWire,
++    write_async_payments_next_hash_index,
+ };
++use crate::core_types::PENDING_SWAP_TIMEOUT_SECS;
+ use crate::core_types::asset_link::{AssetLinkRequest, AssetLinkResponse};
+ use crate::core_types::async_order::{
+     AsyncOrderNewRequest, AsyncOrderNewResponse, AsyncOrderOutboundInvoiceRequest,
+     AsyncOrderOutboundInvoiceResponse,
+ };
+-use crate::core_types::PENDING_SWAP_TIMEOUT_SECS;
+ use crate::error::APIError;
+ use crate::ldk::{
+-    clear_rgb_payment_pending, peer_has_live_channel, start_node, write_rgb_payment_info_file,
+-    InvoiceType, PaymentInfo, VirtualChannelSessionStatus,
++    InvoiceType, PaymentInfo, VirtualChannelSessionStatus, clear_rgb_payment_pending,
++    peer_has_live_channel, start_node, write_rgb_payment_info_file,
+ };
+ #[cfg(feature = "vss")]
+ use crate::ldk::{derive_vss_identity, derive_vss_identity_from_key_source};
+@@ -26,25 +26,25 @@ use crate::rgb::{check_rgb_proxy_endpoint, get_rgb_channel_info_optional};
+ use crate::rgb_import;
+ use crate::routes::DEFAULT_RGB_TRANSFER_EXPIRATION_SECS;
+ use crate::signer::{
+-    read_key_source_file, validate_bootstrap_payload, validate_key_source_matches_bootstrap,
+-    write_key_source_file, BootstrapData, KeySourceFile, SUPPORTED_SIGNER_API_LEVEL,
++    BootstrapData, KeySourceFile, SUPPORTED_SIGNER_API_LEVEL, read_key_source_file,
++    validate_bootstrap_payload, validate_key_source_matches_bootstrap, write_key_source_file,
+ };
+ use crate::swap::{SwapData, SwapInfo, SwapString};
+ use crate::utils::{
+-    check_already_initialized, check_channel_id, check_password_strength, check_password_validity,
+-    connect_peer_if_necessary, description_from_invoice, description_hash_from_invoice,
+-    encrypt_and_save_mnemonic, get_current_timestamp, get_max_local_rgb_amount, get_route, hex_str,
++    AppState, UserOnionMessageContents, check_already_initialized, check_channel_id,
++    check_password_strength, check_password_validity, connect_peer_if_necessary,
++    description_from_invoice, description_hash_from_invoice, encrypt_and_save_mnemonic,
++    get_current_timestamp, get_max_local_rgb_amount, get_route, hex_str,
+     hex_str_to_compressed_pubkey, hex_str_to_vec, invoice_description_from_request,
+     is_external_signer_mode_configured, new_jsonrpc_request_id, parse_peer_info,
+-    validate_and_parse_payment_hash, validate_and_parse_payment_preimage, AppState,
+-    UserOnionMessageContents,
++    validate_and_parse_payment_hash, validate_and_parse_payment_preimage,
+ };
+ use amplify::{map, s};
+-use bitcoin::hashes::sha256::Hash as Sha256;
++use bitcoin::ScriptBuf;
+ use bitcoin::hashes::Hash;
++use bitcoin::hashes::sha256::Hash as Sha256;
+ use bitcoin::hex::DisplayHex;
+ use bitcoin::secp256k1::PublicKey;
+-use bitcoin::ScriptBuf;
+ use lightning::ln::channel_state::ChannelShutdownState;
+ use lightning::ln::channelmanager::Bolt11InvoiceParameters;
+ use lightning::ln::channelmanager::{
+@@ -61,13 +61,13 @@ use lightning::routing::router::{
+     RouteParametersConfig,
+ };
+ use lightning::types::payment::{PaymentHash, PaymentPreimage};
++use lightning::util::IS_SWAP_SCID;
+ use lightning::util::config::{
+     ChannelConfig, ChannelHandshakeConfig, ChannelHandshakeLimits, UserConfig,
+ };
+ use lightning::util::errors::APIError as LDKAPIError;
+ use lightning::util::message_signing;
+ use lightning::util::persist::KVStoreSync;
+-use lightning::util::IS_SWAP_SCID;
+ use lightning::{
+     onion_message::messenger::Destination, onion_message::messenger::MessageSendInstructions,
+ };
+@@ -80,9 +80,9 @@ use rgb_lib::wallet::{
+     WitnessData as RgbLibWitnessData,
+ };
+ use rgb_lib::{
+-    bdk_wallet::keys::bip39::Mnemonic,
+-    keys::{generate_keys, WitnessVersion},
+     ContractId,
++    bdk_wallet::keys::bip39::Mnemonic,
++    keys::{WitnessVersion, generate_keys},
+ };
+ use std::collections::HashMap;
+ use std::net::ToSocketAddrs;
+@@ -93,8 +93,9 @@ use tokio::fs::File;
+ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+ use tokio::time::timeout;
+ 
+-use rgb_lib::wallet::rust_only::IndexerProtocol as RgbLibIndexerProtocol;
++use rgb_lib::BitcoinNetwork as RgbBitcoinNetwork;
+ use rgb_lib::wallet::RecipientType as RgbLibRecipientType;
++use rgb_lib::wallet::rust_only::IndexerProtocol as RgbLibIndexerProtocol;
+ use rgb_lib::wallet::{
+     AssetBFA as RgbLibAssetBFA, AssetCFA as RgbLibAssetCFA, AssetIFA as RgbLibAssetIFA,
+     AssetNIA as RgbLibAssetNIA, AssetUDA as RgbLibAssetUDA, EmbeddedMedia as RgbLibEmbeddedMedia,
+@@ -102,7 +103,6 @@ use rgb_lib::wallet::{
+     Outpoint as RgbLibOutpoint, ProofOfReserves as RgbLibProofOfReserves, Token as RgbLibToken,
+     TokenLight as RgbLibTokenLight,
+ };
+-use rgb_lib::BitcoinNetwork as RgbBitcoinNetwork;
+ use rgb_lib::{AssetSchema as RgbLibAssetSchema, Assignment as RgbLibAssignment};
+ use serde::{Deserialize, Serialize};
+ use serde_json::Value;
+@@ -146,6 +146,21 @@ fn check_changing_state(state: &AppState) -> Result<(), APIError> {
+     Ok(())
+ }
+ 
++// Durable native blocking work must retain this lifecycle lease in its worker,
++// even when the async caller stops waiting. Shutdown cannot overtake that work.
++pub(crate) async fn check_unlocked_owned(
++    state: &Arc<AppState>,
++) -> Result<tokio::sync::OwnedMutexGuard<Option<Arc<crate::utils::UnlockedAppState>>>, APIError> {
++    check_changing_state(state)?;
++    let unlocked_app_state = Arc::clone(&state.unlocked_app_state).lock_owned().await;
++    check_changing_state(state)?;
++    if unlocked_app_state.is_none() {
++        Err(APIError::LockedNode)
++    } else {
++        Ok(unlocked_app_state)
++    }
++}
++
+ async fn check_locked(
+     state: &Arc<AppState>,
+ ) -> Result<tokio::sync::MutexGuard<'_, Option<Arc<crate::utils::UnlockedAppState>>>, APIError> {
+@@ -159,7 +174,7 @@ async fn check_locked(
+     }
+ }
+ 
+-async fn check_unlocked(
++pub(crate) async fn check_unlocked(
+     state: &Arc<AppState>,
+ ) -> Result<tokio::sync::MutexGuard<'_, Option<Arc<crate::utils::UnlockedAppState>>>, APIError> {
+     check_changing_state(state)?;
+@@ -1308,7 +1323,7 @@ pub(crate) async fn async_order_new(
+         Ok(Err(_)) => {
+             return Err(APIError::Network(s!(
+                 "/apay/new response channel closed before host replied"
+-            )))
++            )));
+         }
+         Err(_) => {
+             unlocked_state
+@@ -1400,7 +1415,7 @@ pub(crate) async fn async_order_outbound_invoice(
+         Ok(Err(_)) => {
+             return Err(APIError::Network(s!(
+                 "/apay/outboundinvoice response channel closed before peer replied"
+-            )))
++            )));
+         }
+         Err(_) => {
+             unlocked_state
+@@ -2439,7 +2454,7 @@ pub(crate) async fn close_channel(
+         _ => {
+             return Err(APIError::CannotCloseChannel(s!(
+                 "Channel is already being closed"
+-            )))
++            )));
+         }
+     }
+ 
+@@ -2525,7 +2540,7 @@ pub(crate) async fn close_channel(
+             Ok(()) => tracing::info!("EVENT: initiating channel force-close"),
+             Err(e) => match e {
+                 LDKAPIError::APIMisuseError { err } => {
+-                    return Err(APIError::FailedClosingChannel(err))
++                    return Err(APIError::FailedClosingChannel(err));
+                 }
+                 _ => return Err(APIError::CannotCloseChannel(format!("{e:?}"))),
+             },
+@@ -2538,7 +2553,7 @@ pub(crate) async fn close_channel(
+             Ok(()) => tracing::info!("EVENT: initiating channel close"),
+             Err(e) => match e {
+                 LDKAPIError::APIMisuseError { err } => {
+-                    return Err(APIError::FailedClosingChannel(err))
++                    return Err(APIError::FailedClosingChannel(err));
+                 }
+                 _ => return Err(APIError::CannotCloseChannel(format!("{e:?}"))),
+             },
+@@ -3381,16 +3396,16 @@ pub(crate) async fn send_payment(
+             (Some(rgb_contract_id), Some(rgb_amount)) => {
+                 if amt_msat < send_min_msat {
+                     return Err(APIError::InvalidAmount(format!(
+-                            "amt_msat in invoice sending an RGB asset cannot be less than {send_min_msat}"
+-                        )));
++                        "amt_msat in invoice sending an RGB asset cannot be less than {send_min_msat}"
++                    )));
+                 }
+                 Some((rgb_contract_id, rgb_amount))
+             }
+             (Some(rgb_contract_id), None) => {
+                 if amt_msat < send_min_msat {
+                     return Err(APIError::InvalidAmount(format!(
+-                            "amt_msat in invoice sending an RGB asset cannot be less than {send_min_msat}"
+-                        )));
++                        "amt_msat in invoice sending an RGB asset cannot be less than {send_min_msat}"
++                    )));
+                 }
+                 if let Some(asset_id) = request.asset_id.as_ref() {
+                     let payload_contract_id = ContractId::from_str(asset_id)
+@@ -4696,7 +4711,7 @@ mod tests {
+     };
+     use crate::signer::vls_adapter::ExternalSignerBackend;
+     use crate::signer::{
+-        read_key_source_file, write_key_source_file, KeySourceFile, RlnSignerError, SignerIdentity,
++        KeySourceFile, RlnSignerError, SignerIdentity, read_key_source_file, write_key_source_file,
+     };
+     use crate::utils::{AppState, StaticState};
+     use rgb_lib::BitcoinNetwork;
+@@ -4710,7 +4725,7 @@ mod tests {
+     // Poll the actual admission helper behind the session mutex; no sleep or spawned-task race.
+     #[tokio::test]
+     async fn queued_locked_admission_rechecks_transition() {
+-        use std::future::{poll_fn, Future};
++        use std::future::{Future, poll_fn};
+         use std::task::Poll;
+         let state = mock_locked_state();
+         let storage_dir = state.static_state.storage_dir_path.clone();
+diff --git a/src/uniffi_api/mod.rs b/src/uniffi_api/mod.rs
+index 89eb544..f6f5e10 100644
+--- a/src/uniffi_api/mod.rs
++++ b/src/uniffi_api/mod.rs
+@@ -412,6 +412,22 @@ fn map_transfer(t: crate::sdk::TransferData) -> Result<Transfer, RlnError> {
+ }
+ 
+ impl SdkNode {
++    pub fn prepare_onchain_send(&self, request_json: String) -> Result<String, RlnError> {
++        block_on_sdk(crate::durable_payment::prepare(self.handle.app_state(), request_json))
++    }
++
++    pub fn commit_onchain_send(&self, request_json: String) -> Result<String, RlnError> {
++        block_on_sdk(crate::durable_payment::commit(self.handle.app_state(), request_json))
++    }
++
++    pub fn onchain_send_status(&self, request_json: String) -> Result<String, RlnError> {
++        block_on_sdk(crate::durable_payment::status(self.handle.app_state(), request_json))
++    }
++
++    pub fn cancel_onchain_send(&self, request_json: String) -> Result<String, RlnError> {
++        block_on_sdk(crate::durable_payment::cancel(self.handle.app_state(), request_json))
++    }
++
+     pub fn create(request: SdkInitRequest) -> Result<Self, RlnError> {
+         let handle = handle_from_request(request)?;
+         Ok(Self { handle })
+diff --git a/src/durable_payment.rs b/src/durable_payment.rs
+new file mode 100644
+index 0000000..05642db
+--- /dev/null
++++ b/src/durable_payment.rs
+@@ -0,0 +1,1260 @@
++//! Crash-safe on-chain outbox. Preparation never calls End; commit never rebuilds a transaction.
++//! The journal is private wallet data (including a spend-authorizing signed PSBT), not telemetry.
++use crate::{error::APIError, sdk, utils::AppState};
++use bitcoin::{
++    hashes::{Hash, sha256},
++    psbt::Psbt,
++};
++use rgb_lib::{
++    Assignment, TransferStatus,
++    wallet::{AssetFilter, Recipient, RgbWalletOpsOnline, WitnessData},
++};
++use serde::{Deserialize, Serialize};
++#[cfg(unix)]
++use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
++use std::{
++    collections::HashMap,
++    fs::{self, File, OpenOptions},
++    io::{Read, Write},
++    path::{Path, PathBuf},
++    str::FromStr,
++    sync::Arc,
++};
++
++const MAX_RECORD: u64 = 4 * 1024 * 1024;
++
++#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct Request {
++    version: u32,
++    operation_id: String,
++    fingerprint: String,
++    kind: Kind,
++    amount: u64,
++    fee_rate: u64,
++    #[serde(default)]
++    address: Option<String>,
++    #[serde(default)]
++    asset_id: Option<String>,
++    #[serde(default)]
++    recipient_id: Option<String>,
++    #[serde(default)]
++    transport_endpoints: Vec<String>,
++    #[serde(default)]
++    witness_amount_sat: Option<u64>,
++    #[serde(default)]
++    witness_blinding: Option<u64>,
++    #[serde(default = "one_confirmation")]
++    min_confirmations: u8,
++    #[serde(default)]
++    donation: bool,
++    #[serde(default)]
++    expiration_timestamp: Option<u64>,
++}
++fn one_confirmation() -> u8 {
++    1
++}
++
++#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
++#[serde(rename_all = "lowercase")]
++enum Kind {
++    Bitcoin,
++    Rgb,
++}
++#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
++#[serde(rename_all = "lowercase")]
++enum Phase {
++    Preparing,
++    Prepared,
++    Committing,
++    Accepted,
++    Rejected,
++}
++
++#[derive(Clone, Debug, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct Record {
++    version: u32,
++    wallet_binding: String,
++    request: Request,
++    phase: Phase,
++    txid: Option<String>,
++    batch_transfer_index: Option<i32>,
++    signed_psbt: Option<String>,
++    unsigned_psbt: Option<String>,
++    failure_code: Option<String>,
++    cancel_requested: bool,
++}
++
++fn invalid(message: &str) -> APIError {
++    APIError::InvalidRequest(message.to_string())
++}
++fn storage_error(_: impl std::fmt::Display) -> APIError {
++    // Do not put the PSBT, destination, wallet path or underlying file contents in error strings.
++    APIError::IO(std::io::Error::other(
++        "durable payment storage is unavailable or inconsistent",
++    ))
++}
++fn hex(value: &str, size: usize) -> bool {
++    value.len() == size
++        && value
++            .bytes()
++            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
++}
++fn validate_id(value: &str) -> Result<(), APIError> {
++    if !hex(value, 32) {
++        return Err(invalid("invalid durable payment operation ID"));
++    }
++    Ok(())
++}
++impl Request {
++    fn validate(&self) -> Result<(), APIError> {
++        validate_id(&self.operation_id)?;
++        if self.version != 1
++            || !hex(&self.fingerprint, 64)
++            || self.amount == 0
++            || self.amount > i64::MAX as u64
++            || self.fee_rate == 0
++            || self.fee_rate > i64::MAX as u64
++        {
++            return Err(invalid("invalid durable payment request"));
++        }
++        // Donation exposes the signed transaction to the recipient before native SQL commits.
++        // Qualify that separate recovery path before enabling it in this protocol.
++        if self.donation {
++            return Err(invalid("durable donation sends are not supported"));
++        }
++        match self.kind {
++            Kind::Bitcoin => {
++                if self
++                    .address
++                    .as_ref()
++                    .is_none_or(|v| v.is_empty() || v.len() > 1000)
++                    || self.asset_id.is_some()
++                    || self.recipient_id.is_some()
++                    || !self.transport_endpoints.is_empty()
++                    || self.witness_amount_sat.is_some()
++                    || self.witness_blinding.is_some()
++                    || self.expiration_timestamp.is_some()
++                {
++                    return Err(invalid("invalid durable Bitcoin send request"));
++                }
++            }
++            Kind::Rgb => {
++                if self.address.is_some()
++                    || self
++                        .expiration_timestamp
++                        .is_none_or(|value| value == 0 || value > i64::MAX as u64)
++                    || self
++                        .asset_id
++                        .as_ref()
++                        .is_none_or(|v| v.is_empty() || v.len() > 1000)
++                    || self
++                        .recipient_id
++                        .as_ref()
++                        .is_none_or(|v| v.is_empty() || v.len() > 4000)
++                    || self.transport_endpoints.is_empty()
++                    || self.transport_endpoints.len() > 16
++                    || self
++                        .transport_endpoints
++                        .iter()
++                        .any(|v| v.is_empty() || v.len() > 8000)
++                    || self.witness_blinding.is_some() && self.witness_amount_sat.is_none()
++                    || self
++                        .witness_amount_sat
++                        .is_some_and(|v| v == 0 || v > i64::MAX as u64)
++                {
++                    return Err(invalid("invalid durable RGB send request"));
++                }
++                rgb_lib::ContractId::from_str(self.asset_id.as_deref().unwrap())
++                    .map_err(|_| invalid("invalid durable RGB asset"))?;
++            }
++        }
++        Ok(())
++    }
++}
++
++fn binding(common: &crate::utils::CommonState) -> String {
++    let keys = common.rgb_get_keys();
++    sha256::Hash::hash(
++        format!(
++            "{:?}:{}:{}",
++            common.rgb_wallet_wrapper.bitcoin_network(),
++            keys.account_xpub_vanilla,
++            keys.account_xpub_colored
++        )
++        .as_bytes(),
++    )
++    .to_string()
++}
++fn directory(state: &AppState) -> PathBuf {
++    state
++        .static_state
++        .storage_dir_path
++        .join("durable-onchain-v1")
++}
++fn path(dir: &Path, id: &str) -> PathBuf {
++    dir.join(format!("{id}.json"))
++}
++
++fn read(dir: &Path, id: &str, wallet_binding: &str) -> Result<Option<Record>, APIError> {
++    validate_id(id)?;
++    let directory_metadata = match fs::symlink_metadata(dir) {
++        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
++        result => result.map_err(storage_error)?,
++    };
++    if !directory_metadata.file_type().is_dir() {
++        return Err(storage_error("directory metadata"));
++    }
++    #[cfg(unix)]
++    if directory_metadata.permissions().mode() & 0o077 != 0 {
++        return Err(storage_error("directory permissions"));
++    }
++    let target = path(dir, id);
++    let metadata = match fs::symlink_metadata(&target) {
++        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
++        result => result.map_err(storage_error)?,
++    };
++    if !metadata.file_type().is_file() || metadata.len() > MAX_RECORD {
++        return Err(storage_error("record metadata"));
++    }
++    #[cfg(unix)]
++    if metadata.permissions().mode() & 0o077 != 0 {
++        return Err(storage_error("record permissions"));
++    }
++    let mut data = Vec::new();
++    File::open(target)
++        .map_err(storage_error)?
++        .take(MAX_RECORD + 1)
++        .read_to_end(&mut data)
++        .map_err(storage_error)?;
++    if data.len() as u64 > MAX_RECORD {
++        return Err(storage_error("record size"));
++    }
++    let record: Record = serde_json::from_slice(&data).map_err(storage_error)?;
++    record.request.validate()?;
++    if record.version != 1
++        || record.wallet_binding != wallet_binding
++        || record.request.operation_id != id
++        || (record.cancel_requested && matches!(record.phase, Phase::Committing | Phase::Accepted))
++    {
++        return Err(storage_error("record identity"));
++    }
++    match record.phase {
++        Phase::Preparing | Phase::Rejected => {
++            if record.signed_psbt.is_some() {
++                return Err(storage_error("preparing data"));
++            }
++            if let Some(unsigned) = &record.unsigned_psbt {
++                let psbt = Psbt::from_str(unsigned).map_err(storage_error)?;
++                if record.phase == Phase::Rejected
++                    || record.txid.as_deref()
++                        != Some(psbt.unsigned_tx.compute_txid().to_string().as_str())
++                    || (record.request.kind == Kind::Bitcoin)
++                        != record.batch_transfer_index.is_none()
++                {
++                    return Err(storage_error("unsigned transaction identity"));
++                }
++            } else if record.txid.is_some() || record.batch_transfer_index.is_some() {
++                return Err(storage_error("preparing identity"));
++            }
++        }
++        _ => {
++            let unsigned = Psbt::from_str(
++                record
++                    .unsigned_psbt
++                    .as_deref()
++                    .ok_or_else(|| storage_error("missing unsigned transaction"))?,
++            )
++            .map_err(storage_error)?;
++            let signed = Psbt::from_str(
++                record
++                    .signed_psbt
++                    .as_deref()
++                    .ok_or_else(|| storage_error("missing transaction"))?,
++            )
++            .map_err(storage_error)?;
++            if signed.unsigned_tx != unsigned.unsigned_tx {
++                return Err(storage_error("transaction content mismatch"));
++            }
++            let tx = signed.extract_tx().map_err(storage_error)?;
++            if record.txid.as_deref() != Some(tx.compute_txid().to_string().as_str())
++                || (record.request.kind == Kind::Bitcoin) != record.batch_transfer_index.is_none()
++                || record.batch_transfer_index.is_some_and(|v| v < 0)
++            {
++                return Err(storage_error("transaction identity"));
++            }
++        }
++    }
++    Ok(Some(record))
++}
++
++fn restricted_options() -> OpenOptions {
++    let mut options = OpenOptions::new();
++    options.write(true).create_new(true);
++    #[cfg(unix)]
++    options.mode(0o600);
++    options
++}
++
++// A one-shot, thread-local seam lets unit tests exercise the actual atomic
++// writer at durability boundaries without altering production behavior.
++#[cfg(test)]
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum WriteFault {
++    BeforeCreate,
++    AfterTempFlush,
++    AfterRename,
++    AfterDirectorySync,
++}
++#[cfg(test)]
++thread_local! {
++    static WRITE_FAULT: std::cell::Cell<Option<WriteFault>> = const { std::cell::Cell::new(None) };
++}
++#[cfg(test)]
++fn write_fault(point: WriteFault) -> Result<(), APIError> {
++    WRITE_FAULT.with(|fault| {
++        if fault.get() == Some(point) {
++            fault.set(None);
++            Err(storage_error("injected durable write fault"))
++        } else {
++            Ok(())
++        }
++    })
++}
++
++fn write(dir: &Path, record: &Record) -> Result<(), APIError> {
++    let bytes = serde_json::to_vec(record).map_err(storage_error)?;
++    if bytes.len() as u64 > MAX_RECORD {
++        return Err(storage_error("record size"));
++    }
++    let temp = dir.join(format!(
++        ".{}.{}.tmp",
++        record.request.operation_id,
++        rand::random::<u64>()
++    ));
++    let result = (|| {
++        #[cfg(test)]
++        write_fault(WriteFault::BeforeCreate)?;
++        let mut file = restricted_options().open(&temp).map_err(storage_error)?;
++        file.write_all(&bytes).map_err(storage_error)?;
++        file.sync_all().map_err(storage_error)?;
++        #[cfg(test)]
++        write_fault(WriteFault::AfterTempFlush)?;
++        fs::rename(&temp, path(dir, &record.request.operation_id)).map_err(storage_error)?;
++        #[cfg(test)]
++        write_fault(WriteFault::AfterRename)?;
++        File::open(dir)
++            .map_err(storage_error)?
++            .sync_all()
++            .map_err(storage_error)?;
++        #[cfg(test)]
++        write_fault(WriteFault::AfterDirectorySync)?;
++        Ok(())
++    })();
++    if result.is_err() {
++        let _ = fs::remove_file(temp);
++    }
++    result
++}
++
++fn lock_directory(dir: &Path) -> Result<File, APIError> {
++    match fs::create_dir(dir) {
++        Ok(()) => {
++            #[cfg(unix)]
++            fs::set_permissions(dir, fs::Permissions::from_mode(0o700)).map_err(storage_error)?;
++            File::open(dir.parent().ok_or_else(|| storage_error("parent"))?)
++                .map_err(storage_error)?
++                .sync_all()
++                .map_err(storage_error)?;
++        }
++        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
++        Err(e) => return Err(storage_error(e)),
++    }
++    let meta = fs::symlink_metadata(dir).map_err(storage_error)?;
++    if !meta.file_type().is_dir() {
++        return Err(storage_error("directory"));
++    }
++    #[cfg(unix)]
++    if meta.permissions().mode() & 0o077 != 0 {
++        return Err(storage_error("directory permissions"));
++    }
++    let lock_path = dir.join(".lock");
++    let lock = match restricted_options().open(&lock_path) {
++        Ok(f) => f,
++        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
++            let metadata = fs::symlink_metadata(&lock_path).map_err(storage_error)?;
++            if !metadata.file_type().is_file() {
++                return Err(storage_error("lock metadata"));
++            }
++            OpenOptions::new()
++                .write(true)
++                .open(lock_path)
++                .map_err(storage_error)?
++        }
++        Err(e) => return Err(storage_error(e)),
++    };
++    lock.try_lock()
++        .map_err(|_| invalid("another durable payment operation is running"))?;
++    Ok(lock)
++}
++
++fn response(id: &str, record: Option<&Record>, observed: bool) -> Result<String, APIError> {
++    let phase = if observed {
++        "accepted"
++    } else {
++        match record.map(|r| r.phase) {
++            None => "absent",
++            Some(Phase::Preparing) => "preparing",
++            Some(Phase::Prepared) => "prepared",
++            Some(Phase::Committing) => "committing",
++            Some(Phase::Accepted) => "accepted",
++            Some(Phase::Rejected) => "rejected",
++        }
++    };
++    serde_json::to_string(&serde_json::json!({
++        "version": 1, "operationId": id,
++        "fingerprint": record.map(|r| &r.request.fingerprint),
++        "kind": record.map(|r| r.request.kind), "phase": phase,
++        "txid": record.and_then(|r| r.txid.as_ref()),
++        "batchTransferIndex": record.and_then(|r| r.batch_transfer_index),
++        "failureCode": if observed { None } else { record.and_then(|r| r.failure_code.as_ref()) },
++        "endAuthorized": record.is_some_and(|r| matches!(r.phase, Phase::Committing | Phase::Accepted)),
++    })).map_err(storage_error)
++}
++
++fn observed(common: &crate::utils::CommonState, record: &mut Record) -> Result<bool, APIError> {
++    // A reservation/Initiated record is not acceptance. Neither absence nor a failed check is rejection.
++    if record.phase == Phase::Accepted {
++        return Ok(true);
++    }
++    if record.phase != Phase::Committing {
++        return Ok(false);
++    }
++    let txid = record
++        .txid
++        .as_deref()
++        .ok_or_else(|| storage_error("missing identity"))?;
++    Ok(match record.request.kind {
++        Kind::Bitcoin => common.rgb_list_transactions(false)?.into_iter().any(|t| {
++            t.txid == txid
++                && matches!(
++                    t.transaction_type,
++                    rgb_lib::wallet::TransactionType::SendBtc
++                )
++        }),
++        Kind::Rgb => {
++            let batches = common
++                .rgb_list_transfers(
++                    AssetFilter::Id(record.request.asset_id.clone().unwrap()),
++                    Some(txid.to_string()),
++                )?
++                .into_iter()
++                .filter(|t| {
++                    t.txid.as_deref() == Some(txid)
++                        && matches!(t.kind, rgb_lib::wallet::TransferKind::Send)
++                        && !matches!(t.status, TransferStatus::Initiated | TransferStatus::Failed)
++                })
++                .map(|t| t.batch_transfer_idx)
++                .collect::<std::collections::HashSet<_>>();
++            if batches.len() == 1 {
++                record.batch_transfer_index = batches.into_iter().next();
++                true
++            } else {
++                false
++            }
++        }
++    })
++}
++
++// Reporting native acceptance retires the caller's active fence. Make that evidence durable
++// first so a later reorg, unavailable history or failed batch cannot resurrect an invisible fence.
++fn remember_acceptance(dir: &Path, record: &mut Record) -> Result<(), APIError> {
++    if !matches!(record.phase, Phase::Committing | Phase::Accepted) {
++        return Err(storage_error(
++            "acceptance without prior commit authorization",
++        ));
++    }
++    if record.phase != Phase::Accepted {
++        record.phase = Phase::Accepted;
++        record.failure_code = None;
++        write(dir, record)?;
++    }
++    Ok(())
++}
++
++fn observed_and_recorded(
++    common: &crate::utils::CommonState,
++    dir: &Path,
++    record: &mut Record,
++) -> Result<bool, APIError> {
++    let accepted = observed(common, record)?;
++    if accepted {
++        remember_acceptance(dir, record)?;
++    }
++    Ok(accepted)
++}
++
++// RGB VSS restores a fingerprint child, not this node-level operation journal. It cannot prove
++// absence or continuity for a saved app intent. Keep this unsupported combination fail-closed at
++// the native API boundary, including status/cancel, before any journal state is touched.
++fn require_local_journal(state: &AppState) -> Result<(), APIError> {
++    if state.static_state.vss_url.is_some() {
++        return Err(APIError::Unexpected(
++            "recoverable on-chain operations do not support VSS restore; an intact local journal is required".into(),
++        ));
++    }
++    Ok(())
++}
++
++// RGB's blocking HTTP clients cannot be created/dropped inside an async runtime.
++// A worker owns its wallet lifecycle guard until completion. Losing/cancelling the
++// waiter neither cancels native work nor permits shutdown to overtake it.
++async fn blocking_native<T: Send + 'static>(
++    operation: impl FnOnce() -> Result<T, APIError> + Send + 'static,
++) -> Result<T, APIError> {
++    tokio::task::spawn_blocking(operation)
++        .await
++        .map_err(|_| storage_error("native wallet worker did not complete"))?
++}
++
++pub(crate) async fn status(state: Arc<AppState>, json: String) -> Result<String, APIError> {
++    require_local_journal(&state)?;
++    if json.len() > 200_000 {
++        return Err(invalid("durable payment request too large"));
++    }
++    let request: Request =
++        serde_json::from_str(&json).map_err(|_| invalid("invalid durable payment JSON"))?;
++    request.validate()?;
++    let id = request.operation_id.clone();
++    let guard = sdk::check_unlocked_owned(&state).await?;
++    blocking_native(move || {
++        let common = guard.as_ref().unwrap();
++        let dir = directory(&state);
++        let _lock = lock_directory(&dir)?;
++        let mut record = read(&dir, &id, &binding(common))?;
++        if record
++            .as_ref()
++            .is_some_and(|value| value.request != request)
++        {
++            return Err(invalid("durable payment ID is bound to another request"));
++        }
++        let accepted = record
++            .as_mut()
++            .map(|r| observed_and_recorded(common, &dir, r))
++            .transpose()?
++            .unwrap_or(false);
++        response(&id, record.as_ref(), accepted)
++    })
++    .await
++}
++
++pub(crate) async fn prepare(state: Arc<AppState>, json: String) -> Result<String, APIError> {
++    require_local_journal(&state)?;
++    if json.len() > 200_000 {
++        return Err(invalid("durable payment request too large"));
++    }
++    let request: Request =
++        serde_json::from_str(&json).map_err(|_| invalid("invalid durable payment JSON"))?;
++    request.validate()?;
++    let guard = sdk::check_unlocked_owned(&state).await?;
++    blocking_native(move || {
++        let common = guard.as_ref().unwrap();
++        let dir = directory(&state);
++        let _lock = lock_directory(&dir)?;
++        let wallet_binding = binding(common);
++        if let Some(mut record) = read(&dir, &request.operation_id, &wallet_binding)? {
++            if record.request != request {
++                return Err(invalid("durable payment ID is bound to another request"));
++            }
++            if record.phase == Phase::Preparing && !record.cancel_requested {
++                return prepare_record(common, &dir, &mut record);
++            }
++            let accepted = observed_and_recorded(common, &dir, &mut record)?;
++            return response(&request.operation_id, Some(&record), accepted);
++        }
++        for entry in fs::read_dir(&dir).map_err(storage_error)? {
++            let entry = entry.map_err(storage_error)?;
++            if entry.path().extension().is_some_and(|v| v == "json") {
++                let name = entry.file_name().to_string_lossy().to_string();
++                let mut other = read(&dir, &name[..name.len() - 5], &wallet_binding)?
++                    .ok_or_else(|| storage_error("missing record"))?;
++                if !matches!(other.phase, Phase::Accepted | Phase::Rejected)
++                    && !observed_and_recorded(common, &dir, &mut other)?
++                {
++                    return Err(invalid("a durable payment requires recovery first"));
++                }
++            }
++        }
++        let mut record = Record {
++            version: 1,
++            wallet_binding,
++            request: request.clone(),
++            phase: Phase::Preparing,
++            txid: None,
++            batch_transfer_index: None,
++            signed_psbt: None,
++            unsigned_psbt: None,
++            failure_code: None,
++            cancel_requested: false,
++        };
++        // From this point a lost response can only retain preparation resources. No End call is possible.
++        write(&dir, &record)?;
++        prepare_record(common, &dir, &mut record)
++    })
++    .await
++}
++
++fn prepare_record(
++    common: &crate::utils::CommonState,
++    dir: &Path,
++    record: &mut Record,
++) -> Result<String, APIError> {
++    let request = record.request.clone();
++    if record.unsigned_psbt.is_none() {
++        // The new native Begin variants may not commit any reservations until the exact unsigned
++        // transaction is durable here. If the callback was never reached, repeating preparation is
++        // safe: the prior SQL transaction cannot have committed, and any orphan files are unsigned.
++        let begin = match request.kind {
++            Kind::Bitcoin => {
++                let wrapper = &common.rgb_wallet_wrapper;
++                wrapper
++                    .get_rgb_wallet()
++                    .send_btc_begin_with_durable_callback(
++                        wrapper.online,
++                        request.address.clone().unwrap(),
++                        request.amount,
++                        request.fee_rate,
++                        false,
++                        false,
++                        None,
++                        |unsigned| persist_unsigned(dir, record, unsigned, None),
++                    )
++                    .map(|_| ())
++            }
++            Kind::Rgb => {
++                let recipient = Recipient {
++                    recipient_id: request.recipient_id.clone().unwrap(),
++                    assignment: Assignment::Fungible(request.amount),
++                    transport_endpoints: request.transport_endpoints.clone(),
++                    witness_data: request.witness_amount_sat.map(|amount_sat| WitnessData {
++                        amount_sat,
++                        blinding: request.witness_blinding,
++                    }),
++                };
++                let mut recipients = HashMap::new();
++                recipients.insert(request.asset_id.clone().unwrap(), vec![recipient]);
++                let wrapper = &common.rgb_wallet_wrapper;
++                wrapper
++                    .get_rgb_wallet()
++                    .send_begin_with_durable_callback(
++                        wrapper.online,
++                        recipients,
++                        false,
++                        request.fee_rate,
++                        request.min_confirmations,
++                        request.expiration_timestamp.unwrap_or_else(|| {
++                            crate::utils::get_current_timestamp()
++                                + crate::routes::DEFAULT_RGB_TRANSFER_EXPIRATION_SECS
++                        }),
++                        false,
++                        None,
++                        |result| {
++                            let fascia = Path::new(&result.details.fascia_path);
++                            let transfer_dir =
++                                fascia.parent().ok_or_else(|| rgb_lib::Error::Internal {
++                                    details: "durable transfer metadata path is invalid".into(),
++                                })?;
++                            sync_transfer_metadata(transfer_dir, 0).map_err(|_| {
++                                rgb_lib::Error::Internal {
++                                    details: "durable transfer metadata could not be saved".into(),
++                                }
++                            })?;
++                            if let Some(parent) = transfer_dir.parent() {
++                                File::open(parent)
++                                    .and_then(|file| file.sync_all())
++                                    .map_err(|_| rgb_lib::Error::Internal {
++                                        details: "durable transfer directory could not be saved"
++                                            .into(),
++                                    })?;
++                            }
++                            persist_unsigned(dir, record, &result.psbt, result.batch_transfer_idx)
++                        },
++                    )
++                    .map(|_| ())
++            }
++        };
++        if let Err(error) = begin {
++            // No callback => SQL has not reached commit and no End was authorized. A callback with
++            // a durable identity survives an interrupted SQL commit and can be resumed explicitly.
++            record.phase = if record.unsigned_psbt.is_none() {
++                Phase::Rejected
++            } else {
++                Phase::Preparing
++            };
++            // Only a finite, payload-free reason crosses the journal/API boundary. Certainty is
++            // determined by phase + End authorization, never by interpreting an error message.
++            record.failure_code = Some(
++                if record.phase == Phase::Rejected {
++                    prepare_failure_code(&error)
++                } else {
++                    "native_prepare_interrupted"
++                }
++                .into(),
++            );
++            write(dir, record)?;
++            return response(&request.operation_id, Some(record), false);
++        }
++    }
++    let unsigned = record
++        .unsigned_psbt
++        .as_ref()
++        .ok_or_else(|| storage_error("missing prepared transaction"))?;
++    let signed = match common.rgb_sign_psbt(unsigned.clone()) {
++        Ok(signed) => signed,
++        Err(_) => {
++            record.failure_code = Some("native_sign_failed".into());
++            write(dir, record)?;
++            return response(&request.operation_id, Some(record), false);
++        }
++    };
++    let prepared_psbt = Psbt::from_str(unsigned).map_err(storage_error)?;
++    let signed_psbt = Psbt::from_str(&signed).map_err(storage_error)?;
++    if signed_psbt.unsigned_tx != prepared_psbt.unsigned_tx {
++        return Err(storage_error("signer changed transaction"));
++    }
++    let txid = signed_psbt
++        .extract_tx()
++        .map_err(storage_error)?
++        .compute_txid()
++        .to_string();
++    if record.txid.as_ref() != Some(&txid) {
++        return Err(storage_error("signer changed transaction identity"));
++    }
++    record.signed_psbt = Some(signed);
++    record.phase = Phase::Prepared;
++    record.failure_code = None;
++    write(dir, record)?;
++    response(&request.operation_id, Some(record), false)
++}
++
++// The wallet error can contain addresses, asset IDs, file paths, balances or remote response
++// bodies. Match typed variants only; never serialize or parse Display/Debug text as public copy.
++fn prepare_failure_code(error: &rgb_lib::Error) -> &'static str {
++    use rgb_lib::Error;
++    match error {
++        Error::InsufficientBitcoins { .. } => "insufficient_bitcoins",
++        Error::InsufficientAssignments { .. } => "insufficient_asset_balance",
++        Error::InsufficientAllocationSlots => "insufficient_allocations",
++        Error::InvalidAddress { .. }
++        | Error::InvalidRecipientData { .. }
++        | Error::InvalidRecipientID
++        | Error::InvalidRecipientMap
++        | Error::InvalidRecipientNetwork
++        | Error::RecipientIDAlreadyUsed
++        | Error::RecipientIDDuplicated
++        | Error::InvalidInvoice { .. } => "invalid_recipient",
++        Error::InvalidAmountZero | Error::InvalidAssignment | Error::OutputBelowDustLimit => {
++            "invalid_amount"
++        }
++        Error::InvalidFeeRate { .. }
++        | Error::MaxFeeExceeded { .. }
++        | Error::MinFeeNotMet { .. } => "invalid_fee",
++        Error::FailedBdkSync { .. }
++        | Error::Indexer { .. }
++        | Error::Network { .. }
++        | Error::Proxy { .. }
++        | Error::NoValidTransportEndpoint
++        | Error::CannotEstimateFees => "network_unavailable",
++        Error::AssetNotFound { .. }
++        | Error::BitcoinNetworkMismatch
++        | Error::InvalidBitcoinNetwork { .. }
++        | Error::InvalidElectrum { .. }
++        | Error::InvalidIndexer { .. }
++        | Error::InvalidProxyProtocol { .. }
++        | Error::InvalidEthRpcUrl { .. }
++        | Error::InvalidTransportEndpoint { .. }
++        | Error::InvalidTransportEndpoints { .. }
++        | Error::InvalidExpiration
++        | Error::Offline
++        | Error::OnlineNeeded => "invalid_configuration",
++        Error::Database { .. }
++        | Error::IO { .. }
++        | Error::Inconsistency { .. }
++        | Error::RestoredBackupInconsistent { .. }
++        | Error::InexistentDataDir
++        | Error::InexistentWalletManifest { .. } => "storage_unavailable",
++        _ => "preparation_failed",
++    }
++}
++
++fn persist_unsigned(
++    dir: &Path,
++    record: &mut Record,
++    unsigned: &str,
++    batch: Option<i32>,
++) -> Result<(), rgb_lib::Error> {
++    let psbt = Psbt::from_str(unsigned).map_err(|_| rgb_lib::Error::Internal {
++        details: "durable unsigned transaction is malformed".into(),
++    })?;
++    if (record.request.kind == Kind::Bitcoin) != batch.is_none()
++        || batch.is_some_and(|index| index < 0)
++    {
++        return Err(rgb_lib::Error::Internal {
++            details: "durable prepared batch identity is invalid".into(),
++        });
++    }
++    record.txid = Some(psbt.unsigned_tx.compute_txid().to_string());
++    record.unsigned_psbt = Some(unsigned.to_string());
++    record.batch_transfer_index = batch;
++    write(dir, record).map_err(|_| rgb_lib::Error::Internal {
++        details: "durable unsigned transaction could not be saved".into(),
++    })
++}
++
++fn sync_transfer_metadata(dir: &Path, depth: u8) -> std::io::Result<()> {
++    if depth > 16 {
++        return Err(std::io::Error::other("transfer metadata nesting limit"));
++    }
++    for entry in fs::read_dir(dir)? {
++        let entry = entry?;
++        let kind = entry.file_type()?;
++        if kind.is_dir() {
++            sync_transfer_metadata(&entry.path(), depth + 1)?;
++        } else if kind.is_file() {
++            File::open(entry.path())?.sync_all()?;
++        } else {
++            return Err(std::io::Error::other("unexpected transfer metadata entry"));
++        }
++    }
++    File::open(dir)?.sync_all()
++}
++
++pub(crate) async fn commit(state: Arc<AppState>, json: String) -> Result<String, APIError> {
++    require_local_journal(&state)?;
++    if json.len() > 200_000 {
++        return Err(invalid("durable payment request too large"));
++    }
++    let request: Request =
++        serde_json::from_str(&json).map_err(|_| invalid("invalid durable payment JSON"))?;
++    request.validate()?;
++    let id = request.operation_id.clone();
++    let guard = sdk::check_unlocked_owned(&state).await?;
++    blocking_native(move || {
++        let common = guard.as_ref().unwrap();
++        let dir = directory(&state);
++        let _lock = lock_directory(&dir)?;
++        let mut record = read(&dir, &id, &binding(common))?
++            .ok_or_else(|| invalid("durable payment operation not found"))?;
++        if record.request != request {
++            return Err(invalid("durable payment ID is bound to another request"));
++        }
++        if observed_and_recorded(common, &dir, &mut record)? {
++            return response(&id, Some(&record), true);
++        }
++        if matches!(record.phase, Phase::Preparing | Phase::Rejected) {
++            return response(&id, Some(&record), false);
++        }
++        if record.phase == Phase::Prepared
++            && record.request.kind == Kind::Rgb
++            && record
++                .request
++                .expiration_timestamp
++                .is_some_and(|expiry| expiry <= crate::utils::get_current_timestamp())
++        {
++            record.failure_code = Some("invoice_expired".into());
++            write(&dir, &record)?;
++            return response(&id, Some(&record), false);
++        }
++        // Persist authorization before releasing the exact signed transaction to native End.
++        record.phase = Phase::Committing;
++        record.failure_code = None;
++        write(&dir, &record)?;
++        let signed = record
++            .signed_psbt
++            .clone()
++            .ok_or_else(|| storage_error("missing signed transaction"))?;
++        let result = match record.request.kind {
++            Kind::Bitcoin => common.rgb_send_btc_end(signed).map(|txid| (txid, None)),
++            Kind::Rgb => {
++                // Never bring a failed/progressed batch back to WaitingCounterparty.
++                let transfers = common.rgb_list_transfers(
++                    AssetFilter::Id(record.request.asset_id.clone().unwrap()),
++                    record.txid.clone(),
++                )?;
++                if transfers.iter().any(|t| {
++                    t.batch_transfer_idx == record.batch_transfer_index.unwrap()
++                        && t.status == TransferStatus::Failed
++                }) {
++                    record.failure_code = Some("native_transfer_failed".into());
++                    write(&dir, &record)?;
++                    return response(&id, Some(&record), false);
++                }
++                common
++                    .rgb_send_end(signed)
++                    .map(|r| (r.txid, Some(r.batch_transfer_idx)))
++            }
++        };
++        match result {
++            Ok((txid, batch))
++                if record.txid.as_ref() == Some(&txid)
++                    && ((record.request.kind == Kind::Bitcoin) == batch.is_none()) =>
++            {
++                record.batch_transfer_index = batch;
++                record.phase = Phase::Accepted;
++                record.failure_code = None;
++            }
++            Ok(_) => record.failure_code = Some("native_identity_mismatch".into()),
++            Err(_) => record.failure_code = Some("native_commit_failed".into()),
++        }
++        write(&dir, &record)?;
++        response(&id, Some(&record), false)
++    })
++    .await
++}
++
++/// Explicitly abandon an operation that this protocol has never authorized for End. The revocation
++/// marker is durable before releasing resources, so a crash cannot make a later commit revive it.
++/// Repeating cancellation only checks/releases this transaction's own native resources.
++pub(crate) async fn cancel(state: Arc<AppState>, json: String) -> Result<String, APIError> {
++    require_local_journal(&state)?;
++    if json.len() > 200_000 {
++        return Err(invalid("durable payment request too large"));
++    }
++    let request: Request =
++        serde_json::from_str(&json).map_err(|_| invalid("invalid durable payment JSON"))?;
++    request.validate()?;
++    let id = request.operation_id.clone();
++    let guard = sdk::check_unlocked_owned(&state).await?;
++    blocking_native(move || {
++        let common = guard.as_ref().unwrap();
++        let dir = directory(&state);
++        let _lock = lock_directory(&dir)?;
++        let wallet_binding = binding(common);
++        let Some(mut record) = read(&dir, &id, &wallet_binding)? else {
++            // An absence observation alone cannot retire an app intent: create a permanent revocation
++            // certificate so a delayed prepare for this same ID can never dispatch later.
++            let rejected = Record {
++                version: 1,
++                wallet_binding,
++                request,
++                phase: Phase::Rejected,
++                txid: None,
++                batch_transfer_index: None,
++                signed_psbt: None,
++                unsigned_psbt: None,
++                failure_code: Some("cancelled".into()),
++                cancel_requested: true,
++            };
++            write(&dir, &rejected)?;
++            return response(&id, Some(&rejected), false);
++        };
++        if record.request != request {
++            return Err(invalid("durable payment ID is bound to another request"));
++        }
++        if matches!(
++            record.phase,
++            Phase::Committing | Phase::Accepted | Phase::Rejected
++        ) {
++            let accepted = observed_and_recorded(common, &dir, &mut record)?;
++            return response(&id, Some(&record), accepted);
++        }
++        record.cancel_requested = true;
++        record.phase = Phase::Preparing;
++        record.signed_psbt = None;
++        record.failure_code = Some("native_cancel_pending".into());
++        write(&dir, &record)?;
++        let released = (|| -> Result<bool, APIError> {
++            let Some(txid) = &record.txid else {
++                return Ok(true);
++            };
++            match record.request.kind {
++                Kind::Bitcoin => {
++                    let wallet = common.rgb_wallet_wrapper.get_rgb_wallet();
++                    if wallet
++                        .list_pending_vanilla_txs()?
++                        .iter()
++                        .any(|t| &t.txid == txid)
++                    {
++                        wallet.abort_pending_vanilla_tx(txid.clone())?;
++                    }
++                    Ok(!wallet
++                        .list_pending_vanilla_txs()?
++                        .iter()
++                        .any(|t| &t.txid == txid))
++                }
++                Kind::Rgb => {
++                    let filter = || AssetFilter::Id(record.request.asset_id.clone().unwrap());
++                    let transfers = common.rgb_list_transfers(filter(), Some(txid.clone()))?;
++                    if transfers.iter().any(|t| {
++                        !matches!(t.status, TransferStatus::Initiated | TransferStatus::Failed)
++                    }) {
++                        // Native state contradicts this never-End-authorized operation. Do not free it.
++                        return Ok(false);
++                    }
++                    let batches = transfers
++                        .iter()
++                        .filter(|t| {
++                            t.status == TransferStatus::Initiated
++                                && matches!(t.kind, rgb_lib::wallet::TransferKind::Send)
++                        })
++                        .map(|t| t.batch_transfer_idx)
++                        .collect::<std::collections::HashSet<_>>();
++                    for batch in batches {
++                        let wrapper = &common.rgb_wallet_wrapper;
++                        wrapper.get_rgb_wallet().fail_transfers(
++                            wrapper.online,
++                            Some(batch),
++                            false,
++                            true,
++                        )?;
++                    }
++                    Ok(common
++                        .rgb_list_transfers(filter(), Some(txid.clone()))?
++                        .iter()
++                        .all(|t| t.status == TransferStatus::Failed))
++                }
++            }
++        })();
++        if matches!(released, Ok(true)) {
++            record.phase = Phase::Rejected;
++            record.txid = None;
++            record.batch_transfer_index = None;
++            record.unsigned_psbt = None;
++            record.failure_code = Some("cancelled".into());
++            write(&dir, &record)?;
++        }
++        response(&id, Some(&record), false)
++    })
++    .await
++}
++
++#[cfg(test)]
++#[path = "durable_payment_fault_tests.rs"]
++mod fault_tests;
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    fn request() -> Request {
++        serde_json::from_value(serde_json::json!({"version":1,"operationId":"aa".repeat(16),"fingerprint":"bb".repeat(32),"kind":"bitcoin","amount":1000,"feeRate":1,"address":"bcrt1ptest"})).unwrap()
++    }
++    fn record() -> Record {
++        Record {
++            version: 1,
++            wallet_binding: "wallet-a".into(),
++            request: request(),
++            phase: Phase::Preparing,
++            txid: None,
++            batch_transfer_index: None,
++            signed_psbt: None,
++            unsigned_psbt: None,
++            failure_code: None,
++            cancel_requested: false,
++        }
++    }
++    #[test]
++    fn blocking_native_clients_work_from_current_thread_async_runtime() {
++        let runtime = tokio::runtime::Builder::new_current_thread()
++            .enable_all()
++            .build()
++            .unwrap();
++        runtime.block_on(async {
++            blocking_native(|| {
++                // Blocking HTTP clients own an internal runtime; constructing and
++                // dropping that runtime must happen outside the async caller.
++                let nested = tokio::runtime::Builder::new_current_thread()
++                    .enable_all()
++                    .build()
++                    .unwrap();
++                drop(nested);
++                Ok(())
++            })
++            .await
++            .unwrap();
++        });
++    }
++
++    #[test]
++    fn worker_retains_owned_lifecycle_lease_after_waiter_is_cancelled() {
++        let runtime = tokio::runtime::Builder::new_multi_thread()
++            .worker_threads(2)
++            .enable_all()
++            .build()
++            .unwrap();
++        runtime.block_on(async {
++            let lifecycle = Arc::new(tokio::sync::Mutex::new(()));
++            let lease = Arc::clone(&lifecycle).lock_owned().await;
++            let (entered, received) = tokio::sync::oneshot::channel();
++            let (release, wait) = std::sync::mpsc::channel();
++            let task = tokio::spawn(blocking_native(move || {
++                let _lease = lease;
++                entered.send(()).unwrap();
++                wait.recv().unwrap();
++                Ok(())
++            }));
++            received.await.unwrap();
++            task.abort();
++            assert!(task.await.unwrap_err().is_cancelled());
++            assert!(lifecycle.try_lock().is_err());
++            release.send(()).unwrap();
++            tokio::time::timeout(std::time::Duration::from_secs(5), async {
++                loop {
++                    if lifecycle.try_lock().is_ok() {
++                        break;
++                    }
++                    tokio::task::yield_now().await;
++                }
++            })
++            .await
++            .unwrap();
++        });
++    }
++
++    #[test]
++    fn rejection_reasons_are_typed_and_do_not_expose_payloads() {
++        use rgb_lib::Error;
++        let private = "private-address-wallet-path-response".to_string();
++        for (error, expected) in [
++            (
++                Error::InsufficientBitcoins {
++                    needed: 12345,
++                    available: 42,
++                },
++                "insufficient_bitcoins",
++            ),
++            (
++                Error::InsufficientAllocationSlots,
++                "insufficient_allocations",
++            ),
++            (
++                Error::InvalidAddress {
++                    details: private.clone(),
++                },
++                "invalid_recipient",
++            ),
++            (Error::InvalidRecipientNetwork, "invalid_recipient"),
++            (Error::OutputBelowDustLimit, "invalid_amount"),
++            (
++                Error::InvalidFeeRate {
++                    details: private.clone(),
++                },
++                "invalid_fee",
++            ),
++            (
++                Error::Proxy {
++                    details: private.clone(),
++                },
++                "network_unavailable",
++            ),
++            (Error::BitcoinNetworkMismatch, "invalid_configuration"),
++            (Error::InvalidExpiration, "invalid_configuration"),
++            (
++                Error::IO {
++                    details: private.clone(),
++                },
++                "storage_unavailable",
++            ),
++            (
++                Error::Internal {
++                    details: private.clone(),
++                },
++                "preparation_failed",
++            ),
++        ] {
++            assert_eq!(prepare_failure_code(&error), expected);
++            assert!(!prepare_failure_code(&error).contains(&private));
++        }
++    }
++
++    #[test]
++    fn reason_codes_do_not_change_preparation_certainty() {
++        let mut value = record();
++        value.failure_code = Some("network_unavailable".into());
++        for phase in [Phase::Preparing, Phase::Rejected] {
++            value.phase = phase;
++            let status: serde_json::Value = serde_json::from_str(
++                &response(&value.request.operation_id, Some(&value), false).unwrap(),
++            )
++            .unwrap();
++            assert_eq!(
++                status["phase"],
++                if phase == Phase::Rejected {
++                    "rejected"
++                } else {
++                    "preparing"
++                }
++            );
++            assert_eq!(status["endAuthorized"], false);
++            assert_eq!(status["failureCode"], "network_unavailable");
++        }
++    }
++
++    #[test]
++    fn identifiers_cannot_escape_wallet_directory() {
++        for id in ["", "../foo", &"A".repeat(32), &"a".repeat(31)] {
++            assert!(validate_id(id).is_err());
++        }
++        assert!(validate_id(&"a".repeat(32)).is_ok());
++    }
++    #[test]
++    fn journal_atomic_round_trip_and_wallet_binding() {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let value = record();
++        write(&dir, &value).unwrap();
++        assert_eq!(
++            read(&dir, &value.request.operation_id, "wallet-a")
++                .unwrap()
++                .unwrap()
++                .request,
++            value.request
++        );
++        assert!(read(&dir, &value.request.operation_id, "wallet-b").is_err());
++    }
++    #[test]
++    fn malformed_or_unsafe_journal_is_never_absent() {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let value = record();
++        let target = path(&dir, &value.request.operation_id);
++        let mut file = restricted_options().open(target).unwrap();
++        file.write_all(b"{").unwrap();
++        assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++    }
++    #[test]
++    fn status_distinguishes_no_end_from_commit_authorization() {
++        let value = record();
++        let status: serde_json::Value = serde_json::from_str(
++            &response(&value.request.operation_id, Some(&value), false).unwrap(),
++        )
++        .unwrap();
++        assert_eq!(status["phase"], "preparing");
++        assert_eq!(status["endAuthorized"], false);
++        assert_eq!(status["txid"], serde_json::Value::Null);
++    }
++    #[test]
++    fn status_never_exposes_signed_transaction_or_destination() {
++        let value = record();
++        let output = response(&value.request.operation_id, Some(&value), false).unwrap();
++        assert!(!output.contains("bcrt1ptest"));
++        assert!(!output.contains("signedPsbt"));
++        assert!(!output.contains("walletBinding"));
++    }
++    #[test]
++    fn donation_and_mixed_asset_requests_fail_before_native() {
++        let mut value = request();
++        value.donation = true;
++        assert!(value.validate().is_err());
++        value.donation = false;
++        value.asset_id = Some("rgb:another".into());
++        assert!(value.validate().is_err());
++    }
++    #[test]
++    fn unknown_request_fields_fail_closed() {
++        let json = r#"{"version":1,"operationId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","fingerprint":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","kind":"bitcoin","amount":1000,"feeRate":1,"address":"bcrt1ptest","retry":true}"#;
++        assert!(serde_json::from_str::<Request>(json).is_err());
++    }
++}
+diff --git a/src/durable_payment_fault_tests.rs b/src/durable_payment_fault_tests.rs
+new file mode 100644
+index 0000000..47b827b
+--- /dev/null
++++ b/src/durable_payment_fault_tests.rs
+@@ -0,0 +1,505 @@
++//! Storage and protocol-identity regressions using the real outbox writer.
++//! These tests exercise acknowledgement loss; they do not claim power-loss
++//! qualification or a funded native SQL/proxy crash test.
++use super::*;
++use bitcoin::{
++    Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness, absolute, transaction,
++};
++
++fn preparing() -> Record {
++    Record {
++        version: 1,
++        wallet_binding: "wallet-a".into(),
++        request: serde_json::from_value(serde_json::json!({
++            "version": 1, "operationId": "aa".repeat(16),
++            "fingerprint": "bb".repeat(32), "kind": "bitcoin",
++            "amount": 1000, "feeRate": 1, "address": "bcrt1ptest"
++        }))
++        .unwrap(),
++        phase: Phase::Preparing,
++        txid: None,
++        batch_transfer_index: None,
++        signed_psbt: None,
++        unsigned_psbt: None,
++        failure_code: None,
++        cancel_requested: false,
++    }
++}
++
++fn unsigned() -> Psbt {
++    let tx = Transaction {
++        version: transaction::Version::TWO,
++        lock_time: absolute::LockTime::ZERO,
++        input: vec![TxIn {
++            previous_output: OutPoint::null(),
++            script_sig: ScriptBuf::new(),
++            sequence: Sequence::MAX,
++            witness: Witness::new(),
++        }],
++        output: vec![TxOut {
++            value: Amount::from_sat(1000),
++            script_pubkey: ScriptBuf::new(),
++        }],
++    };
++    let mut psbt = Psbt::from_unsigned_tx(tx).unwrap();
++    psbt.inputs[0].witness_utxo = Some(TxOut {
++        value: Amount::from_sat(2000),
++        script_pubkey: ScriptBuf::new(),
++    });
++    psbt
++}
++
++fn prepared() -> Record {
++    let mut value = preparing();
++    let mut psbt = unsigned();
++    value.unsigned_psbt = Some(psbt.to_string());
++    psbt.inputs[0].final_script_witness = Some(Witness::from_slice(&[vec![1u8]]));
++    value.txid = Some(
++        psbt.clone()
++            .extract_tx()
++            .unwrap()
++            .compute_txid()
++            .to_string(),
++    );
++    value.signed_psbt = Some(psbt.to_string());
++    value.phase = Phase::Prepared;
++    value
++}
++
++struct ResetFault;
++impl Drop for ResetFault {
++    fn drop(&mut self) {
++        WRITE_FAULT.with(|fault| fault.set(None));
++    }
++}
++fn fault(point: WriteFault) -> ResetFault {
++    WRITE_FAULT.with(|fault| fault.set(Some(point)));
++    ResetFault
++}
++fn status(value: &Record) -> serde_json::Value {
++    serde_json::from_str(&response(&value.request.operation_id, Some(value), false).unwrap())
++        .unwrap()
++}
++
++#[test]
++fn first_marker_failure_before_rename_remains_absent() {
++    for point in [WriteFault::BeforeCreate, WriteFault::AfterTempFlush] {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let value = preparing();
++        let _reset = fault(point);
++        assert!(write(&dir, &value).is_err());
++        assert!(
++            read(&dir, &value.request.operation_id, "wallet-a")
++                .unwrap()
++                .is_none()
++        );
++        assert!(fs::read_dir(&dir).unwrap().all(|entry| {
++            !entry
++                .unwrap()
++                .file_name()
++                .to_string_lossy()
++                .ends_with(".tmp")
++        }));
++    }
++}
++
++#[test]
++fn lost_first_marker_acknowledgement_remains_a_verified_preparing_record() {
++    for point in [WriteFault::AfterRename, WriteFault::AfterDirectorySync] {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let value = preparing();
++        let _reset = fault(point);
++        assert!(write(&dir, &value).is_err());
++        let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++            .unwrap()
++            .unwrap();
++        assert_eq!(recovered.phase, Phase::Preparing);
++        assert_eq!(status(&recovered)["endAuthorized"], false);
++        assert_eq!(status(&recovered)["txid"], serde_json::Value::Null);
++    }
++}
++
++#[test]
++fn failed_commit_authorization_before_rename_preserves_prepared_transaction() {
++    for point in [WriteFault::BeforeCreate, WriteFault::AfterTempFlush] {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let mut value = prepared();
++        write(&dir, &value).unwrap();
++        let signed = value.signed_psbt.clone();
++        value.phase = Phase::Committing;
++        let _reset = fault(point);
++        assert!(write(&dir, &value).is_err());
++        let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++            .unwrap()
++            .unwrap();
++        assert_eq!(recovered.phase, Phase::Prepared);
++        assert_eq!(recovered.signed_psbt, signed);
++        assert_eq!(status(&recovered)["endAuthorized"], false);
++    }
++}
++
++#[test]
++fn lost_commit_authorization_acknowledgement_preserves_exact_signed_bytes() {
++    for point in [WriteFault::AfterRename, WriteFault::AfterDirectorySync] {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let mut value = prepared();
++        write(&dir, &value).unwrap();
++        let signed = value.signed_psbt.clone();
++        let txid = value.txid.clone();
++        value.phase = Phase::Committing;
++        let _reset = fault(point);
++        assert!(write(&dir, &value).is_err());
++        let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++            .unwrap()
++            .unwrap();
++        assert_eq!(recovered.phase, Phase::Committing);
++        assert_eq!(recovered.signed_psbt, signed);
++        assert_eq!(recovered.txid, txid);
++        assert_eq!(status(&recovered)["endAuthorized"], true);
++    }
++}
++
++#[test]
++fn lost_accepted_acknowledgement_is_recoverable_without_new_payment_identity() {
++    for point in [WriteFault::AfterRename, WriteFault::AfterDirectorySync] {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let mut value = prepared();
++        value.phase = Phase::Committing;
++        write(&dir, &value).unwrap();
++        let signed = value.signed_psbt.clone();
++        value.phase = Phase::Accepted;
++        let _reset = fault(point);
++        assert!(write(&dir, &value).is_err());
++        let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++            .unwrap()
++            .unwrap();
++        assert_eq!(recovered.phase, Phase::Accepted);
++        assert_eq!(recovered.signed_psbt, signed);
++        assert_eq!(status(&recovered)["phase"], "accepted");
++    }
++}
++
++#[test]
++fn prepared_record_rejects_changed_transaction_identity_and_wrong_bitcoin_batch() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let _lock = lock_directory(&dir).unwrap();
++    let mut value = prepared();
++    value.txid = Some("cc".repeat(32));
++    write(&dir, &value).unwrap();
++    assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++    value = prepared();
++    value.batch_transfer_index = Some(4);
++    write(&dir, &value).unwrap();
++    assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++}
++
++#[test]
++fn preparing_unsigned_identity_survives_without_claiming_end_authorization() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let _lock = lock_directory(&dir).unwrap();
++    let mut value = preparing();
++    let psbt = unsigned();
++    value.unsigned_psbt = Some(psbt.to_string());
++    value.txid = Some(psbt.unsigned_tx.compute_txid().to_string());
++    write(&dir, &value).unwrap();
++    let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++        .unwrap()
++        .unwrap();
++    assert_eq!(recovered.unsigned_psbt, value.unsigned_psbt);
++    assert_eq!(status(&recovered)["phase"], "preparing");
++    assert_eq!(status(&recovered)["endAuthorized"], false);
++}
++
++#[test]
++fn response_never_exports_spend_authority_or_recipient_information() {
++    let value = prepared();
++    let encoded = response(&value.request.operation_id, Some(&value), false).unwrap();
++    for secret in [
++        value.request.address.as_ref().unwrap(),
++        value.signed_psbt.as_ref().unwrap(),
++        value.unsigned_psbt.as_ref().unwrap(),
++        &value.wallet_binding,
++    ] {
++        assert!(!encoded.contains(secret));
++    }
++}
++
++#[test]
++fn operation_lock_blocks_a_second_writer_and_is_released_on_drop() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let first = lock_directory(&dir).unwrap();
++    assert!(lock_directory(&dir).is_err());
++    drop(first);
++    assert!(lock_directory(&dir).is_ok());
++}
++
++#[cfg(unix)]
++#[test]
++fn symlink_and_world_readable_records_are_errors_not_absence() {
++    use std::os::unix::fs::symlink;
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let _lock = lock_directory(&dir).unwrap();
++    let value = preparing();
++    let external = root.path().join("external.json");
++    fs::write(&external, serde_json::to_vec(&value).unwrap()).unwrap();
++    let target = path(&dir, &value.request.operation_id);
++    symlink(&external, &target).unwrap();
++    assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++    fs::remove_file(&target).unwrap();
++    write(&dir, &value).unwrap();
++    fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).unwrap();
++    assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++}
++
++#[test]
++fn corrupt_persisted_commit_never_becomes_absent_or_prepared() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let _lock = lock_directory(&dir).unwrap();
++    let mut value = prepared();
++    value.phase = Phase::Committing;
++    write(&dir, &value).unwrap();
++    let target = path(&dir, &value.request.operation_id);
++    let mut corrupt = serde_json::to_value(&value).unwrap();
++    corrupt["signedPsbt"] = serde_json::Value::String("not-a-psbt".into());
++    fs::write(&target, serde_json::to_vec(&corrupt).unwrap()).unwrap();
++    assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++}
++
++#[test]
++fn cancellation_marker_cannot_coexist_with_commit_or_acceptance() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let _lock = lock_directory(&dir).unwrap();
++    for phase in [Phase::Committing, Phase::Accepted] {
++        let mut value = prepared();
++        value.phase = phase;
++        value.cancel_requested = true;
++        write(&dir, &value).unwrap();
++        assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++    }
++}
++
++#[test]
++fn rejected_tombstone_retains_command_binding_without_spend_authorization() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let _lock = lock_directory(&dir).unwrap();
++    let mut value = preparing();
++    value.phase = Phase::Rejected;
++    value.cancel_requested = true;
++    value.failure_code = Some("native_preparation_cancelled".into());
++    write(&dir, &value).unwrap();
++    let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++        .unwrap()
++        .unwrap();
++    assert_eq!(recovered.request, value.request);
++    let response = status(&recovered);
++    assert_eq!(response["phase"], "rejected");
++    assert_eq!(response["fingerprint"], value.request.fingerprint);
++    assert_eq!(response["endAuthorized"], false);
++    assert_eq!(response["txid"], serde_json::Value::Null);
++}
++
++#[test]
++fn unsigned_callback_write_failures_never_erase_the_last_authoritative_state() {
++    // The patched native begin invokes this same writer synchronously before
++    // committing its SQL transaction. A returned error aborts that transaction;
++    // a lost acknowledgement after rename still retains the exact PSBT for
++    // recovery. Funded SQL/proxy crash qualification is a separate test scope.
++    for point in [
++        WriteFault::AfterTempFlush,
++        WriteFault::AfterRename,
++        WriteFault::AfterDirectorySync,
++    ] {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let mut value = preparing();
++        write(&dir, &value).unwrap();
++        let psbt = unsigned();
++        value.txid = Some(psbt.unsigned_tx.compute_txid().to_string());
++        value.unsigned_psbt = Some(psbt.to_string());
++        let _reset = fault(point);
++        assert!(write(&dir, &value).is_err());
++        let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++            .unwrap()
++            .unwrap();
++        assert_eq!(status(&recovered)["endAuthorized"], false);
++        if point == WriteFault::AfterTempFlush {
++            assert!(recovered.unsigned_psbt.is_none());
++        } else {
++            assert_eq!(recovered.unsigned_psbt, value.unsigned_psbt);
++            assert_eq!(recovered.txid, value.txid);
++        }
++    }
++}
++
++#[test]
++fn rgb_transfer_metadata_sync_flushes_nested_files_and_rejects_symlinks() {
++    let root = tempfile::tempdir().unwrap();
++    let nested = root.path().join("asset");
++    fs::create_dir(&nested).unwrap();
++    fs::write(root.path().join("transfer.json"), b"metadata").unwrap();
++    fs::write(nested.join("consignment"), b"public-fixture").unwrap();
++    sync_transfer_metadata(root.path(), 0).unwrap();
++    #[cfg(unix)]
++    {
++        std::os::unix::fs::symlink(nested.join("consignment"), root.path().join("linked")).unwrap();
++        assert!(sync_transfer_metadata(root.path(), 0).is_err());
++    }
++}
++
++#[cfg(unix)]
++#[test]
++fn status_read_rejects_unsafe_or_symlink_outbox_directory() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let lock = lock_directory(&dir).unwrap();
++    let value = preparing();
++    write(&dir, &value).unwrap();
++    drop(lock);
++    fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
++    assert!(read(&dir, &value.request.operation_id, "wallet-a").is_err());
++    fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
++    let linked = root.path().join("linked-outbox");
++    std::os::unix::fs::symlink(&dir, &linked).unwrap();
++    assert!(read(&linked, &value.request.operation_id, "wallet-a").is_err());
++}
++
++#[test]
++fn observed_acceptance_is_durable_before_acknowledgement() {
++    let root = tempfile::tempdir().unwrap();
++    let dir = root.path().join("outbox");
++    let _lock = lock_directory(&dir).unwrap();
++    let mut value = prepared();
++    value.phase = Phase::Committing;
++    value.failure_code = Some("native_commit_failed".into());
++    write(&dir, &value).unwrap();
++    let txid = value.txid.clone();
++    remember_acceptance(&dir, &mut value).unwrap();
++    let recovered = read(&dir, &value.request.operation_id, "wallet-a")
++        .unwrap()
++        .unwrap();
++    assert_eq!(recovered.phase, Phase::Accepted);
++    assert_eq!(recovered.txid, txid);
++    assert_eq!(recovered.failure_code, None);
++    assert_eq!(status(&recovered)["endAuthorized"], true);
++}
++
++#[test]
++fn failed_acceptance_ack_never_reports_a_nondurable_receipt() {
++    for point in [WriteFault::BeforeCreate, WriteFault::AfterDirectorySync] {
++        let root = tempfile::tempdir().unwrap();
++        let dir = root.path().join("outbox");
++        let _lock = lock_directory(&dir).unwrap();
++        let mut value = prepared();
++        value.phase = Phase::Committing;
++        write(&dir, &value).unwrap();
++        {
++            let _reset = fault(point);
++            assert!(remember_acceptance(&dir, &mut value).is_err());
++        }
++        let mut recovered = read(&dir, &value.request.operation_id, "wallet-a")
++            .unwrap()
++            .unwrap();
++        assert_eq!(
++            recovered.phase,
++            if matches!(point, WriteFault::BeforeCreate) {
++                Phase::Committing
++            } else {
++                Phase::Accepted
++            }
++        );
++        remember_acceptance(&dir, &mut recovered).unwrap();
++        assert_eq!(
++            read(&dir, &value.request.operation_id, "wallet-a")
++                .unwrap()
++                .unwrap()
++                .phase,
++            Phase::Accepted
++        );
++        // An already durable receipt no longer depends on a writable journal or available history.
++        let _reset = fault(WriteFault::BeforeCreate);
++        assert!(remember_acceptance(&dir, &mut recovered).is_ok());
++    }
++}
++
++#[test]
++fn acceptance_without_commit_authorization_is_rejected() {
++    let root = tempfile::tempdir().unwrap();
++    assert!(remember_acceptance(root.path(), &mut prepared()).is_err());
++}
++
++#[cfg(feature = "uniffi")]
++#[test]
++fn configured_vss_rejects_all_durable_apis_before_journal_access_or_certificate() {
++    use crate::{RlnError, SdkInitRequest, SdkNode};
++    let root = tempfile::tempdir().unwrap();
++    let free_port = || {
++        std::net::TcpListener::bind("127.0.0.1:0")
++            .unwrap()
++            .local_addr()
++            .unwrap()
++            .port()
++    };
++    let node = SdkNode::create(SdkInitRequest {
++        storage_dir_path: root.path().display().to_string(),
++        daemon_listening_port: free_port(),
++        ldk_peer_listening_port: free_port(),
++        network: "regtest".into(),
++        max_media_upload_size_mb: 20,
++        enable_virtual_channels_v0: Some(false),
++        virtual_peer_pubkeys: None,
++        lsp_base_url: None,
++        lsp_bearer_token: None,
++        vss_url: Some("http://127.0.0.1:9".into()),
++        vss_allow_http: false,
++        vss_allow_empty_restore: false,
++        reuse_addresses: false,
++    })
++    .unwrap();
++    let command = serde_json::to_string(&preparing().request).unwrap();
++    let outbox = root.path().join("durable-onchain-v1");
++    let calls: [fn(&SdkNode, String) -> Result<String, RlnError>; 4] = [
++        SdkNode::prepare_onchain_send,
++        SdkNode::commit_onchain_send,
++        SdkNode::onchain_send_status,
++        SdkNode::cancel_onchain_send,
++    ];
++    for call in calls {
++        assert!(
++            matches!(call(&node, command.clone()), Err(RlnError::Internal(message)) if message.contains("do not support VSS restore"))
++        );
++        assert!(
++            !outbox.exists(),
++            "No absent/cancel certificate or journal may be created"
++        );
++    }
++    // Even inconsistent existing journal paths must not be inspected or repaired by this mode.
++    fs::write(&outbox, b"existing unsupported local state").unwrap();
++    for call in calls {
++        assert!(
++            matches!(call(&node, command.clone()), Err(RlnError::Internal(message)) if message.contains("do not support VSS restore"))
++        );
++        assert_eq!(
++            fs::read(&outbox).unwrap(),
++            b"existing unsupported local state"
++        );
++    }
++    node.shutdown();
++}

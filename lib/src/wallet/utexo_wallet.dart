@@ -2,6 +2,10 @@
 // the analyzer does not count those cross-part references as direct uses.
 // ignore_for_file: unused_element, unused_element_parameter
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart' as crypto;
+
 import '../binding/rln_binding.dart';
 import '../client/rln_client.dart';
 import '../errors/rgb_sdk_exception.dart';
@@ -18,6 +22,7 @@ import '../models/utexo_domain_policy.dart';
 import 'burn_operations.dart';
 import 'lightning_policy.dart';
 import 'network_defaults.dart';
+import 'recoverable_storage.dart';
 import 'rln_signers.dart';
 import 'utexo_wallet_types.dart';
 import 'wallet_policy.dart';
@@ -25,6 +30,7 @@ import 'wallet_policy.dart';
 part 'utexo_wallet_lifecycle.dart';
 part 'utexo_wallet_lsp_apay.dart';
 part 'utexo_wallet_onchain.dart';
+part 'recoverable_onchain_send.dart';
 part 'utexo_wallet_lightning.dart';
 part 'utexo_wallet_raw.dart';
 part 'utexo_wallet_guards.dart';

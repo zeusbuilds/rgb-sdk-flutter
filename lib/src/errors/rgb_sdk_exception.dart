@@ -144,6 +144,18 @@ class WalletError extends WalletException {
   const WalletError(super.message, {super.code, super.statusCode, super.cause});
 }
 
+/// The native recovery outbox is missing or is no longer a real directory.
+///
+/// This is retained-state loss, never proof that a payment was not sent. Restore
+/// the complete matching private storage cohort; do not recreate an empty outbox.
+class RecoverableSendStorageException extends WalletException {
+  const RecoverableSendStorageException()
+    : super(
+        'On-chain recovery storage is unavailable. Wallet recovery is required.',
+        code: 'RECOVERABLE_SEND_STORAGE_LOST',
+      );
+}
+
 /// A Dart-side deadline elapsed before a native RLN operation returned.
 ///
 /// Pigeon and the pinned native RLN artifacts do not expose true cancellation

@@ -1,0 +1,500 @@
+diff --git a/src/wallet/offline.rs b/src/wallet/offline.rs
+index 26ed99d..c053845 100644
+--- a/src/wallet/offline.rs
++++ b/src/wallet/offline.rs
+@@ -20,6 +20,54 @@ pub(crate) const MAX_TRANSPORT_ENDPOINTS: usize = 3;
+ 
+ pub(crate) const TRANSFER_DATA_FILE: &str = "transfer_data.txt";
+ 
++// Private envelope for immutable first-POST bytes. A complete envelope is renamed into place
++// only after its file is durable; a valid JSON file alone is insufficient without every binding.
++#[cfg(any(feature = "electrum", feature = "esplora"))]
++#[derive(serde::Serialize, serde::Deserialize)]
++#[serde(deny_unknown_fields)]
++struct DurableSendConsignment {
++    version: u8,
++    txid: String,
++    asset_id: String,
++    digest: String,
++    consignment: String,
++}
++
++#[cfg(any(feature = "electrum", feature = "esplora"))]
++#[derive(serde::Serialize, serde::Deserialize)]
++#[serde(deny_unknown_fields)]
++struct DurableSendManifest {
++    version: u8,
++    txid: String,
++    snapshots: BTreeMap<String, String>,
++}
++
++#[cfg(any(feature = "electrum", feature = "esplora"))]
++impl DurableSendConsignment {
++    fn new(txid: &str, asset_id: &str, bytes: &[u8]) -> Self {
++        Self {
++            version: 1,
++            txid: txid.into(),
++            asset_id: asset_id.into(),
++            digest: <sha256::Hash as Sha256Hash>::hash(bytes).to_string(),
++            consignment: general_purpose::STANDARD.encode(bytes),
++        }
++    }
++    fn bytes(&self, txid: &str, asset_id: &str) -> Result<Vec<u8>, Error> {
++        let bytes = general_purpose::STANDARD
++            .decode(&self.consignment)
++            .map_err(|_| Error::InvalidConsignment)?;
++        if self.version != 1
++            || self.txid != txid
++            || self.asset_id != asset_id
++            || self.digest != <sha256::Hash as Sha256Hash>::hash(&bytes).to_string()
++        {
++            return Err(Error::InvalidConsignment);
++        }
++        Ok(bytes)
++    }
++}
++
+ pub trait WalletOffline: WalletBackup {
+     fn bitcoin_network(&self) -> BitcoinNetwork {
+         self.wallet_data().bitcoin_network
+@@ -3041,6 +3089,160 @@ pub trait WalletOffline: WalletBackup {
+         Ok(())
+     }
+ 
++    // Once a consignment may have reached a proxy, its bytes must survive stash changes. Snapshot
++    // every asset atomically before any POST, with the exact txid, asset and byte digest bound in
++    // each snapshot. Partial staging files are never authoritative and snapshots are never replaced.
++    #[cfg(any(feature = "electrum", feature = "esplora"))]
++    fn gen_immutable_send_consignments(
++        &self,
++        fascia: &Fascia,
++        transfer_info_map: &BTreeMap<String, InfoAssetTransfer>,
++        transfer_dir: &PathBuf,
++        txid: &str,
++    ) -> Result<(), Error> {
++        let durable_dir = transfer_dir.join("durable_send_consignments");
++        let snapshots_dir = durable_dir.join("snapshots");
++        let staging_dir = durable_dir.join("building");
++        for directory in [&durable_dir, &snapshots_dir, &staging_dir] {
++            fs::create_dir_all(directory)?;
++            if !fs::symlink_metadata(directory)?.file_type().is_dir() {
++                return Err(Error::InvalidConsignment);
++            }
++            fs::File::open(directory.parent().ok_or(Error::InvalidConsignment)?)?.sync_all()?;
++        }
++        let expected = transfer_info_map
++            .keys()
++            .map(|id| id.replace(ASSET_ID_PREFIX, ""))
++            .collect::<BTreeSet<_>>();
++        let manifest_path = durable_dir.join("complete.json");
++        let completed: Option<DurableSendManifest> = match fs::symlink_metadata(&manifest_path) {
++            Ok(metadata) if !metadata.file_type().is_file() => {
++                return Err(Error::InvalidConsignment);
++            }
++            Ok(_) => Some(
++                serde_json::from_reader(fs::File::open(&manifest_path)?)
++                    .map_err(|_| Error::InvalidConsignment)?,
++            ),
++            Err(error) if error.kind() == ErrorKind::NotFound => None,
++            Err(error) => return Err(error.into()),
++        };
++        if completed.as_ref().is_some_and(|manifest| {
++            manifest.version != 1
++                || manifest.txid != txid
++                || manifest.snapshots.keys().cloned().collect::<BTreeSet<_>>() != expected
++        }) {
++            return Err(Error::InvalidConsignment);
++        }
++        let mut snapshot_digests = BTreeMap::new();
++        for entry in fs::read_dir(&snapshots_dir)? {
++            let entry = entry?;
++            if !entry.file_type()?.is_file()
++                || !expected.contains(&entry.file_name().to_string_lossy().to_string())
++            {
++                return Err(Error::InvalidConsignment);
++            }
++        }
++        for (asset_id, transfer_info) in transfer_info_map {
++            let name = asset_id.replace(ASSET_ID_PREFIX, "");
++            let snapshot = snapshots_dir.join(&name);
++            if !snapshot.exists() {
++                if completed.is_some() {
++                    return Err(Error::InvalidConsignment);
++                }
++                let staged_asset_dir = self.get_asset_transfer_dir(&staging_dir, asset_id);
++                fs::create_dir_all(&staged_asset_dir)?;
++                if !fs::symlink_metadata(&staged_asset_dir)?
++                    .file_type()
++                    .is_dir()
++                {
++                    return Err(Error::InvalidConsignment);
++                }
++                let generated = self.get_send_consignment_path_impl(&staged_asset_dir);
++                if fs::symlink_metadata(&generated).is_ok() {
++                    fs::remove_file(&generated)?;
++                }
++                let one_asset = BTreeMap::from([(asset_id.clone(), transfer_info.clone())]);
++                self.gen_consignments(fascia, &one_asset, &staging_dir)?;
++                let bytes = fs::read(generated)?;
++                let saved = DurableSendConsignment::new(txid, asset_id, &bytes);
++                let temporary = staging_dir.join(format!("{name}.snapshot"));
++                if fs::symlink_metadata(&temporary).is_ok() {
++                    fs::remove_file(&temporary)?;
++                }
++                let mut file = fs::OpenOptions::new()
++                    .write(true)
++                    .create_new(true)
++                    .open(&temporary)?;
++                serde_json::to_writer(&mut file, &saved).map_err(|_| Error::InvalidConsignment)?;
++                file.sync_all()?;
++                fs::rename(temporary, &snapshot)?;
++                fs::File::open(&snapshots_dir)?.sync_all()?;
++                fs::File::open(&staging_dir)?.sync_all()?;
++            }
++            if !fs::symlink_metadata(&snapshot)?.file_type().is_file() {
++                return Err(Error::InvalidConsignment);
++            }
++            let envelope_bytes = fs::read(snapshot)?;
++            let digest = <sha256::Hash as Sha256Hash>::hash(&envelope_bytes).to_string();
++            if completed
++                .as_ref()
++                .is_some_and(|manifest| manifest.snapshots.get(&name) != Some(&digest))
++            {
++                return Err(Error::InvalidConsignment);
++            }
++            snapshot_digests.insert(name, digest);
++            let saved: DurableSendConsignment =
++                serde_json::from_slice(&envelope_bytes).map_err(|_| Error::InvalidConsignment)?;
++            let bytes = saved.bytes(txid, asset_id)?;
++            let asset_dir = self.get_asset_transfer_dir(transfer_dir, asset_id);
++            fs::create_dir_all(&asset_dir)?;
++            if !fs::symlink_metadata(&asset_dir)?.file_type().is_dir() {
++                return Err(Error::InvalidConsignment);
++            }
++            let destination = self.get_send_consignment_path_impl(&asset_dir);
++            let temporary = asset_dir.join("consignment_out.restoring");
++            if fs::symlink_metadata(&temporary).is_ok() {
++                fs::remove_file(&temporary)?;
++            }
++            let mut file = fs::OpenOptions::new()
++                .write(true)
++                .create_new(true)
++                .open(&temporary)?;
++            file.write_all(&bytes)?;
++            file.sync_all()?;
++            // Parse before exposing the restored file, including its exact contract identity.
++            let consignment =
++                RgbTransfer::load_file(&temporary).map_err(|_| Error::InvalidConsignment)?;
++            if consignment.contract_id() != transfer_info.asset_info.contract_id {
++                return Err(Error::InvalidConsignment);
++            }
++            fs::rename(&temporary, destination)?;
++            fs::File::open(&asset_dir)?.sync_all()?;
++            fs::File::open(transfer_dir)?.sync_all()?;
++        }
++        if completed.is_none() {
++            let manifest = DurableSendManifest {
++                version: 1,
++                txid: txid.into(),
++                snapshots: snapshot_digests,
++            };
++            let temporary = staging_dir.join("complete.json");
++            if fs::symlink_metadata(&temporary).is_ok() {
++                fs::remove_file(&temporary)?;
++            }
++            let mut file = fs::OpenOptions::new()
++                .write(true)
++                .create_new(true)
++                .open(&temporary)?;
++            serde_json::to_writer(&mut file, &manifest).map_err(|_| Error::InvalidConsignment)?;
++            file.sync_all()?;
++            fs::rename(temporary, &manifest_path)?;
++            fs::File::open(&durable_dir)?.sync_all()?;
++            fs::File::open(&staging_dir)?.sync_all()?;
++        }
++        Ok(())
++    }
++
+     fn asset_link_ifa_data(
+         &self,
+         asset_id: &str,
+diff --git a/src/wallet/online.rs b/src/wallet/online.rs
+index 286f3fb..99eb2a4 100644
+--- a/src/wallet/online.rs
++++ b/src/wallet/online.rs
+@@ -21,6 +21,71 @@ const SIGNED_PSBT_FILE: &str = "signed.psbt";
+ 
+ const MIN_FEE_RATE: u64 = 1;
+ 
++fn posted_consignment_matches(
++    expected: &[u8],
++    txid: &str,
++    vout: Option<u32>,
++    existing: &GetConsignmentResponse,
++) -> bool {
++    existing.txid == txid
++        && existing.vout == vout
++        && existing.consignment.len()
++            <= expected
++                .len()
++                .saturating_add(2)
++                .saturating_div(3)
++                .saturating_mul(4)
++        && general_purpose::STANDARD
++            .decode(&existing.consignment)
++            .is_ok_and(|actual| actual == expected)
++}
++
++#[cfg(test)]
++mod durable_consignment_tests {
++    use super::*;
++    #[test]
++    fn only_the_exact_prior_post_can_be_resumed() {
++        let bytes = b"exact outgoing consignment";
++        let mut existing = GetConsignmentResponse {
++            consignment: general_purpose::STANDARD.encode(bytes),
++            txid: "a".repeat(64),
++            vout: Some(2),
++            validated: None,
++        };
++        assert!(posted_consignment_matches(
++            bytes,
++            &existing.txid,
++            Some(2),
++            &existing
++        ));
++        assert!(!posted_consignment_matches(
++            bytes,
++            &"b".repeat(64),
++            Some(2),
++            &existing
++        ));
++        assert!(!posted_consignment_matches(
++            bytes,
++            &existing.txid,
++            Some(1),
++            &existing
++        ));
++        assert!(!posted_consignment_matches(
++            b"other consignment",
++            &existing.txid,
++            Some(2),
++            &existing
++        ));
++        existing.consignment = "invalid base64".into();
++        assert!(!posted_consignment_matches(
++            bytes,
++            &existing.txid,
++            Some(2),
++            &existing
++        ));
++    }
++}
++
+ pub(crate) const UTXO_SIZE: u32 = 1000;
+ pub(crate) const UTXO_NUM: u8 = 5;
+ 
+@@ -3455,6 +3520,7 @@ pub trait WalletOnline: WalletOffline {
+         txid: String,
+         vout: Option<u32>,
+     ) -> Result<(), Error> {
++        let consignment_path = consignment_path.as_ref();
+         let consignment_res =
+             proxy_client.post_consignment(&recipient_id, consignment_path, &txid, vout)?;
+         debug!(
+@@ -3462,15 +3528,31 @@ pub trait WalletOnline: WalletOffline {
+             "Consignment POST response: {:?}", consignment_res
+         );
+ 
+-        if let Some(err) = consignment_res.error {
+-            if err.code == -101 {
+-                Err(Error::RecipientIDAlreadyUsed)?;
++        // Proxy versions encode an occupied recipient either as error -101 or as result false.
++        // Neither is an acceptance certificate for this operation without checking the saved bytes.
++        let duplicate = consignment_res
++            .error
++            .as_ref()
++            .is_some_and(|err| err.code == -101)
++            || (consignment_res.error.is_none() && consignment_res.result == Some(false));
++        if duplicate {
++            let existing = proxy_client.get_consignment(&recipient_id)?;
++            if existing.error.is_none() {
++                if let Some(existing) = existing.result {
++                    let expected = fs::read(consignment_path)?;
++                    if posted_consignment_matches(&expected, &txid, vout, &existing) {
++                        return Ok(());
++                    }
++                }
+             }
++            return Err(Error::RecipientIDAlreadyUsed);
++        }
++        if let Some(err) = consignment_res.error {
+             return Err(Error::InvalidTransportEndpoint {
+                 details: format!("proxy error: {}", err.message),
+             });
+         }
+-        if consignment_res.result.is_none() {
++        if consignment_res.result != Some(true) {
+             return Err(Error::InvalidTransportEndpoint {
+                 details: s!("invalid result"),
+             });
+@@ -4375,6 +4457,18 @@ pub trait WalletOnline: WalletOffline {
+     }
+ 
+     fn send_end_impl(&mut self, txn: &DbTxn, signed_psbt: &Psbt) -> Result<OperationResult, Error> {
++        let txid = signed_psbt.unsigned_tx.compute_txid().to_string();
++        if txn.get_batch_transfers_by_txid(&txid)?.iter().any(|batch| {
++            !batch.incoming
++                && !matches!(
++                    batch.status,
++                    TransferStatus::Initiated | TransferStatus::WaitingCounterparty
++                )
++        }) {
++            return Err(Error::InvalidPsbt {
++                details: s!("send has already progressed or failed"),
++            });
++        }
+         let (txid, transfer_dir, mut info_contents, mut fascia) =
+             self.get_transfer_end_data(signed_psbt)?;
+ 
+@@ -4388,10 +4482,22 @@ pub trait WalletOnline: WalletOffline {
+             fascia.update_pub_witness(PubWitness::with(tx));
+         }
+ 
+-        self.gen_consignments(&fascia, &info_contents.transfers, &transfer_dir)?;
++        if info_contents.donation {
++            self.gen_consignments(&fascia, &info_contents.transfers, &transfer_dir)?;
++        } else {
++            self.gen_immutable_send_consignments(
++                &fascia,
++                &info_contents.transfers,
++                &transfer_dir,
++                &txid,
++            )?;
++        }
+ 
+         let psbt_out = transfer_dir.join(SIGNED_PSBT_FILE);
+-        fs::write(psbt_out, signed_psbt.to_string())?;
++        fs::write(&psbt_out, signed_psbt.to_string())?;
++        // WaitingCounterparty is durable below; its background broadcast must retain this file.
++        fs::File::open(&psbt_out)?.sync_all()?;
++        fs::File::open(&transfer_dir)?.sync_all()?;
+ 
+         let mut medias = None;
+         let mut tokens = None;
+diff --git a/src/wallet/singlesig.rs b/src/wallet/singlesig.rs
+index 4b65331..2bb8808 100644
+--- a/src/wallet/singlesig.rs
++++ b/src/wallet/singlesig.rs
+@@ -996,6 +996,38 @@ impl Wallet {
+         dry_run: bool,
+         lock_time: Option<u32>,
+     ) -> Result<SendBeginResult, Error> {
++        self.send_begin_with_durable_callback(
++            online,
++            recipient_map,
++            donation,
++            fee_rate,
++            min_confirmations,
++            expiration_timestamp,
++            dry_run,
++            lock_time,
++            |_| Ok(()),
++        )
++    }
++
++    /// Prepare a send while durably associating its exact unsigned transaction with a caller's
++    /// operation before native reservations may commit. The callback must not broadcast or call
++    /// back into this wallet. On callback error SQL rolls back; its on-disk files remain unsigned.
++    #[allow(clippy::too_many_arguments)]
++    pub fn send_begin_with_durable_callback<F>(
++        &mut self,
++        online: Online,
++        recipient_map: HashMap<String, Vec<Recipient>>,
++        donation: bool,
++        fee_rate: u64,
++        min_confirmations: u8,
++        expiration_timestamp: u64,
++        dry_run: bool,
++        lock_time: Option<u32>,
++        prepared: F,
++    ) -> Result<SendBeginResult, Error>
++    where
++        F: FnOnce(&SendBeginResult) -> Result<(), Error>,
++    {
+         info!(self.logger(), "Sending (begin) to: {:?}...", recipient_map);
+         self.check_online(online)?;
+         let txn = self.database().begin_transaction()?;
+@@ -1012,12 +1044,7 @@ impl Wallet {
+         if !dry_run {
+             self.update_backup_info(&txn, false)?;
+         }
+-        txn.commit()?;
+-        if !dry_run {
+-            self.trigger_auto_backup();
+-        }
+-        info!(self.logger(), "Send (begin) completed");
+-        Ok(SendBeginResult {
++        let result = SendBeginResult {
+             psbt: begin_op_data.psbt.to_string(),
+             batch_transfer_idx: begin_op_data.batch_transfer_idx,
+             details: SendDetails {
+@@ -1030,7 +1057,14 @@ impl Wallet {
+                 entropy: begin_op_data.info_batch_transfer.entropy,
+                 is_donation: donation,
+             },
+-        })
++        };
++        prepared(&result)?;
++        txn.commit()?;
++        if !dry_run {
++            self.trigger_auto_backup();
++        }
++        info!(self.logger(), "Send (begin) completed");
++        Ok(result)
+     }
+ 
+     /// Complete the send operation by saving the PSBT to disk, POSTing consignments to the RGB
+@@ -1182,12 +1216,42 @@ impl Wallet {
+         dry_run: bool,
+         lock_time: Option<u32>,
+     ) -> Result<String, Error> {
++        self.send_btc_begin_with_durable_callback(
++            online,
++            address,
++            amount,
++            fee_rate,
++            skip_sync,
++            dry_run,
++            lock_time,
++            |_| Ok(()),
++        )
++    }
++
++    /// Associate the unsigned transaction durably before its input reservations can commit.
++    /// The callback must not broadcast or re-enter this wallet.
++    #[allow(clippy::too_many_arguments)]
++    pub fn send_btc_begin_with_durable_callback<F>(
++        &mut self,
++        online: Online,
++        address: String,
++        amount: u64,
++        fee_rate: u64,
++        skip_sync: bool,
++        dry_run: bool,
++        lock_time: Option<u32>,
++        prepared: F,
++    ) -> Result<String, Error>
++    where
++        F: FnOnce(&str) -> Result<(), Error>,
++    {
+         info!(self.logger(), "Sending BTC (begin)...");
+         self.check_online(online)?;
+         let txn = self.database().begin_transaction()?;
+         let res = self.send_btc_begin_impl(
+             &txn, address, amount, fee_rate, skip_sync, dry_run, lock_time,
+         )?;
++        prepared(&res.to_string())?;
+         if !dry_run {
+             self.update_backup_info(&txn, false)?;
+         }

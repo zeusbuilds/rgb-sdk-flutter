@@ -479,6 +479,10 @@ protocol RlnHostApi {
   func rlnRefreshTransfers(nodeId: Int64, skipSync: Bool) throws -> RlnRefreshTransfersData
   func rlnRgbInvoice(nodeId: Int64, assetId: String?, assignmentAmount: Int64?, durationSeconds: Int64?, minConfirmations: Int64, witness: Bool, assignmentKind: String?) throws -> RlnWireResponse
   func rlnSendBtc(nodeId: Int64, amount: Int64, address: String, feeRate: Double, skipSync: Bool) throws -> RlnWireResponse
+  func rlnPrepareOnchainSend(nodeId: Int64, requestJson: String) throws -> String
+  func rlnCommitOnchainSend(nodeId: Int64, requestJson: String) throws -> String
+  func rlnOnchainSendStatus(nodeId: Int64, requestJson: String) throws -> String
+  func rlnCancelOnchainSend(nodeId: Int64, requestJson: String) throws -> String
   func rlnSendPayment(nodeId: Int64, invoice: String, amtMsat: Int64?, assetId: String?, assetAmount: Int64?) throws -> RlnWireResponse
   func rlnSendRgb(nodeId: Int64, donation: Bool, feeRate: Double, minConfirmations: Int64, skipSync: Bool, assetId: String, recipientId: String, amount: Int64, transportEndpoints: [String], witnessAmountSat: Int64?, witnessBlinding: Int64?) throws -> RlnWireResponse
   func rlnShutdown(nodeId: Int64) throws
@@ -1601,6 +1605,78 @@ class RlnHostApiSetup {
       }
     } else {
       rlnSendBtcChannel.setMessageHandler(nil)
+    }
+    let rlnPrepareOnchainSendChannel = taskQueue == nil
+      ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnPrepareOnchainSend\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+      : FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnPrepareOnchainSend\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec, taskQueue: taskQueue)
+    if let api = api {
+      rlnPrepareOnchainSendChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let nodeIdArg = args[0] as! Int64
+        let requestJsonArg = args[1] as! String
+        do {
+          let result = try api.rlnPrepareOnchainSend(nodeId: nodeIdArg, requestJson: requestJsonArg)
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      rlnPrepareOnchainSendChannel.setMessageHandler(nil)
+    }
+    let rlnCommitOnchainSendChannel = taskQueue == nil
+      ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnCommitOnchainSend\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+      : FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnCommitOnchainSend\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec, taskQueue: taskQueue)
+    if let api = api {
+      rlnCommitOnchainSendChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let nodeIdArg = args[0] as! Int64
+        let requestJsonArg = args[1] as! String
+        do {
+          let result = try api.rlnCommitOnchainSend(nodeId: nodeIdArg, requestJson: requestJsonArg)
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      rlnCommitOnchainSendChannel.setMessageHandler(nil)
+    }
+    let rlnOnchainSendStatusChannel = taskQueue == nil
+      ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnOnchainSendStatus\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+      : FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnOnchainSendStatus\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec, taskQueue: taskQueue)
+    if let api = api {
+      rlnOnchainSendStatusChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let nodeIdArg = args[0] as! Int64
+        let requestJsonArg = args[1] as! String
+        do {
+          let result = try api.rlnOnchainSendStatus(nodeId: nodeIdArg, requestJson: requestJsonArg)
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      rlnOnchainSendStatusChannel.setMessageHandler(nil)
+    }
+    let rlnCancelOnchainSendChannel = taskQueue == nil
+      ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnCancelOnchainSend\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+      : FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnCancelOnchainSend\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec, taskQueue: taskQueue)
+    if let api = api {
+      rlnCancelOnchainSendChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let nodeIdArg = args[0] as! Int64
+        let requestJsonArg = args[1] as! String
+        do {
+          let result = try api.rlnCancelOnchainSend(nodeId: nodeIdArg, requestJson: requestJsonArg)
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      rlnCancelOnchainSendChannel.setMessageHandler(nil)
     }
     let rlnSendPaymentChannel = taskQueue == nil
       ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnSendPayment\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
