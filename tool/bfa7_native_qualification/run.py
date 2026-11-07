@@ -8,7 +8,7 @@ SDK = Path(__file__).resolve().parents[2]
 FIXTURE = Path('/Users/hardik/Projects/utexo-wdk-onchain-candidate/sdk-alpha12-funded-android/fixture')
 ASSET = 'rgb:kOryemwN-I8Iutl8-otIPmDa-rn1cPTq-7VuhGvS-oe6oiMc'
 CONTRACT_HASH = '189674bd83baa0a74c06f86d4652d896e7725f33285b9e25c8006b2087044cb0'
-BIN = SDK / '.buildlog/bfa7-native/target-host/debug/flutter-bfa7-native-qualification'
+BIN = SDK / '.buildlog/bfa7-finalize/target-host/debug/flutter-bfa7-native-qualification'
 
 
 def require(condition, message):
@@ -33,7 +33,7 @@ def main():
     require(BIN.is_file(), 'Build the qualification client first.')
     manifest_file = SDK / 'native/rgb_l1/source-manifest.json'
     manifest = json.loads(manifest_file.read_text())
-    source = SDK / '.buildlog/bfa7-native/source'
+    source = SDK / '.buildlog/bfa7-finalize/source'
     tree = manifest['integration']['tree']
     require(subprocess.run(['git', '-C', str(source), 'diff', '--quiet', tree],
                            capture_output=True).returncode == 0, 'Sealed source tree changed.')

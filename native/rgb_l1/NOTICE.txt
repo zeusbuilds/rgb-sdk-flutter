@@ -19,3 +19,14 @@ The dependency inventory and available third-party license texts accompany the
 release artifacts. An inventory is not a complete license approval or a claim
 that all dependency source or attribution obligations have been discharged.
 Unresolved licensing dispositions remain a publication gate.
+
+SDK integration and recovery boundary
+-------------------------------------
+Backup capability statements apply to the public Flutter RgbLibWallet API and
+its platform operation policy. Bundled upstream UniFFI/Rust signing, Begin/End,
+recipient and asset mutation entry points are not a standalone restore-safe API
+when called outside that policy. Restored-wallet spending and mnemonic-only RGB
+recovery are unsupported without an approved freshness/cross-copy authority.
+The successor native generic refresh entry point rejects restored snapshots
+because pending-transfer refresh may ACK or broadcast transactions. See the SDK
+doc/RGB_LIB_BACKUP_RECOVERY.md for the complete supported contract.

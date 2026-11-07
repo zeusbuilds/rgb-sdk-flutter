@@ -451,23 +451,51 @@ extension RgbLibDurableOperations on RgbLibWallet {
     RecoverableOnchainSendCommand command,
   ) => _durableCall('onchainSendStatus', command);
 
-  /// Cancels only preparation that never received durable commit authorization.
+  /// Cancels only preparation which has not started external submission.
+  /// If a Commit overtakes this request, cancellation stays a protected no-op.
   Future<RecoverableOnchainSendStatus> cancelOnchainSend(
     RecoverableOnchainSendCommand command,
   ) => _durableCall('cancelOnchainSend', command);
+
+  /// Explicitly revoke a dispatched RGB send on its exact approved sender proxy.
+  /// Requires a verified native capability, a signing wallet and an online session.
+  /// Only affirmative complete revocation releases the reservation. An uncertain
+  /// response or an already released transaction remains protected. This action
+  /// never replays End and must not be called by passive status/recovery checks.
+  Future<RecoverableOnchainSendStatus> revokeOnchainSend(
+    RecoverableOnchainSendCommand command,
+  ) => _durableCall(
+    'revokeOnchainSend',
+    command,
+    online: true,
+    revocation: true,
+  );
 
   Future<RecoverableOnchainSendStatus> _durableCall(
     String operation,
     RecoverableOnchainSendCommand command, {
     bool online = false,
+    bool revocation = false,
   }) => _accept(() async {
     final identity = _recoveryIdentity(signing: online);
+    if (revocation && _runtime?.supportsDispatchedRgbRevocation != true) {
+      throw const RgbLibWalletException(
+        'Dispatched RGB cancellation is not supported by this native runtime.',
+        code: 'UNSUPPORTED_CAPABILITY',
+      );
+    }
     RgbLibRecoverableCodec.requireWallet(
       command,
       network: network,
       walletBinding: identity.id,
       recoveryCohort: identity.recoveryCohort!,
     );
+    if (revocation && command.kind != RecoverableOnchainSendKind.rgb) {
+      throw const WalletValidationException(
+        'Only an RGB operation can use sender-proxy revocation.',
+        field: 'command',
+      );
+    }
     if (online) await _ensureOnline();
     final result = await _invoke(operation, {
       'handle': _handle!,

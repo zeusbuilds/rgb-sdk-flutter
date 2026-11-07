@@ -1,6 +1,6 @@
 # BFA.7 Flutter native integration
 
-Candidate reviewed on 2026-11-07. **RGB_L1 remains gated in Aster and in release
+Candidate reviewed on 2026-11-08. **RGB_L1 remains gated in Aster and in release
 qualification.** This document describes implemented mechanisms and their
 verification boundaries; it is not mainnet or hosted Dev approval.
 
@@ -9,15 +9,15 @@ verification boundaries; it is not mainnet or hosted Dev approval.
 Both mobile platforms use upstream BFA.7
 `9ec49c08be2e68f08521281e3efbd760ec989cb9`, UniFFI 0.32.2 and Flutter bridge 5.
 The separately named native version is
-`0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1`; it does not relabel an upstream
+`0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2`; it does not relabel an upstream
 binary. `native/rgb_l1/source-manifest.json` pins the base tree, four reviewed
 core patches, guarded Esplora dependency, Flutter integration patch, dependency
 lock, generator, compiler and platform targets. `tool/build_rgb_lib_bfa7.py`
 rejects altered source, external dependencies, target stamps and tool inputs.
 
-The integration tree is `c06ffffce1f0fd5273113132295fce3e6be25052` and the
+The integration tree is `8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e` and the
 UniFFI lock SHA-256 is
-`4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f`.
+`81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6`.
 Final archives have independent exact size/digest pins. Runtime initialization
 compares their actual metadata with the reviewed source/overlay/manifest/lock
 identities before reading mnemonic material. Existing BFA.5 directories are
@@ -45,6 +45,16 @@ backing chain's blocks**. They cannot be inferred from a Bitcoin network name
 or copied from an unrelated test fixture. `getReceivedMint` exposes the six
 actual native mint fields with exact unsigned amounts; it does not invent an
 asset identifier absent from the native record.
+
+A full online session validates every configured EVM chain, including finalized
+and historical-state access. Removing a host's preliminary chain-ID check does
+not remove that native dependency. `init()` and `openExisting()` without unlock
+can open local state; local RGB metadata, balances, transfers and receipts are
+available. The current BTC balance/history facade still requires an online
+session even with `skipSync: true`. A deliberate Bitcoin-only degraded mode
+would need separate capability handling, disabled BFA-dependent actions and a
+serialized same-cohort reopen before restoring the full online configuration.
+It is not implemented by silently omitting EVM validation or changing endpoints.
 
 ## Durable send protocol
 
@@ -87,6 +97,11 @@ and the native two-handle exclusion/release regression.
 4. **Cancel** releases only the exact certified undispatched reservation and
    retains a tombstone that blocks a late Prepare. A potentially submitted
    operation cannot be canceled by elapsed time or an empty transaction list.
+5. **Revoke** is a separate, explicitly authorized operation for dispatched RGB
+   payments. It verifies the exact request, original endpoint and signing
+   authority. An affirmative signed revocation is durably recorded before
+   releasing the local reservation. An ambiguous response leaves it protected.
+   Ordinary Cancel and Status never acquire this authority.
 
 Ordinary monetary mutations, including raw Begin/End, maintenance and future
 unknown operations, are blocked while the native recovery fence is active.
@@ -108,13 +123,21 @@ A normal process restart reopens the same native outbox/cohort and checks
 status without replaying payment submission. An independently lost app marker
 does not remove the native mutation fence.
 
+Provisioned wallets use capability-checked `openExisting`; missing storage
+cannot become a new wallet. `init` and `reinit` retain their documented
+create-or-open semantics. Bounded, strict profile parsing rejects damaged or
+substituted metadata before opening a wallet. See the
+[backup and recovery boundary](RGB_LIB_BACKUP_RECOVERY.md).
+
 Encrypted backup includes native wallet state, outbox and receipt data. Restore
 uses private staging, rejects occupied destinations and publishes only a valid
 archive. Every actual restore receives a fresh restore stamp. A valid backup
 may be older than a payment sent later, so **a restored snapshot is not trusted
 as proof of nonexecution**. It is quarantined with
-`RECOVERY_RESTORE_UNCERTAIN`: new spending and cancellation are blocked, while
+`RECOVERY_RESTORE_UNCERTAIN`: new spending, cancellation, revocation and generic
+transfer refresh are blocked, while
 exact historical or positively observed acceptance can still be inspected.
+Generic refresh may ACK or broadcast and is not an observation-only operation.
 There is no time-based expiry or automatic unquarantine. A reviewed freshness
 authority and recovery procedure remain prerequisites for unrestricted
 restored-wallet spending. Seed import alone does not reconstruct RGB state.
@@ -135,13 +158,23 @@ The exact patched dependency lock has zero known vulnerabilities and zero
 unsound notices at RustSec
 `309392b18f6b17022f82c701f300433126901068`. Three unmaintained dependencies remain;
 see `native/rgb_l1/security-review.json`. This audit does not approve funds
-safety. Static iOS inputs still reference DiskSpace APIs; call-path review and
-final signed-archive privacy evidence remain required. Dual-engine packages
-also retain RLN's independent security/privacy blockers.
+safety. The exact `.2` RGB_L1 component has no linked DiskSpace imports across
+all six framework/architecture pairs. This does not claim that unreferenced
+members of the raw Rust static archive have no such symbols. Final signed-app
+API and aggregate privacy evidence remain required. Dual-engine packages also
+retain RLN's independent security/privacy blockers.
 
-Before lifting the gate, qualify the exact platform archives, clean consumer
-acquisition, funded BTC/RGB delivery, network/process interruption, partial
-submission, reorg/reconfirmation, backup freshness and final release packaging.
+The SDK completed 20 installed funded/native cases across iOS 27 and Android 17,
+followed by 14 separate offline wrapper/storage-opening cases. Host proofs
+cover interruptions, partial submission and reorg/reconfirmation under their
+recorded source identities; they are not additional mobile cases. Aster's full
+funded flow and distinct same-artifact process-cold reopen now pass on both
+platforms, with its explicit one-confirmation receive policy verified on Android.
+The native-only `.2` beta is published and clean public iOS/Android acquisition
+passes. Final immutable consumer pinning, signed release packaging and deployment
+approval remain separate gates. An approved
+freshness/old-copy retirement authority is still absent, so restored RGB
+snapshots remain protected and seed-only RGB recovery is unsupported.
 The issuer-approved **current Dev BUSDT export/hash/metadata**, matched backing
 contracts, explicit mint-lock policy and hosted funded acceptance remain
 missing. The historical BFA.5 contract is never a substitute.

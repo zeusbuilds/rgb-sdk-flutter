@@ -1,11 +1,119 @@
 # BFA.7 qualification evidence
 
-Reviewed on 2026-11-07. **RGB_L1 remains gated.** These are executed host-native, iOS and Android consumer
-checks against the existing isolated regtest fixture, not approval of a hosted
-Dev asset or a public release. Mechanism and release boundaries are described in
+Reviewed on 2026-11-08. **RGB_L1 and Dev remain gated.** The current `.2`
+successor, integration `8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e`, passed all
+10 installed SDK consumer cases on each of iOS 27 and Android 17, including
+explicit revocation and the restored-snapshot refresh fence. Its 48 focused
+native checks and the subsequent 47 maintained Android bridge tests also pass. The earlier
+`.1` evidence below is retained with its original identities; the final
+[successor section](#successor-2-explicit-revocation-reorganization-and-restore-boundary)
+records the new source, artifacts, failures, fixes and platform results.
+
+These are executed checks against the existing isolated regtest fixture, not
+approval of a hosted Dev asset, unrestricted portable RGB recovery or a public
+production release. Mechanism and release boundaries are described in
 [BFA7_NATIVE_INTEGRATION.md](BFA7_NATIVE_INTEGRATION.md).
 
-## Source and dependency identity
+## Final Aster consumer acceptance, November 8
+
+Aster completed the existing-fixture BTC/RGB flow on both platforms: 100,000
+satoshi funding, one 1,000 satoshi BTC payment, receipt of 100 QBFA base units,
+one 50-unit RGB return, confirmed gross history and 50 settled/spendable RGB
+units remaining. These are **isolated QBFA base units, not public USDT**.
+Both wallets then passed a distinct process-stop/relaunch of the same installed
+artifact with the same identity/cohort, balances, confirmed references and no
+native/app pending fence. The cold branch does not mount UI sync owners, invoke
+generic transfer refresh, run maintenance bootstrap or create another payment.
+
+iOS evidence composes original `g` onboarding/lifecycle/bootstrap, `h` BTC and
+incoming RGB, and final `k` same-wallet RGB return/cold reopen. The original
+incoming invoice used the previous zero-confirmation policy and was independently
+confirmed three times; it is not relabeled as evidence of the new policy.
+Android `k` runs the final fresh flow: a new one-confirmation invoice first
+produced `WaitingConfirmations`, future 100, settled 0 and spendable 0. Exactly
+one mined block then settled the same transfer. Aster explicitly requests one
+confirmation for amountful and amountless witness requests. The SDK's documented
+zero default remains compatible; adapter regressions cover both variants and
+pending/mature balance mapping.
+
+| Evidence | SHA-256 |
+| --- | --- |
+| ios full-flow report | `05edf2c76d243e1c25edb5b945654ee0a85207d640ac317edd1bb17a40347e01` |
+| ios distinct cold-process report | `b92d33a4ea4309332294cd56f6718be652ebedafe6a922e1b913ab09fcd4bfa2` |
+| ios owner allowlist | `35b8edff61803a5903be19ef6bc9f68df4a7ee8fd59b68c2dee9b997db4d1f2c` |
+| ios independent acceptance | `65719361bcbe0e71fa0a89a6f8bccb5d9e8dbc745916416f30e4033f36675027` |
+| android full-flow report | `ae0efabf463cbe1379fd14981658b3384e79370134c09cc9e782aff532cad97c` |
+| android distinct cold-process report | `69543e1e4ca011df75c71aae56e9bf0b9b6b105da20f0af2e2c94fa7072c803a` |
+| android owner allowlist | `cc75ef23e5921c3f0f536c19de0c0ad00f8f5436bbc43172320bc467c5d3adf7` |
+| android independent acceptance | `d3fdfef052771516e112adaa473794ab8b700829e074220fe17a5a0aa2d55a24` |
+
+Owner reports are below Aster's
+`.buildlog/rgb-l1-full-flow/aster-l1-{ios,android}-20261107-k/`.
+Independent acceptance and read-only chain observations are below the SDK's
+`.buildlog/bfa7-finalize/evidence/ASTER_{IOS,ANDROID}_{ACCEPTANCE,CHAIN_OBSERVATIONS}.json`.
+Each platform's 28 admitted source files match its built artifact. Runtime
+events verify the final `8ac556ee...` seal and all four registration, durable
+recovery, revocation and existing-only capabilities. Android APK SHA-256 is
+`82f84f7d14fc243019e8e69bde572befbdc63670c3431f517d46c3f2c27650aa`;
+the iOS Runner file-tree SHA-256 is
+`eff129c88465347ac09a0e1612ff20df6a7d938fe6304d74e317e3f1e1f5fa25`.
+Android ran on actual 16,384-byte pages with compatibility fallback disabled;
+all ten APK ELFs/30 load segments and ZIP placement meet 16 KiB alignment.
+
+Independent Esplora reads confirmed all four named transactions on each
+platform and preserved original baseline block 270. Approved witness values
+and observed fees reconcile each final BTC total exactly:
+`100000 + 1000 - 1000 - 1000 - (155 + 284 + 256) = 98305` satoshis.
+Vanilla spendable BTC is 18,561; protected RGB outputs are not silently treated
+as vanilla spendable value.
+
+Failed QA runs remain distinct. An old launcher uninstalled its own disposable
+QA package; pre-existing user Aster/Iris wallets were untouched. Later runs keep
+the app and keys installed. Test-only lifecycle, text-input focus, stale prose
+and SDK-file observer fixes do not weaken production authentication. Android
+host funding first failed definitively before dispatch because the issuer's
+cache was stale. That rejected command was preserved and never committed.
+After observing the exact prior transfer and refreshed spendable change, a
+separately authorized new command funded the same unused invoice once. No
+automatic monetary retry, new mint, container creation or reset is claimed.
+
+This closes executed Aster storage/full-flow/cold-reopen qualification, not
+production activation. Public native acquisition is verified below; the exact
+SDK/App source pin is recorded separately after the SDK commit. Portable restored spending, Dev
+contract/deployment approval, EVM-degraded operation, terminal-journal capacity
+disposition and final signed-app/independent legacy RLN privacy remain gated.
+
+## Published native beta and clean acquisition
+
+The native-only qualification prerelease is
+[native-bfa7-flutter.2](https://github.com/UTEXO-Protocol/flutter-sdk/releases/tag/native-bfa7-flutter.2).
+The public tag points to existing distribution commit
+`7c44506fdfe1dae6f3a6fe884f849c7ca2ad028b`, not a private SDK/app commit.
+All seven server asset digests/sizes match their admitted local bytes. Fresh
+anonymous HTTPS downloads of all seven assets match those same pins.
+
+An unmodified iOS installer ran in a new empty consumer/cache with no local
+archive or offline override, producing and verifying 47 framework files. A
+fresh linked scan of all six framework/architecture pairs again found zero
+DiskSpace imports while retaining durability calls and isolated FFI exports.
+The actual Android consumer Gradle `verifyRgbLibNativeArtifact` task passed
+with refreshed dependency resolution, the public release URL and neither
+native artifact-directory override. This is `.2` acquisition evidence, not
+reused `.1` evidence.
+
+| Acquisition evidence under `.buildlog/bfa7-finalize/evidence/` | SHA-256 |
+| --- | --- |
+| `FRESH_PUBLIC_DOWNLOADS.json` | `606f6e870b690ccd1725ac252455bda50a3672c7290903a02d5b4a3067effd1c` |
+| `FRESH_PUBLIC_IOS_INSTALLER.json` | `2bf135dce8f691a4c74e4b0c7fb39a86c096b839324417ca51bbc44b82b9f78b` |
+| `FRESH_PUBLIC_IOS_LINKED_PRIVACY.json` | `0bcfe2e811b414247209d29040e99e5325f55372c613cafe7792d689154c2c1c` |
+| `FRESH_PUBLIC_ANDROID_RESOLVER.json` | `778cde3c9aa9e9c85e143f4c7745fac5b20f83e3fc2cc483ae7fe1df02e91930` |
+
+The final private SDK commit and its immutable Aster consumer pin are created
+after this component evidence. Aster records the post-pin source and final
+full-suite verification separately. Beta publication/acquisition does not lift
+production, restored-spending, Dev or final signed-app/legacy privacy gates.
+
+## Historical .1 source and dependency identity
 
 The native upstream source is BFA.7
 `9ec49c08be2e68f08521281e3efbd760ec989cb9`, with Flutter's
@@ -426,10 +534,10 @@ The following paths are relative to `.buildlog/bfa7-native/evidence/android/`:
 | `consumer-build.json` | `09a647675ba056ef9a6fab8fde415d00b04e97a3c181d03f959fb56e680c5194` |
 | `device.json` | `95c19ce971fb8ed045cfbbd5e437128a920beb1c148c40e1de0fcfb1ff2f0687` |
 
-## Remaining qualification boundaries
+## Historical .1 qualification boundaries
 
-Clean acquisition and final Aster release artifact checks remain pending until
-their actual results are recorded.
+At the `.1` stage, clean acquisition and final Aster release artifact checks
+remained pending until their actual results were recorded.
 Compiling Kotlin/Swift bindings alone is not an installed-runtime test. No
 physical-device or public Dev/mainnet funded proof is claimed here.
 
@@ -443,8 +551,329 @@ need inspection after the final SDK pin; source policy alone is not artifact pro
 
 Additional partial-dispatch boundaries, reorg/reconfirmation, backup
 freshness authority and unrestricted restored-wallet spending, clean consumer
-acquisition and final release packaging/privacy evidence remain separate gates.
+acquisition and final release packaging/privacy evidence were separate gates.
+The successor results below close the executed mechanism cases, while retaining
+the stated deployment, freshness-authority and release-artifact boundaries.
 An old but coherent restored snapshot stays quarantined; these tests did not
 invent authority to spend from it. The team must still supply and approve the
 current Dev BUSDT public export, digest, exact metadata and matching backing
 deployment/policy before that asset is admitted.
+
+## Successor .2: explicit revocation, reorganization and restore boundary
+
+The successor version is
+`0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2`, bridge 5. The durable protocol
+domain remains `flutter-bfa7-durable-v1` and the exact approved-command envelope
+remains version 3. Changing implementation identity did not invalidate old
+outbox authentication or turn an existing command into a new payment.
+
+| Current identity | Value |
+| --- | --- |
+| BFA.7 upstream | `9ec49c08be2e68f08521281e3efbd760ec989cb9` |
+| Integration tree | `8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e` |
+| Overlay patch SHA-256 | `d3369ff9d4dfd5638781b259688ee9bd9f43e52464b61e6408ea7a75c81bc273` |
+| Source manifest SHA-256 | `cf769ed49356e49a914dff638a4bddee9fd57fc6ebecf4b0193d8dd53aec2897` |
+| Sealed UniFFI lock SHA-256 | `81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6` |
+| Host consumer lock SHA-256 | `99341b92d4b80b0cba681a3cdc6b9d80633f109a0c0cd96a1fb14013745ca51c` |
+| Rust compiler | `1.94.0 (4a4ef493e, 2026-03-02)` |
+| Host executable SHA-256 | `0876686e441b882213d0ef0df57606a24100ae5cb635c319a336bb36b257b304` |
+| Android AAR, 51,476,045 bytes | `73301c7c7e7d3844aa30c0ff8ccc78b3ebd360327c652e7718b252877761fc42` |
+| iOS ZIP, 164,553,560 bytes | `60c33914222a62a822440bf155babd0b030a74f4fc166f7bd5c5955e6f49932c` |
+| Portable consumer Dart source SHA-256 | `34643c57a1d60263d51e9f96c384919a2752db38ced3890ebd47e7d26a17c7f2` |
+
+The host consumer again matches all 507 shared dependency packages. The only
+additional root is the qualification client. SQLite is the sealed local source
+admitted by this successor manifest; the earlier `.1` lock and source hashes
+above are historical and are not substituted for the new tuple.
+
+### Failures reproduced and corrected
+
+1. **Partial RGB dispatch:** the sender proxy accepted ACK registration, but no
+   consignment was uploaded. Published `.1` could not safely release it. The
+   successor adds explicit `revokeOnchainSend` / `revoke_onchain_send`; an ordinary
+   Cancel or passive Status never acquires this authority. Exact native request,
+   recipient, operation secret and original sender endpoint are checked before
+   signed `ack.clean`. Only affirmative revocation permits a durable certificate
+   followed by local release. Unknown, released, false, malformed and unavailable
+   replies retain protection. Accepted submission takes precedence.
+2. **Confirmation loss:** old settled native rows were not reliably revalidated.
+   Positive confirmation loss now demotes the affected transfer and descendants,
+   retains the accepted submission receipt, and removes unsafe spendability.
+   Reconsidering only owned new blocks restores the same rows and allocations.
+3. **Active observation outage:** the first `.2` candidate
+   `08f7ac7b8a357ae09716bf11144f327ec9f9e559` incorrectly projected 547 units as
+   5,995 after demoting historical generations. Recovery then admitted one
+   generation per refresh. The corrected c1 source preserves last-known SQL
+   history/balances when observations are unavailable, reports refresh failure,
+   and fails closed before Begin/End. One authoritative refresh recovered all
+   eight previously waiting historical rows from the same preserved files.
+4. **Partial refresh reported as current:** a detailed native refresh can contain
+   both successful and failed entries. The SDK convenience `refreshWallet` now
+   throws payload-free `REFRESH_INCOMPLETE` if any entry failed. Detailed
+   `refreshTransfers` remains available without discarding its typed results.
+   Aster explicitly inspects those results before publishing a fresh portfolio.
+5. **Restored-snapshot refresh bypass:** generic native refresh can ACK, broadcast
+   or rebroadcast pending transfers. Allowing it on a restored snapshot could
+   bypass the spending quarantine. The current seal checks the restore marker,
+   authenticated outbox state and managed-journal presence before Online
+   admission. Restored generic refresh rejects with `RECOVERY_RESTORE_UNCERTAIN`;
+   supported local metadata and historical accepted receipt/Status remain readable.
+
+The c1 integration `c1be7c60249188b5b86974cb2c09466afa6843e4` passed actual
+normal-wallet outage, partial-dispatch revocation and reorg/reconfirmation
+campaigns before the final restore-refresh finding. Their records remain c1
+records with release admission explicitly false. A source comparison against the
+current seal proves that the complete `durable_observation.rs`,
+`settled_revalidation.rs`, `database/mod.rs` and `wallet/core.rs` files are
+unchanged. The production differences are the restore-marker helper, authenticated
+refresh-authority helper, online guard invocation and singlesig delegation.
+Existing exact observation, revocation, revalidation and balance-accounting
+algorithms are retained. The current installed mobile campaigns verify the added
+supported boundary; no new final-seal live reorg or partial-dispatch campaign is
+claimed or inferred by renaming the earlier evidence.
+
+The c1 outage intentionally called one previously prepared RGB Commit while a
+read-only proxy gateway would reject any mutation. It returned
+Prepared/submission_not_started with no End authorization; the gateway observed
+**zero attempted external mutations**. A new BTC Prepare was also rejected.
+Ordinary Cancel then released only that known-unsubmitted plan. The temporary
+prepared reservation restricted spendability; unavailable observation alone did
+not fabricate a zero balance. Service restoration recovered the same native
+projection and accepted receipt without a payment retry.
+
+The corrected live one-unit reorg used only owned blocks 277–279 above preserved
+baseline 276. Both transfer rows returned to their original unconfirmed state,
+including sender row 14 and receiver row 11. The original blocks were reconsidered,
+the same submission receipt survived, and final sender/receiver balances were
+546/254. This establishes conservation of scoped fungible QBFA allocations, not
+inflation or mint-right conservation. Esplora service failures were recorded
+separately; infrastructure recovery reused its existing container and index data.
+
+### Executed current native and bridge checks
+
+The exact frozen native source passed 27 durable/recovery checks, 10 backup
+admission checks, 10 reorganization/accounting checks and one iOS storage guard
+check: **48** focused checks. The four snapshot-boundary checks are a subset of
+the durable checks, not four additional cases. They include actual encrypted
+pending incoming/outgoing snapshots and cover cold reopen, persisted quarantine
+after marker removal, missing managed journals, marker aliases and preservation
+of normal current-wallet refresh. No general upstream test suite that could
+create containers was run.
+
+An additional eight offline mock-HTTP observation cases passed against a separate
+test-only copy of the exact current seal. The production body was unchanged;
+only a cfg(test) module was included. This establishes exact loss-of-response
+observation behavior with controlled HTTP fixtures, not another live reorg or
+payment campaign. The proof records current source and test-module digests and
+retains all earlier mock evidence separately.
+
+The maintained Android Gradle task `:rgb_sdk_flutter:testDebugUnitTest` passed
+**42 tests** with both artifact checksum tasks executed against the final local
+AAR. This includes real runtime-metadata type preservation, absence-default-false
+capability behavior, explicit revocation authority, unknown-operation rejection
+and sanitized backup errors. Swift wire/pending-policy/type regressions also
+passed and are invoked by the quality workflow. These host checks are separate
+from the actual installed JNI/Swift results below.
+
+### Installed iOS 27 and Android 17 consumers
+
+Both fresh consumer campaigns passed all ten cases using the current native
+identity. Each report persists the actual `getRuntimeInfo` result: native version,
+source revision, bridge version, integration tree, patch/lock/manifest digests
+and explicit revocation capability. The previous test wallets and keys were
+preserved; no application wallet was reset. Before Android package replacement,
+its old owned test cache was also retained in an ignored owner-only archive.
+
+| Case | Installed verification on both platforms |
+| --- | --- |
+| 1 | Both wallet engines load; the actual RLN and RGB_L1 artifact identities match. No Lightning payment is exercised. |
+| 2 | Raw Dev open is rejected before parsing supplied keys or creating storage. |
+| 3 | Exact BFA contract/metadata registration is idempotent and credits zero assets. |
+| 4 | A forged persisted address cannot seed signing or watch-only address caches; native derivation owns each reopened session. |
+| 5 | An absence cancellation survives reopen and rejects delayed Prepare. |
+| 6 | Native witness recipient parsing/public-key width and nullable received-mint observation remain accurate. |
+| 7 | A funded BTC plan survives reopen, preserves its exact command and fences ordinary mutations; cancellation spends no BTC. |
+| 8 | Receive 100 QBFA, prepare 50, reopen, Commit exactly once, retain the accepted gross receipt across another reopen, settle after three confirmations and retain exactly 50. |
+| 9 | Invoke the new explicit Revoke on the original accepted command, obtaining the unchanged receipt; prepare a fresh own one-unit request without Commit, explicitly revoke, reopen and verify rejection/no pending/no broadcast/no balance or fee change. |
+| 10 | Encrypted snapshot preserves cohort and accepted receipts; restored refreshTransfers, refreshWallet, Prepare and explicit Revoke all reject with RECOVERY_RESTORE_UNCERTAIN while supported local metadata and historical receipt/Status remain readable. |
+
+The post-dispatch signed revocation protocol is established by the separate live
+host proof. Mobile case 9 establishes actual additive JNI/Swift API invocation,
+accepted fast-path behavior and pre-dispatch cancellation; it does not claim a
+second mobile post-dispatch fault campaign.
+
+The iOS consumer ran on the existing iPhone 18 Pro Max simulator with iOS 27.0,
+bundle `com.utexo.bfa7AbiSmoke`. It linked the reviewed frameworks installed from
+the exact `.2` ZIP. The Android consumer was a release/R8 arm64 build on API 37,
+Android 17, with actual `getconf PAGESIZE=16384`. Both linker and package-manager
+16 KiB compatibility fallback switches were disabled. The complete APK's five
+native ELF files and `zipalign -c -P 16 4` passed. The installed APK's SHA-256
+matches the built APK:
+`718805cd628d5bbec99dbe3d06d59acd3b7999b59739d22ca0d589fb5b90600e`
+(142,887,895 bytes). Iris's separate emulator and wallet were untouched.
+
+| Platform | 100 QBFA incoming transaction | 50 QBFA return transaction | Confirmed remaining units |
+| --- | --- | --- | --- |
+| iOS | `356ab5752394bbb29dc76108cf1d01014bb5ebed823b9f70dfd8959b95592949` | `0e11addca89cbbcdcf5dc76d4ab165ccc2d1ceb24ca25e24c8942b509485d670` | 50 |
+| Android | `79de8a4a00080316f51bb1b8e83752c0248f013301d06b6c066879ad2a9e8e4f` | `9929bdebfc28a3e3296c087cd79db24ac48a57062585edebe8e36af9f59c65d5` | 50 |
+
+Each monetary leg was dispatched once and confirmed with three blocks. Each
+fresh mobile wallet received exactly 100,000 test sats and explicitly created
+three 1,000-sat prepared outputs before its RGB transfer. Host funding used
+existing QBFA; no new mint, backing deployment or container was created. For each
+return, the host only refreshed the existing recipient and mined confirmation;
+it never called Commit on the mobile payment.
+
+A final current-seal readback found sender 346, receiver 354, 15 immutable accepted
+host receipts and no pending operation. Those two preserved host wallets plus
+the two fresh 50-unit mobile wallets conserve the original scoped 800 fungible
+units. Core was height 303, tip
+`57b45987e7935ca450d84978b93cd2e85d5b3c9753308fb4c4b0587093b649c3`,
+with an empty mempool. The temporary public descriptor server was stopped and
+only the campaign's four adb reverse mappings were removed before the Aster
+verification handoff.
+
+### Successor evidence digests
+
+Paths in this table are relative to `.buildlog/bfa7-finalize/`. Wallets, mnemonics,
+PSBTs and detailed native stdout remain private and are not publication assets.
+
+| Evidence | SHA-256 |
+| --- | --- |
+| `evidence/SEALED_SOURCE.json` | `2b94d81585e47645bb5a1aa22ef7db138b93540832768d300edb108cd504e4af` |
+| `evidence/SOURCE_ALGORITHM_RETENTION.json` | `aac685fc8f720485416eaa5c9c411fe5470145e11520d221171eb8c26c4693bd` |
+| `evidence/ACTIVE_OUTAGE_FAILURE_08F7.json` | `2c6e0e40f9ae1a27b98e90526276db26a5241414b7674c574beed5d4787ca5b2` |
+| `evidence/PRESERVED_WALLET_RECOVERY_C1.json` | `f1e059974c94671ffb9992e27cb176b00c19a282da5ed46786831d8e23ca2c50` |
+| `evidence/ACTIVE_OUTAGE_C1.json` | `814bc34f70ed7df2845c3aec8def8d73e61aac47c576548a37ec5af09aecdf20` |
+| `evidence/REORG_C1.json` | `400244b33d95e88cc3befd81d09db88205158182fd67548fbc888869402e69b6` |
+| `evidence/REVOCATION_C1.json` | `a6f5d8fe8226ff95d320b0efe152d2d191ea8fca091a3986dff2222db14b63cb` |
+| `evidence/FINAL_HEALTHY_WALLET_8AC.json` | `9b1318d32a2f46c478023a609cbab7e7d4faa66b250755b5d945e4a9e8c9680c` |
+| `evidence/FINAL_POST_MOBILE_WALLETS_8AC.json` | `0d853ecac2f34ac952b6264ef16abd5f6372f0a9b5fa5af50658840e9872bd89` |
+| `evidence/ANDROID_GRADLE_JUNIT.json` | `5b267786c95b3e8da198fc02002a7e7a3c815fc1dc4ab037eca7225ca1219fd6` |
+| `evidence/ANDROID_FINAL_APK_ELF.json` | `607a6e980899b311a2dc25a3ca1dae09562489bf199b19be3c2f61aa36934709` |
+| `mobile-campaign-ios/IOS_FINAL_10_CASES.json` | `87e64da7ace5f21e01954a684b58232b74a4ab9991978c68a89106bd2d94d1b8` |
+| `mobile-campaign-ios/completed-public-reports/bfa7-smoke-final.json` | `170957f8cb84a9502b6ab13afbcf3b316a1ea44f6b5a74024a50716c7af4c167` |
+| `mobile-campaign-ios/completed-public-reports/bfa7-smoke-runtime.json` | `47f61bf973c6734423dc84096943871230902bb57722e13402ffc2a35924f4ae` |
+| `mobile-campaign-ios/completed-public-reports/bfa7-smoke-rgb-explicit-revocation.json` | `ad2d44f8d8738e539c62e958606789c25a414b9dadd0fb2588ccde3fcec3e856` |
+| `mobile-campaign-ios/RETURN_RESULT.json` | `f6c6996a9a47d3c77c0c806ffdecd0c7b91f773c951bf8c41e528d2af69f63f7` |
+| `mobile-campaign-android/ANDROID_FINAL_10_CASES.json` | `52c4e94135cd6441696b6552ea781ae8adaee35b766927f661892a20866d4b6c` |
+| `mobile-campaign-android/DEVICE_BUILD.json` | `7428f11a8b4ef60b6f70372d306ec61b88b602789a676e9e84f0e38ad8169afe` |
+| `mobile-campaign-android/completed-public-reports/bfa7-smoke-final.json` | `abdb86682432ba2b5fb48360cfe73c51cd0f064ae65bfac258a8a15c6156396d` |
+| `mobile-campaign-android/completed-public-reports/bfa7-smoke-runtime.json` | `3708af32b6bbdb8a8cda9d79193112003a81099f33657ad26df305bde72e343e` |
+| `mobile-campaign-android/completed-public-reports/bfa7-smoke-rgb-explicit-revocation.json` | `4755b43e9e352bdbbc75c9d67415266171afa4e6dad026698714249fc0deeae6` |
+| `mobile-campaign-android/RETURN_RESULT.json` | `ece4c98bdbfe77b7f42129538618e77cb10a454e53a81e1f7d7cd42f0800af4f` |
+| `restored-refresh-durable-regression.log` | `b9412edfa8406d717c6d0ff41a92b0e6fbdc8c649a1fe9984f8e50546aabf81e` |
+| `restored-refresh-reorg-regression.log` | `dd3528cad24b1f3392d559faa135f84321de8c424c3246630fc0fa7107e43472` |
+| `restored-refresh-backup-regression.log` | `2cc99ffda56ce04bf622124a4d9a416d62958737198348edcf3ca83bb663473d` |
+| `restored-refresh-ios-regression.log` | `9007efce5fd11d9344c11bad1b46c3a15cdc7a71e8a21cecbee2cd2105a1f43d` |
+| `fault-observation-host-8ac556ee67db-proof.json` | `7746302729b147006202e0f92f5d7a50c7166873b5e1e53506bae3b4cdcf0cae` |
+| `fault-observation-host-8ac556ee67db.log` | `9dfc027acb9d74e4de44584d02df45198de7d0e8b6ed074449871c254b4fa4e7` |
+
+### Boundaries that these results do not close
+
+- No approved service currently establishes portable snapshot freshness or
+  excludes a later spend by another copy. Restored spending therefore remains
+  quarantined and mnemonic-only RGB recovery is not advertised. This remains a
+  production release-policy blocker, not permission to clear unknown operations.
+- The real fixture is isolated regtest QBFA, not team-approved Dev USDT or
+  mainnet USDT. Dev contract export/digest/metadata, backing deployment and mint
+  lock policy still require explicit team approval and deployment qualification.
+- The separately recorded Aster installed full/cold flows and clean public `.2`
+  acquisition now pass. Final immutable consumer pinning, signed release artifacts
+  and deployment/privacy acceptance remain distinct; earlier `.1` download proofs
+  are never relabeled as `.2` evidence.
+- No physical-device, public mainnet funded, inflation-right conservation or
+  unrestricted cross-copy recovery result is claimed. Lightning remains outside
+  this release's functional scope.
+
+See [BFA7_RECOVERY_QUALIFICATION_MATRIX.md](BFA7_RECOVERY_QUALIFICATION_MATRIX.md)
+for the mechanism-by-mechanism status and maintained executable checks.
+
+## Additive wrapper guard verification, 2026-11-08
+
+The installed Aster campaign exposed an integration issue that the standalone
+SDK consumer could not establish: Aster placed `.aster-storage-owner` in the
+native storage root before SDK initialization. The SDK correctly rejected that
+nonempty new root with `WALLET_STORAGE_NOT_EMPTY`, before native wallet creation
+or any transfer. Aster now separates its token-owned parent from a fixed
+`rgb-l1` native child; unexpected old native files in the parent are rejected
+rather than bypassed. Independent source review and the app's focused tests
+cover the parent/child, reopen and recursive deletion boundaries. The app's
+restarted installed campaign remains its own acceptance record.
+
+That review also identified the need for an explicit existing-only SDK entry
+point. `openExisting([onlineParams])` is additive; `init` and `reinit` retain their
+legacy create-or-open semantics. The new call requires the strictly typed
+`supportsExistingOnlyOpen` capability from the **compiled platform wrapper**
+before reading keys. An old wrapper with the same Rust archive cannot silently
+ignore `requireExisting:true`. Under its exclusive lease, the current wrapper
+requires an existing native root profile before constructing a native Wallet or
+initializing recovery. Missing storage returns `WALLET_STORAGE_MISSING`, without
+falling back to a new cohort. Existing profile, outbox and SQL authentication
+remain native responsibilities.
+
+Open and encrypted restore now share a profile reader with a 65,536-byte limit
+checked before and during reading. It accepts only regular files, strict UTF-8
+and the legitimate format-2 flat object/scalar grammar, with bounded finite
+numeric tokens. It rejects comments, single/unquoted strings, nested containers,
+malformed escapes/surrogates, raw NUL and other encodings before invoking a
+platform JSON parser. This is necessary because Android JSONTokener accepts
+nonstandard comments and strings, and Foundation can autodetect UTF-16/32.
+A quote-only depth scan would not establish the same grammar on either platform.
+Malformed/unreadable/over-budget profile metadata becomes the existing typed
+profile-mismatch code for its operation. The scoped reader does not catch or
+remap native wallet/recovery/monetary failures.
+
+The frozen wrapper passed **47 maintained Gradle tests**, the Swift wire/policy
+suite including 33 invalid profile fixtures, and real generated-API compilation
+for Kotlin and all three supported Swift targets. Four additional Dart recovery
+tests verify missing/false/malformed wrapper capabilities, pre-key rejection,
+strict-mode forwarding, typed missing-storage behavior, lifecycle protection
+and unchanged legacy open behavior.
+
+Two separate consumer identifiers then exercised the exact final wrapper:
+`com.utexo.bfa7ExistingSmoke` on iOS 27 and
+`com.utexo.bfa7_existing_smoke` on Android 17/API 37 with actual 16 KiB pages and
+compatibility fallback disabled. Each passed these seven offline cases:
+
+1. A new instance opens the existing profile with the same binding and cohort;
+   an already-open instance cannot acquire another session.
+2. Missing storage is rejected without creating its directory or a profile.
+3. Empty storage is rejected without native state; subsequent normal init in
+   that same test directory succeeds, proving the failed-open lease released.
+4. Structurally invalid existing metadata is rejected and retained unchanged.
+5. Malformed JSON, root arrays, unreadable files, 65,537-byte files, the exact
+   comment/quote/deep-container bypass, UTF-16 and invalid UTF-8 all fail with
+   typed profile errors and no native wallet creation.
+6. Removing only an unfunded test wallet's native child state cannot replace its
+   original root profile/cohort with a fresh same-seed wallet.
+7. Raw string, integer and explicit-null `requireExisting` arguments reject
+   before native key parsing or storage access. Missing flags retain false for
+   compatibility. Kotlin preserves original map-key presence because
+   JSONObject(Map) otherwise drops explicit null.
+
+These are **14 new offline, unfunded platform checks**, subsequent to the earlier
+20 funded/native checks. No indexer/proxy connection, funding, transfer or Rust
+archive change occurred. The microconsumer Dart source SHA-256 is
+`e295fc1e93efdb9082ead897e7eb3a076aaa6394f8d1d65765ec7be5755a369f`;
+its Android release/R8 APK SHA-256 is
+`2939101ea8451143e61e85e7a1465d32825d3a556c360b78bb6e9607b1db1705`.
+The existing Android AVD was cold-booted without snapshot save, wipe or creation
+after storage capacity recovered; its original userdata remained in place.
+Only the previously owned Aster reverse mappings were restored before device
+ownership returned to the app campaign. Funded SDK and application wallets were
+not reset or opened by this microconsumer.
+
+| Additional evidence, relative to `.buildlog/bfa7-finalize/` | SHA-256 |
+| --- | --- |
+| `existing-open-mobile-proof/RESULT.json` | `4723cef4a29f352a55e7ea81bf72d9ada123a4dd240c45a674c74df50a0a0476` |
+| `existing-open-mobile-proof/ios.json` | `5d6f3a205dac49b4ebfcea81f4a8a0da60143d6a3e0a04a5a21b9d61b8817164` |
+| `existing-open-mobile-proof/android.json` | `2ba845ddb16f74bf28a12bcc9be807da9d97526a9041750805e1c9f6fc02e5bb` |
+| `evidence/EXISTING_OPEN_PROFILE_JUNIT.json` | `d15e18eb7d1350ca649ab547ab5bad5c6da8c20a559e837ebe022793e4b63a89` |
+| `existing-open-profile-final-junit.log` | `896486220db653f6e37f11549f9cd5d8bc4c512431d18b2b2ad2e0d12f4f2052` |
+| `final-profile-swift-review.log` | `2c0d7a77500e7490c49e6a2760ee1f8f5a3ffb8c02a25a0e6fe08dd67f0fcc38` |
+| `adapter-qualification/PROOF.json` | `0a6ca1e24c437fe7c44821720041c6efc40788b7438e39635a3d79de24ab9d42` |
+
+Existing-only admission does not restore lost RGB state, prove portable snapshot
+freshness or remove the restored-wallet mutation fence. The deployment and
+recovery-authority boundaries above remain unchanged.

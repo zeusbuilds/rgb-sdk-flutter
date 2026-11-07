@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -22,6 +23,22 @@ SPEC.loader.exec_module(BUILD)
 
 
 class NativeAdmissionTests(unittest.TestCase):
+    def test_ios_sqlite_flags_are_exact_target_specific_and_not_ambient(self):
+        manifest = {"build": {"minIosVersion": "16.0"}, "sqlite3": {
+            "iosCompileFlags": ["SQLITE_ENABLE_LOCKING_STYLE=0", "RGB_SQLITE_IOS_CONTAINER_ONLY=1"]}}
+        with patch.dict(os.environ, {"LIBSQLITE3_FLAGS": "-U__APPLE__"}), \
+                patch.object(BUILD, "run", return_value="/admitted/ios-sdk"):
+            for target in ("aarch64-apple-ios", "aarch64-apple-ios-sim", "x86_64-apple-ios"):
+                env = BUILD.build_env(manifest, target)
+                self.assertEqual(env["LIBSQLITE3_FLAGS"],
+                                 "-DSQLITE_ENABLE_LOCKING_STYLE=0 -DRGB_SQLITE_IOS_CONTAINER_ONLY=1")
+                self.assertEqual(env["SDKROOT"], "/admitted/ios-sdk")
+                self.assertNotIn("-U__APPLE__", env["LIBSQLITE3_FLAGS"])
+            self.assertNotIn("LIBSQLITE3_FLAGS", BUILD.build_env(manifest))
+            manifest["sqlite3"]["iosCompileFlags"].append("-U__APPLE__")
+            with self.assertRaisesRegex(ValueError, "Unreviewed iOS SQLite"):
+                BUILD.build_env(manifest, "aarch64-apple-ios")
+
     def test_patch_content_and_containment_are_both_required(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -140,6 +157,43 @@ class NativeAdmissionTests(unittest.TestCase):
             with zipfile.ZipFile(archive) as source:
                 self.assertEqual(source.getinfo("build.sh").external_attr >> 16, 0o100755)
                 self.assertEqual(source.getinfo("Cargo.toml").external_attr >> 16, 0o100644)
+
+    def test_extracted_source_preserves_both_cargo_sqlite_dependency_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, esplora, sqlite = (root / name for name in ("source", "esplora", "sqlite"))
+            for directory in (source, esplora, sqlite):
+                directory.mkdir()
+                (directory / "Cargo.toml").write_text('[package]\nname="fixture"\nversion="1.0.0"\n')
+                subprocess.run(["git", "init", "--quiet", str(directory)], check=True)
+            uniffi = source / "bindings/uniffi"
+            uniffi.mkdir(parents=True)
+            (uniffi / "Cargo.toml").write_text('[patch.crates-io]\nlibsqlite3-sys={path="../../../sqlite3-sys"}\n')
+            with (source / "Cargo.toml").open("a") as manifest:
+                manifest.write('[patch.crates-io]\nlibsqlite3-sys={path="../sqlite3-sys"}\n')
+            for directory in (source, esplora, sqlite):
+                subprocess.run(["git", "-C", str(directory), "add", "--all"], check=True)
+            native = root / "native"
+            native.mkdir()
+            pin = native / "source-manifest.json"
+            pin.write_text('{}')
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            (root / "tool").mkdir()
+            for name in ("build_rgb_lib_bfa7.py", "test_build_rgb_lib_bfa7.py", "install_rgb_lib_ios.py"):
+                (root / "tool" / name).write_text('# source-build tool\n')
+            with patch.object(BUILD, "ROOT", root), patch.object(BUILD, "SOURCE", source), \
+                    patch.object(BUILD, "ESPLORA", esplora), patch.object(BUILD, "SQLITE", sqlite), \
+                    patch.object(BUILD, "NATIVE", native), patch.object(BUILD, "MANIFEST", pin), \
+                    patch.object(BUILD, "ARTIFACTS", artifacts), \
+                    patch.object(BUILD, "GENERATED", root / "generated"), \
+                    patch.object(BUILD, "release_attribution", return_value={}):
+                archive = BUILD.package_source({"version": "fixture", "sqlite3": {}}, b'{}', {})
+            unpacked = root / "unpacked"
+            with zipfile.ZipFile(archive) as bundle:
+                bundle.extractall(unpacked)
+            self.assertTrue((unpacked / "rgb-lib-bfa/../sqlite3-sys/Cargo.toml").is_file())
+            self.assertTrue((unpacked / "rgb-lib-bfa/bindings/uniffi/../../../sqlite3-sys/Cargo.toml").is_file())
 
     def test_dependency_inventory_discloses_missing_license_text_without_local_paths(self):
         with tempfile.TemporaryDirectory() as temporary:

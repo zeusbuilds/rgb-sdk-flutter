@@ -6,13 +6,52 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/native_ios_privacy_policy.dart';
 
 void main() {
-  test('the exact BFA.7 candidate retains its independent privacy fence', () {
+  test('the exact BFA.7 successor retains its final-app privacy fence', () {
     final review = rgbLibIosPrivacyDisposition();
     expect(review['sourceCommit'], '9ec49c08be2e68f08521281e3efbd760ec989cb9');
-    expect(review['status'], 'blocked-known-unresolved');
+    expect(review['status'], 'blocked-final-app-review');
     expect(review['productionReady'], false);
-    expect('${review['blockers']}', contains('statfs/fstatfs'));
+    expect(review['linkedDiskSpaceImports'], isEmpty);
     expect('${review['blockers']}', contains('signed-app'));
+    expect('${review['blockers']}', contains('legacy RLN'));
+  });
+  test('older RGB_L1 archives retain their independent DiskSpace blocker', () {
+    for (final inputs in [
+      (
+        '9ec49c08be2e68f08521281e3efbd760ec989cb9',
+        'b6d5baaaec5433f5f69b2da6f43a25225d7d7e4d441e1868de08ce34d022c11d',
+      ),
+      (
+        '0a9d352f2690902df2b6fae9bca1a6c13c3354d4',
+        '44890e57b78935a2c7842d9baeed5172bbd99e9b2b91c6a599fbc2c745760669',
+      ),
+    ]) {
+      final review = rgbLibIosPrivacyDispositionForInputs(
+        sourceCommit: inputs.$1,
+        archiveSha256: inputs.$2,
+      );
+      expect(review['status'], 'blocked-known-unresolved');
+      expect(review['productionReady'], false);
+      expect('${review['blockers']}', contains('statfs/fstatfs'));
+    }
+  });
+  test('an unknown RGB_L1 pair cannot inherit the linked-component review', () {
+    for (final inputs in <(Object?, Object?)>[
+      (
+        '1' * 40,
+        '60c33914222a62a822440bf155babd0b030a74f4fc166f7bd5c5955e6f49932c',
+      ),
+      ('9ec49c08be2e68f08521281e3efbd760ec989cb9', '2' * 64),
+      (null, null),
+    ]) {
+      final review = rgbLibIosPrivacyDispositionForInputs(
+        sourceCommit: inputs.$1,
+        archiveSha256: inputs.$2,
+      );
+      expect(review['status'], 'unreviewed');
+      expect(review['productionReady'], false);
+      expect(review.containsKey('linkedDiskSpaceImports'), false);
+    }
   });
   test(
     'exact audited source and archive retain the known DiskSpace blocker',

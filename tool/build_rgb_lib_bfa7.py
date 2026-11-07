@@ -24,9 +24,10 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 NATIVE = ROOT / "native/rgb_l1"
 MANIFEST = NATIVE / "source-manifest.json"
-WORK = ROOT / ".buildlog/bfa7-native"
+WORK = ROOT / ".buildlog/bfa7-finalize"
 SOURCE = WORK / "source"
 ESPLORA = WORK / "esplora-client"
+SQLITE = WORK / "sqlite3-sys"
 TARGET = WORK / "target"
 GENERATED = WORK / "generated"
 ARTIFACTS = WORK / "artifacts"
@@ -130,10 +131,43 @@ def prepare_esplora(manifest):
         raise ValueError("Existing guarded Esplora source differs from its admitted tree.")
 
 
+def prepare_sqlite(manifest):
+    pin = manifest.get("sqlite3")
+    if pin is None:
+        return
+    patch = checked_patch(pin["patch"])
+    if not SQLITE.exists():
+        package_name = "libsqlite3-sys-" + pin["version"]
+        cargo_home = Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo"))
+        cached = next((cargo_home / "registry/cache").glob("*/" + package_name + ".crate"), None)
+        package = cached.read_bytes() if cached else download(
+            "https://static.crates.io/crates/libsqlite3-sys/" + package_name + ".crate",
+            maximum=20 * 1024 * 1024,
+        )
+        if hashlib.sha256(package).hexdigest() != pin["crateSha256"]:
+            raise ValueError("SQLite crate checksum mismatch.")
+        WORK.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=WORK) as temporary:
+            extract_crate(package, temporary, package_name)
+            staged = Path(temporary) / package_name
+            git(staged, "init", "--quiet")
+            git(staged, "add", "--force", "--all")
+            git(staged, "apply", "--check", "--index", patch)
+            git(staged, "apply", "--index", patch)
+            if git(staged, "write-tree") != pin["overlayTree"]:
+                raise ValueError("SQLite overlay tree mismatch.")
+            staged.rename(SQLITE)
+    if (git(SQLITE, "write-tree") != pin["overlayTree"] or
+            git(SQLITE, "diff", "--name-only") or
+            git(SQLITE, "ls-files", "--others", "--exclude-standard")):
+        raise ValueError("Existing SQLite source differs from its admitted tree.")
+
+
 def prepare(manifest, source_override=None):
     integration = manifest["integration"]
     overlay = checked_patch({"path": integration["patch"], "sha256": integration["patchSha256"]})
     prepare_esplora(manifest)
+    prepare_sqlite(manifest)
     if SOURCE.exists():
         verify_source(manifest)
         return
@@ -196,10 +230,11 @@ def download(url, maximum=128 * 1024 * 1024):
 
 def build_env(manifest, target=None):
     env = os.environ.copy()
+    env.pop("LIBSQLITE3_FLAGS", None)
     xcode = Path("/Applications/Xcode.app/Contents/Developer")
     if xcode.is_dir():
         env.setdefault("DEVELOPER_DIR", str(xcode))
-    env.update(CARGO_TARGET_DIR=str(TARGET), CARGO_BUILD_JOBS="4", CARGO_INCREMENTAL="0",
+    env.update(CARGO_TARGET_DIR=str(TARGET), CARGO_BUILD_JOBS="2", CARGO_INCREMENTAL="0",
                CARGO_PROFILE_RELEASE_DEBUG="0", CARGO_PROFILE_RELEASE_STRIP="debuginfo",
                IPHONEOS_DEPLOYMENT_TARGET=manifest["build"]["minIosVersion"])
     if target and "apple-ios" in target:
@@ -210,6 +245,14 @@ def build_env(manifest, target=None):
         # AWS-LC's supported cc builder also works when a project path contains
         # '<' or '>', which CMake rejects in custom output names.
         env["AWS_LC_SYS_CMAKE_BUILDER"] = "0"
+        sqlite = manifest.get("sqlite3")
+        if sqlite is not None:
+            flags = sqlite["iosCompileFlags"]
+            if flags != ["SQLITE_ENABLE_LOCKING_STYLE=0", "RGB_SQLITE_IOS_CONTAINER_ONLY=1"]:
+                raise ValueError("Unreviewed iOS SQLite compile flags.")
+            # Preserve Apple's full-fsync support. Only the sealed container VFS
+            # exception and POSIX locking selection are admitted here.
+            env["LIBSQLITE3_FLAGS"] = " ".join("-D" + flag for flag in flags)
     if target and target.endswith("-linux-android"):
         sdk = Path(env.get("ANDROID_HOME", env.get("ANDROID_SDK_ROOT", Path.home() / "Library/Android/sdk")))
         ndk = sdk / "ndk" / manifest["build"]["androidNdk"]
@@ -246,6 +289,7 @@ def verify_dependencies(manifest):
     # The path-patched dependency is outside SOURCE; its clean tree must be
     # checked independently before and after builds, including cached builds.
     prepare_esplora(manifest)
+    prepare_sqlite(manifest)
 
 
 def generate(manifest):
@@ -296,8 +340,8 @@ def build(manifest, selected):
         verify_source(manifest)
         if target not in admitted:
             raise ValueError("Unadmitted native build target: " + target)
-        if shutil.disk_usage(WORK).free < 4 * 1024**3:
-            raise ValueError("Fewer than 4 GiB free; preserve artifacts and recover space before building.")
+        if shutil.disk_usage(WORK).free < 6 * 1024**3:
+            raise ValueError("Fewer than 6 GiB free; preserve artifacts and recover space before building.")
         identity = target_identity(manifest, target)
         cargo(manifest, "build", "--locked", "--release", "--lib", "--target", target, target=target)
         verify_source(manifest)
@@ -408,7 +452,10 @@ def package_source(manifest, inventory, license_texts):
     entries = {"source-manifest.json": MANIFEST.read_bytes(), "dependency-inventory.json": inventory,
                **release_attribution(manifest), **license_texts}
     modes = {}
-    for prefix, directory in (("rgb-lib-bfa", SOURCE), ("esplora-client", ESPLORA)):
+    source_roots = [("rgb-lib-bfa", SOURCE), ("esplora-client", ESPLORA)]
+    if manifest.get("sqlite3") is not None:
+        source_roots.append(("sqlite3-sys", SQLITE))
+    for prefix, directory in source_roots:
         for line in git(directory, "ls-files", "--stage").splitlines():
             record, name = line.split("\t", 1)
             mode, _, stage = record.split()
@@ -440,6 +487,9 @@ def metadata(manifest, platform):
             "integration_tree": manifest["integration"]["tree"],
             "overlay_patch_sha256": manifest["integration"]["patchSha256"],
             "source_manifest_sha256": digest(MANIFEST), "build_script_sha256": digest(Path(__file__)),
+            "dispatched_rgb_revocation": manifest.get("features", {}).get("dispatchedRgbRevocation", False),
+            "sqlite_overlay_tree": manifest.get("sqlite3", {}).get("overlayTree"),
+            "ios_sqlite_compile_flags": manifest.get("sqlite3", {}).get("iosCompileFlags", []),
             "distribution_inputs": distribution_inputs(),
             "rust_version": run("rustc", "+" + manifest["build"]["rust"], "--version"),
             "xcode": run("xcodebuild", "-version"),
@@ -588,6 +638,7 @@ def main():
     elif args.command == "verify":
         verify_source(manifest)
         prepare_esplora(manifest)
+        prepare_sqlite(manifest)
     elif args.command == "generate":
         generate(manifest)
     elif args.command == "build":

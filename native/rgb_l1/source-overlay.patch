@@ -1,5 +1,5 @@
 diff --git a/Cargo.lock b/Cargo.lock
-index f0e9451..3a7db25 100644
+index f0e9451..e7acbf6 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
 @@ -178,9 +178,9 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
@@ -207,7 +207,16 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -2704,12 +2702,8 @@ version = "2.14.1"
+@@ -2579,8 +2577,6 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+ [[package]]
+ name = "libsqlite3-sys"
+ version = "0.37.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1"
+ dependencies = [
+  "cc",
+  "pkg-config",
+@@ -2704,12 +2700,8 @@ version = "2.14.1"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "05015102dad0f7d61691ca347e9d9d9006685a64aefb3d79eecf62665de2153d"
  dependencies = [
@@ -220,7 +229,7 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -3247,7 +3241,7 @@ dependencies = [
+@@ -3247,7 +3239,7 @@ dependencies = [
   "quinn-proto",
   "quinn-udp",
   "rustc-hash",
@@ -229,7 +238,7 @@ index f0e9451..3a7db25 100644
   "socket2",
   "thiserror 2.0.21",
   "tokio",
-@@ -3269,7 +3263,7 @@ dependencies = [
+@@ -3269,7 +3261,7 @@ dependencies = [
   "rand_pcg",
   "ring",
   "rustc-hash",
@@ -238,7 +247,7 @@ index f0e9451..3a7db25 100644
   "rustls-pki-types",
   "slab",
   "thiserror 2.0.21",
-@@ -3289,7 +3283,7 @@ dependencies = [
+@@ -3289,7 +3281,7 @@ dependencies = [
   "once_cell",
   "socket2",
   "tracing",
@@ -247,7 +256,7 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -3484,11 +3478,12 @@ dependencies = [
+@@ -3484,11 +3476,12 @@ dependencies = [
   "percent-encoding",
   "pin-project-lite",
   "quinn",
@@ -261,7 +270,7 @@ index f0e9451..3a7db25 100644
   "sync_wrapper",
   "tokio",
   "tokio-native-tls",
-@@ -3606,6 +3601,7 @@ dependencies = [
+@@ -3606,6 +3599,7 @@ dependencies = [
   "hex",
   "hkdf",
   "hmac 0.13.0",
@@ -269,7 +278,7 @@ index f0e9451..3a7db25 100644
   "mockito",
   "once_cell",
   "rand 0.10.3",
-@@ -3618,7 +3614,7 @@ dependencies = [
+@@ -3618,7 +3612,7 @@ dependencies = [
   "rgb-schemas",
   "rgb-strict-encoding",
   "rgb-strict-types",
@@ -278,7 +287,7 @@ index f0e9451..3a7db25 100644
   "scrypt",
   "sea-orm",
   "sea-query",
-@@ -3636,6 +3632,7 @@ dependencies = [
+@@ -3636,6 +3630,7 @@ dependencies = [
   "url",
   "walkdir",
   "x25519-dalek",
@@ -286,7 +295,7 @@ index f0e9451..3a7db25 100644
   "zip",
  ]
  
-@@ -3801,19 +3798,7 @@ dependencies = [
+@@ -3801,19 +3796,7 @@ dependencies = [
   "errno",
   "libc",
   "linux-raw-sys",
@@ -307,7 +316,7 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -3827,7 +3812,7 @@ dependencies = [
+@@ -3827,7 +3810,7 @@ dependencies = [
   "once_cell",
   "ring",
   "rustls-pki-types",
@@ -316,7 +325,7 @@ index f0e9451..3a7db25 100644
   "subtle",
   "zeroize",
  ]
-@@ -3865,14 +3850,14 @@ dependencies = [
+@@ -3865,14 +3848,14 @@ dependencies = [
   "jni",
   "log",
   "once_cell",
@@ -334,7 +343,7 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -3881,16 +3866,6 @@ version = "0.2.0"
+@@ -3881,16 +3864,6 @@ version = "0.2.0"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "eec689c0bc40ff2458a5977b6619cb718087084a18e02a131c599b62d05e1a5f"
  
@@ -351,7 +360,7 @@ index f0e9451..3a7db25 100644
  [[package]]
  name = "rustls-webpki"
  version = "0.103.16"
-@@ -3962,16 +3937,6 @@ dependencies = [
+@@ -3962,16 +3935,6 @@ dependencies = [
   "sha2 0.11.1",
  ]
  
@@ -368,7 +377,7 @@ index f0e9451..3a7db25 100644
  [[package]]
  name = "sea-bae"
  version = "0.2.2"
-@@ -4582,7 +4547,7 @@ dependencies = [
+@@ -4582,7 +4545,7 @@ dependencies = [
   "memchr",
   "percent-encoding",
   "rust_decimal",
@@ -377,7 +386,7 @@ index f0e9451..3a7db25 100644
   "serde",
   "serde_json",
   "sha2 0.10.9",
-@@ -4594,7 +4559,7 @@ dependencies = [
+@@ -4594,7 +4557,7 @@ dependencies = [
   "tracing",
   "url",
   "uuid",
@@ -386,7 +395,7 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -4862,7 +4827,7 @@ dependencies = [
+@@ -4862,7 +4825,7 @@ dependencies = [
   "getrandom 0.4.3",
   "once_cell",
   "rustix",
@@ -395,7 +404,7 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -4871,7 +4836,7 @@ version = "1.2.1"
+@@ -4871,7 +4834,7 @@ version = "1.2.1"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
  dependencies = [
@@ -404,7 +413,7 @@ index f0e9451..3a7db25 100644
  ]
  
  [[package]]
-@@ -4980,9 +4945,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+@@ -4980,9 +4943,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
  
  [[package]]
  name = "tokio"
@@ -416,7 +425,7 @@ index f0e9451..3a7db25 100644
  dependencies = [
   "bytes",
   "libc",
-@@ -5020,7 +4985,7 @@ version = "0.26.6"
+@@ -5020,7 +4983,7 @@ version = "0.26.6"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db"
  dependencies = [
@@ -425,7 +434,7 @@ index f0e9451..3a7db25 100644
   "tokio",
  ]
  
-@@ -5488,12 +5453,6 @@ dependencies = [
+@@ -5488,12 +5451,6 @@ dependencies = [
   "rustls-pki-types",
  ]
  
@@ -438,7 +447,7 @@ index f0e9451..3a7db25 100644
  [[package]]
  name = "webpki-roots"
  version = "1.0.10"
-@@ -5531,7 +5490,7 @@ version = "0.1.11"
+@@ -5531,7 +5488,7 @@ version = "0.1.11"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
  dependencies = [
@@ -448,7 +457,7 @@ index f0e9451..3a7db25 100644
  
  [[package]]
 diff --git a/Cargo.toml b/Cargo.toml
-index f767634..bb8f98e 100644
+index f767634..d3374e9 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -17,6 +17,8 @@ exclude = ["migration"]
@@ -460,16 +469,17 @@ index f767634..bb8f98e 100644
  base64 = { version = "0.23.1", optional = true, default-features = false, features = [
      "std",
  ] }
-@@ -218,6 +220,7 @@ inherits = "release"
+@@ -218,6 +220,8 @@ inherits = "release"
  debug = 1
  
  [patch.crates-io]
++libsqlite3-sys = { path = "../sqlite3-sys" }
 +esplora-client = { path = "../esplora-client" }
  rgb-aluvm = { git = "https://github.com/rgb-protocol/rgb-aluvm", rev = "eb956ccaadf64930990e2ed08f6c4232caee24f9" }
  rgb-ascii-armor = { git = "https://github.com/rgb-protocol/rgb-ascii-armor", rev = "40cdea632fd6d0527494893e83b99cea60ace310" }
  rgb-consensus = { git = "https://github.com/rgb-protocol/rgb-consensus", rev = "d4bbbce212e4d9967e10cc3c6a7db2f664d52bd2" }
 diff --git a/bindings/uniffi/Cargo.lock b/bindings/uniffi/Cargo.lock
-index e6e84c7..6ddd7ff 100644
+index e6e84c7..c0e5011 100644
 --- a/bindings/uniffi/Cargo.lock
 +++ b/bindings/uniffi/Cargo.lock
 @@ -178,9 +178,9 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
@@ -677,7 +687,16 @@ index e6e84c7..6ddd7ff 100644
  ]
  
  [[package]]
-@@ -2544,12 +2542,8 @@ version = "2.14.1"
+@@ -2419,8 +2417,6 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+ [[package]]
+ name = "libsqlite3-sys"
+ version = "0.37.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1"
+ dependencies = [
+  "cc",
+  "pkg-config",
+@@ -2544,12 +2540,8 @@ version = "2.14.1"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "05015102dad0f7d61691ca347e9d9d9006685a64aefb3d79eecf62665de2153d"
  dependencies = [
@@ -690,7 +709,7 @@ index e6e84c7..6ddd7ff 100644
  ]
  
  [[package]]
-@@ -2968,7 +2962,7 @@ dependencies = [
+@@ -2968,7 +2960,7 @@ dependencies = [
   "quinn-proto",
   "quinn-udp",
   "rustc-hash",
@@ -699,7 +718,7 @@ index e6e84c7..6ddd7ff 100644
   "socket2",
   "thiserror 2.0.21",
   "tokio",
-@@ -2990,7 +2984,7 @@ dependencies = [
+@@ -2990,7 +2982,7 @@ dependencies = [
   "rand_pcg",
   "ring",
   "rustc-hash",
@@ -708,7 +727,7 @@ index e6e84c7..6ddd7ff 100644
   "rustls-pki-types",
   "slab",
   "thiserror 2.0.21",
-@@ -3010,7 +3004,7 @@ dependencies = [
+@@ -3010,7 +3002,7 @@ dependencies = [
   "once_cell",
   "socket2",
   "tracing",
@@ -717,7 +736,7 @@ index e6e84c7..6ddd7ff 100644
  ]
  
  [[package]]
-@@ -3205,11 +3199,12 @@ dependencies = [
+@@ -3205,11 +3197,12 @@ dependencies = [
   "percent-encoding",
   "pin-project-lite",
   "quinn",
@@ -731,7 +750,7 @@ index e6e84c7..6ddd7ff 100644
   "sync_wrapper",
   "tokio",
   "tokio-native-tls",
-@@ -3312,6 +3307,7 @@ dependencies = [
+@@ -3312,6 +3305,7 @@ dependencies = [
   "hex",
   "hkdf",
   "hmac",
@@ -739,7 +758,7 @@ index e6e84c7..6ddd7ff 100644
   "rand 0.10.3",
   "reqwest",
   "rgb-invoicing",
-@@ -3321,7 +3317,7 @@ dependencies = [
+@@ -3321,7 +3315,7 @@ dependencies = [
   "rgb-schemas",
   "rgb-strict-encoding",
   "rgb-strict-types",
@@ -748,7 +767,7 @@ index e6e84c7..6ddd7ff 100644
   "scrypt",
   "sea-orm",
   "sea-query",
-@@ -3338,6 +3334,7 @@ dependencies = [
+@@ -3338,6 +3332,7 @@ dependencies = [
   "url",
   "walkdir",
   "x25519-dalek",
@@ -756,7 +775,7 @@ index e6e84c7..6ddd7ff 100644
   "zip",
  ]
  
-@@ -3512,19 +3509,7 @@ dependencies = [
+@@ -3512,19 +3507,7 @@ dependencies = [
   "errno",
   "libc",
   "linux-raw-sys",
@@ -777,7 +796,7 @@ index e6e84c7..6ddd7ff 100644
  ]
  
  [[package]]
-@@ -3538,7 +3523,7 @@ dependencies = [
+@@ -3538,7 +3521,7 @@ dependencies = [
   "once_cell",
   "ring",
   "rustls-pki-types",
@@ -786,7 +805,7 @@ index e6e84c7..6ddd7ff 100644
   "subtle",
   "zeroize",
  ]
-@@ -3576,14 +3561,14 @@ dependencies = [
+@@ -3576,14 +3559,14 @@ dependencies = [
   "jni",
   "log",
   "once_cell",
@@ -804,7 +823,7 @@ index e6e84c7..6ddd7ff 100644
  ]
  
  [[package]]
-@@ -3592,16 +3577,6 @@ version = "0.2.0"
+@@ -3592,16 +3575,6 @@ version = "0.2.0"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "eec689c0bc40ff2458a5977b6619cb718087084a18e02a131c599b62d05e1a5f"
  
@@ -821,7 +840,7 @@ index e6e84c7..6ddd7ff 100644
  [[package]]
  name = "rustls-webpki"
  version = "0.103.16"
-@@ -3693,16 +3668,6 @@ dependencies = [
+@@ -3693,16 +3666,6 @@ dependencies = [
   "sha2 0.11.1",
  ]
  
@@ -838,7 +857,7 @@ index e6e84c7..6ddd7ff 100644
  [[package]]
  name = "sea-bae"
  version = "0.2.2"
-@@ -4013,6 +3978,18 @@ dependencies = [
+@@ -4013,6 +3976,18 @@ dependencies = [
   "serde_core",
  ]
  
@@ -857,7 +876,7 @@ index e6e84c7..6ddd7ff 100644
  [[package]]
  name = "serde_yaml"
  version = "0.9.34+deprecated"
-@@ -4218,7 +4195,7 @@ dependencies = [
+@@ -4218,7 +4193,7 @@ dependencies = [
   "memchr",
   "percent-encoding",
   "rust_decimal",
@@ -866,7 +885,7 @@ index e6e84c7..6ddd7ff 100644
   "serde",
   "serde_json",
   "sha2 0.10.9",
-@@ -4230,7 +4207,7 @@ dependencies = [
+@@ -4230,7 +4205,7 @@ dependencies = [
   "tracing",
   "url",
   "uuid",
@@ -875,7 +894,7 @@ index e6e84c7..6ddd7ff 100644
  ]
  
  [[package]]
-@@ -4498,7 +4475,7 @@ dependencies = [
+@@ -4498,7 +4473,7 @@ dependencies = [
   "getrandom 0.4.3",
   "once_cell",
   "rustix",
@@ -884,7 +903,7 @@ index e6e84c7..6ddd7ff 100644
  ]
  
  [[package]]
-@@ -4626,9 +4603,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+@@ -4626,9 +4601,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
  
  [[package]]
  name = "tokio"
@@ -896,7 +915,7 @@ index e6e84c7..6ddd7ff 100644
  dependencies = [
   "bytes",
   "libc",
-@@ -4666,7 +4643,7 @@ version = "0.26.6"
+@@ -4666,7 +4641,7 @@ version = "0.26.6"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db"
  dependencies = [
@@ -905,7 +924,7 @@ index e6e84c7..6ddd7ff 100644
   "tokio",
  ]
  
-@@ -5262,12 +5239,6 @@ dependencies = [
+@@ -5262,12 +5237,6 @@ dependencies = [
   "rustls-pki-types",
  ]
  
@@ -918,7 +937,7 @@ index e6e84c7..6ddd7ff 100644
  [[package]]
  name = "webpki-roots"
  version = "1.0.10"
-@@ -5314,7 +5285,7 @@ version = "0.1.11"
+@@ -5314,7 +5283,7 @@ version = "0.1.11"
  source = "registry+https://github.com/rust-lang/crates.io-index"
  checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
  dependencies = [
@@ -928,19 +947,20 @@ index e6e84c7..6ddd7ff 100644
  
  [[package]]
 diff --git a/bindings/uniffi/Cargo.toml b/bindings/uniffi/Cargo.toml
-index e7d02b9..c87d6fe 100644
+index e7d02b9..59eec1c 100644
 --- a/bindings/uniffi/Cargo.toml
 +++ b/bindings/uniffi/Cargo.toml
-@@ -44,6 +44,7 @@ overflow-checks = true
+@@ -44,6 +44,8 @@ overflow-checks = true
  [workspace]
  
  [patch.crates-io]
++libsqlite3-sys = { path = "../../../sqlite3-sys" }
 +esplora-client = { path = "../../../esplora-client" }
  rgb-aluvm = { git = "https://github.com/rgb-protocol/rgb-aluvm", rev = "eb956ccaadf64930990e2ed08f6c4232caee24f9" }
  rgb-ascii-armor = { git = "https://github.com/rgb-protocol/rgb-ascii-armor", rev = "40cdea632fd6d0527494893e83b99cea60ace310" }
  rgb-consensus = { git = "https://github.com/rgb-protocol/rgb-consensus", rev = "d4bbbce212e4d9967e10cc3c6a7db2f664d52bd2" }
 diff --git a/bindings/uniffi/src/lib.rs b/bindings/uniffi/src/lib.rs
-index c8712c9..e338004 100644
+index c8712c9..997af9d 100644
 --- a/bindings/uniffi/src/lib.rs
 +++ b/bindings/uniffi/src/lib.rs
 @@ -158,6 +158,8 @@ pub enum IndexerConfig {
@@ -979,7 +999,7 @@ index c8712c9..e338004 100644
  fn generate_keys(bitcoin_network: BitcoinNetwork, witness_version: WitnessVersion) -> Keys {
      rgb_lib::keys::generate_keys(bitcoin_network, witness_version)
  }
-@@ -1447,6 +1462,61 @@ struct Wallet {
+@@ -1447,6 +1462,68 @@ struct Wallet {
  }
  
  impl Wallet {
@@ -1037,11 +1057,18 @@ index c8712c9..e338004 100644
 +    ) -> Result<String, RgbLibError> {
 +        self._get_wallet().cancel_onchain_send(online, request_json)
 +    }
++    fn revoke_onchain_send(
++        &self,
++        online: Online,
++        request_json: String,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet().revoke_onchain_send(online, request_json)
++    }
 +
      fn new(wallet_data: WalletData, keys: SinglesigKeys) -> Result<Self, RgbLibError> {
          Ok(Wallet {
              wallet_mutex: Mutex::new(RgbLibWallet::new(wallet_data, keys)?),
-@@ -2627,3 +2697,42 @@ impl MultisigWallet {
+@@ -2627,3 +2704,42 @@ impl MultisigWallet {
  }
  
  uniffi::deps::static_assertions::assert_impl_all!(MultisigWallet: Sync, Send);
@@ -1085,7 +1112,7 @@ index c8712c9..e338004 100644
 +    }
 +}
 diff --git a/bindings/uniffi/src/rgb-lib.udl b/bindings/uniffi/src/rgb-lib.udl
-index 95cd909..d0acb41 100644
+index 95cd909..c966630 100644
 --- a/bindings/uniffi/src/rgb-lib.udl
 +++ b/bindings/uniffi/src/rgb-lib.udl
 @@ -3,6 +3,9 @@ namespace rgb_lib {
@@ -1117,7 +1144,7 @@ index 95cd909..d0acb41 100644
  };
  
  [Remote]
-@@ -1112,6 +1120,16 @@ dictionary WalletDescriptors {
+@@ -1112,6 +1120,17 @@ dictionary WalletDescriptors {
  };
  
  interface Wallet {
@@ -1130,12 +1157,13 @@ index 95cd909..d0acb41 100644
 +    [Throws=RgbLibError] string commit_onchain_send(Online online, string request_json);
 +    [Throws=RgbLibError] string onchain_send_status(Online? online, string request_json);
 +    [Throws=RgbLibError] string cancel_onchain_send(Online? online, string request_json);
++    [Throws=RgbLibError] string revoke_onchain_send(Online online, string request_json);
 +
    [Throws=RgbLibError]
    constructor(WalletData wallet_data, SinglesigKeys keys);
  
 diff --git a/src/database/mod.rs b/src/database/mod.rs
-index cc61177..28754aa 100644
+index cc61177..fde9abe 100644
 --- a/src/database/mod.rs
 +++ b/src/database/mod.rs
 @@ -365,7 +365,7 @@ impl Drop for DbTxn {
@@ -1147,6 +1175,125 @@ index cc61177..28754aa 100644
          self.txn.as_ref().expect("txn already consumed")
      }
  
+@@ -1266,6 +1266,16 @@ impl DbTxn {
+         let colorings = colorings.map(Ok).unwrap_or_else(|| self.iter_colorings())?;
+         let txos = txos.map(Ok).unwrap_or_else(|| self.iter_txos())?;
+ 
++        // Witness requests contribute a placeholder only until the validated
++        // receive has actual allocation rows. A reorg may return a previously
++        // settled receive to WaitingConfirmations with those rows retained;
++        // counting its requested amount as well would duplicate the same value.
++        let received_asset_transfers: HashSet<i32> = colorings
++            .iter()
++            .filter(|c| c.r#type == ColoringType::Receive)
++            .map(|c| c.asset_transfer_idx)
++            .collect();
++
+         let txos_allocations = self.get_rgb_allocations(
+             txos,
+             Some(colorings),
+@@ -1287,15 +1297,40 @@ impl DbTxn {
+         // incoming ones with conflicting TXs not broadcast yet) and allocations of assets with no
+         // fixed supply may exceed a u64 together (but not a u128); balances are then capped to
+         // u64::MAX
+-        let settled: u128 = ass_allocations
+-            .iter()
+-            .filter(|a| a.settled())
+-            .map(|a| u128::from(a.assignment.main_amount()))
+-            .sum();
++        // Count the confirmed allocation frontier, not each pending spend's
++        // historical input amount. During a multi-generation reorg, restoring
++        // every spent Input would repeatedly count the same original value.
++        // A spent confirmed producer is retained only while its consumer awaits
++        // confirmation; a confirmed consumer has already superseded it.
++        let settled_on_txo = |u: &LocalUnspent| -> u128 {
++            let asset_allocations: Vec<_> = u
++                .rgb_allocations
++                .iter()
++                .filter(|a| a.asset_id.as_deref() == Some(asset_id.as_str()))
++                .collect();
++            let pending_consumer = asset_allocations
++                .iter()
++                .any(|a| !a.incoming && a.status.waiting_confirmations());
++            let confirmed_consumer = asset_allocations
++                .iter()
++                .any(|a| !a.incoming && a.status.settled());
++            if u.utxo.spent && (!pending_consumer || confirmed_consumer) {
++                return 0;
++            }
++            asset_allocations
++                .iter()
++                .filter(|a| a.incoming && a.status.settled())
++                .map(|a| u128::from(a.assignment.main_amount()))
++                .sum()
++        };
++        let settled: u128 = txos_allocations.iter().map(&settled_on_txo).sum();
+ 
+-        let allocations_pending_incoming: u128 = ass_allocations
++        // Future ownership is the current unspent allocation frontier minus
++        // unbroadcast reservations. Historical spent inputs/changes cancel no
++        // additional value and must not be summed across pending ancestors.
++        let future_incoming: u128 = ass_allocations
+             .iter()
+-            .filter(|a| !a.txo_spent && a.incoming && a.status.pending())
++            .filter(|a| !a.txo_spent && a.incoming && !a.status.failed())
+             .map(|a| u128::from(a.assignment.main_amount()))
+             .sum();
+         let witness_pending: u128 = transfers
+@@ -1303,7 +1338,10 @@ impl DbTxn {
+             .filter(|t| matches!(t.recipient_type, Some(RecipientTypeFull::Witness { .. })))
+             .filter_map(|t| {
+                 let (at, bt) = t.related_transfers(&asset_transfers, &batch_transfers);
+-                if bt.incoming && bt.status.waiting_confirmations() {
++                if bt.incoming
++                    && bt.status.waiting_confirmations()
++                    && !received_asset_transfers.contains(&at.idx)
++                {
+                     // filter for asset ID (always present in WaitingConfirmations status)
+                     if at.asset_id.unwrap() != asset_id {
+                         return None;
+@@ -1319,19 +1357,20 @@ impl DbTxn {
+                 }
+             })
+             .sum();
+-        let ass_pending_incoming = allocations_pending_incoming + witness_pending;
+         let ass_pending_outgoing: u128 = ass_allocations
+             .iter()
+-            .filter(|a| !a.incoming && a.status.pending())
++            .filter(|a| !a.txo_spent && !a.incoming && a.status.pending())
+             .map(|a| u128::from(a.assignment.main_amount()))
+             .sum();
+ 
+-        let future = (settled + ass_pending_incoming)
++        let future = (future_incoming + witness_pending)
+             .checked_sub(ass_pending_outgoing)
+-            .expect("pending outgoing cannot exceed available balance");
++            .ok_or_else(|| Error::Internal {
++                details: "Pending RGB reservations exceed their allocation frontier.".into(),
++            })?;
+ 
+         let unspendable: u128 = txos_allocations
+-            .into_iter()
++            .iter()
+             .filter(|u| {
+                 // unspent
+                 (!u.utxo.spent
+@@ -1349,14 +1388,7 @@ impl DbTxn {
+                             .iter()
+                             .any(|a| !a.incoming && a.status.waiting_confirmations()))
+             })
+-            .collect::<Vec<LocalUnspent>>()
+-            .iter()
+-            .flat_map(|u| {
+-                u.rgb_allocations
+-                    .iter()
+-                    .filter(|a| a.asset_id == Some(asset_id.clone()) && a.settled())
+-                    .map(|a| u128::from(a.assignment.main_amount()))
+-            })
++            .map(&settled_on_txo)
+             .sum();
+ 
+         let spendable = settled
 diff --git a/src/error.rs b/src/error.rs
 index 60e090b..ba1052f 100644
 --- a/src/error.rs
@@ -1166,18 +1313,314 @@ index 60e090b..ba1052f 100644
      #[error("Allocations already available")]
      AllocationsAlreadyAvailable,
 diff --git a/src/wallet/backup.rs b/src/wallet/backup.rs
-index 4026786..18da61b 100644
+index 4026786..114825f 100644
 --- a/src/wallet/backup.rs
 +++ b/src/wallet/backup.rs
-@@ -5,6 +5,7 @@ const BACKUP_BUFFER_LEN_DECRYPT: usize = BACKUP_BUFFER_LEN_ENCRYPT + 16;
+@@ -1,10 +1,143 @@
+ use super::*;
++use std::io::{Seek, SeekFrom};
+ 
+ const BACKUP_BUFFER_LEN_ENCRYPT: usize = 239; // 255 max, leaving 16 for the checksum
+ const BACKUP_BUFFER_LEN_DECRYPT: usize = BACKUP_BUFFER_LEN_ENCRYPT + 16;
  const BACKUP_KEY_LENGTH: usize = 32;
  const BACKUP_NONCE_LENGTH: usize = 19;
  const BACKUP_VERSION: u8 = 1;
 +pub(crate) const RESTORED_SNAPSHOT_FILE: &str = ".flutter-restored-snapshot";
++
++/// A restored snapshot is inspectable but has no authority to advance a
++/// pending payment. Check this before refresh transaction/network progression
++/// so direct native callers cannot bypass quarantine before initialization.
++pub(crate) fn reject_restored_snapshot_marker(wallet_dir: &Path) -> Result<(), Error> {
++    match fs::symlink_metadata(wallet_dir.join(RESTORED_SNAPSHOT_FILE)) {
++        Ok(_) => Err(Error::Recovery {
++            code: "RECOVERY_RESTORE_UNCERTAIN".into(),
++        }),
++        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
++        Err(_) => Err(Error::Recovery {
++            code: "RECOVERY_STORAGE_INVALID".into(),
++        }),
++    }
++}
++
++// Public backup metadata is unauthenticated until decryption succeeds. Bound
++// archive parsing, decompression and KDF work before allocating or extracting.
++const MAX_BACKUP_BYTES: u64 = 2 * 1024 * 1024 * 1024;
++const MAX_BACKUP_FILE_BYTES: u64 = 512 * 1024 * 1024;
++const MAX_BACKUP_ENTRIES: usize = 16_384;
++const MAX_BACKUP_DIRECTORY_BYTES: u64 = 16 * 1024 * 1024;
++const MAX_BACKUP_METADATA_BYTES: u64 = 4096;
++const MAX_BACKUP_PATH_BYTES: usize = 1024;
++const MAX_BACKUP_PATH_DEPTH: usize = 32;
++const MAX_BACKUP_KDF_MEMORY: u64 = 512 * 1024 * 1024;
++const MAX_BACKUP_KDF_WORK: u64 = 8 * 1024 * 1024;
++
++fn invalid_backup() -> Error {
++    Error::Recovery {
++        code: "RECOVERY_BACKUP_INVALID".into(),
++    }
++}
++
++#[derive(Clone, Copy)]
++struct BackupZipLimits {
++    entries: usize,
++    file_bytes: u64,
++    total_bytes: u64,
++}
++
++const WALLET_ZIP_LIMITS: BackupZipLimits = BackupZipLimits {
++    entries: MAX_BACKUP_ENTRIES,
++    file_bytes: MAX_BACKUP_FILE_BYTES,
++    total_bytes: MAX_BACKUP_BYTES,
++};
++
++const ENVELOPE_ZIP_LIMITS: BackupZipLimits = BackupZipLimits {
++    entries: 2,
++    file_bytes: MAX_BACKUP_BYTES,
++    total_bytes: MAX_BACKUP_BYTES,
++};
++
++fn admit_backup_path(
++    name: &str,
++    directory: bool,
++    identities: &mut HashMap<String, (String, bool)>,
++) -> Result<(), Error> {
++    let parts: Vec<_> = name.trim_end_matches('/').split('/').collect();
++    if name.len() > MAX_BACKUP_PATH_BYTES
++        || parts.len() > MAX_BACKUP_PATH_DEPTH
++        || parts
++            .iter()
++            .any(|p| p.is_empty() || *p == "." || *p == "..")
++        || name.contains('\\')
++        || name.contains('\0')
++    {
++        return Err(invalid_backup());
++    }
++    for index in 0..parts.len() {
++        let original = parts[..=index].join("/");
++        let is_directory = index + 1 < parts.len() || directory;
++        match identities.entry(original.to_ascii_lowercase()) {
++            std::collections::hash_map::Entry::Occupied(prior) => {
++                if prior.get().0 != original || prior.get().1 != is_directory {
++                    return Err(invalid_backup());
++                }
++            }
++            std::collections::hash_map::Entry::Vacant(slot) => {
++                slot.insert((original, is_directory));
++            }
++        }
++    }
++    Ok(())
++}
++
++fn admit_wallet_source(directory: &Path) -> Result<(), Error> {
++    let prefix = directory.parent().ok_or_else(invalid_backup)?;
++    let mut count = 0usize;
++    let mut total = 0u64;
++    let mut identities = HashMap::new();
++    let walker = WalkDir::new(directory)
++        .into_iter()
++        .filter_entry(|e| !e.path().ends_with(RGB_RUNTIME_DELETING_DIR));
++    for entry in walker {
++        let entry = entry.map_err(std::io::Error::from)?;
++        let path = entry.path();
++        if entry.file_type().is_symlink() {
++            return Err(invalid_backup());
++        }
++        if path.is_file()
++            && (path.ends_with(LOG_FILE)
++                || path
++                    .file_name()
++                    .is_some_and(|n| n == RESTORED_SNAPSHOT_FILE))
++        {
++            continue;
++        }
++        if !entry.file_type().is_file() && !entry.file_type().is_dir() {
++            return Err(invalid_backup());
++        }
++        let name = path
++            .strip_prefix(prefix)
++            .map_err(|_| invalid_backup())?
++            .to_str()
++            .ok_or_else(invalid_backup)?;
++        admit_backup_path(name, entry.file_type().is_dir(), &mut identities)?;
++        count = count.checked_add(1).ok_or_else(invalid_backup)?;
++        if count > MAX_BACKUP_ENTRIES {
++            return Err(invalid_backup());
++        }
++        if entry.file_type().is_file() {
++            let length = entry.metadata().map_err(std::io::Error::from)?.len();
++            total = total.checked_add(length).ok_or_else(invalid_backup)?;
++            if length > MAX_BACKUP_FILE_BYTES || total > MAX_BACKUP_BYTES {
++                return Err(invalid_backup());
++            }
++        }
++    }
++    Ok(())
++}
  
  pub(crate) struct BackupPaths {
      encrypted: PathBuf,
-@@ -272,8 +273,8 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
+@@ -14,6 +147,7 @@ pub(crate) struct BackupPaths {
+ }
+ 
+ #[derive(Debug, Clone, Deserialize, Serialize)]
++#[serde(deny_unknown_fields)]
+ pub struct ScryptParams {
+     log_n: u8,
+     r: u32,
+@@ -51,6 +185,7 @@ impl TryInto<Params> for ScryptParams {
+ }
+ 
+ #[derive(Debug, Deserialize, Serialize)]
++#[serde(deny_unknown_fields)]
+ pub(crate) struct BackupPubData {
+     scrypt_params: ScryptParams,
+     salt: String,
+@@ -59,11 +194,40 @@ pub(crate) struct BackupPubData {
+ }
+ 
+ impl BackupPubData {
+-    fn nonce(&self) -> Result<[u8; BACKUP_NONCE_LENGTH], InternalError> {
+-        let nonce_bytes = self.nonce.as_bytes();
+-        nonce_bytes[0..BACKUP_NONCE_LENGTH]
++    fn nonce(&self) -> Result<[u8; BACKUP_NONCE_LENGTH], Error> {
++        self.nonce
++            .as_bytes()
+             .try_into()
+-            .map_err(|_| InternalError::Unexpected)
++            .map_err(|_| invalid_backup())
++    }
++
++    fn validate(&self) -> Result<(), Error> {
++        self.nonce()?;
++        if self.version != BACKUP_VERSION || !(16..=64).contains(&self.salt.len()) {
++            return Err(invalid_backup());
++        }
++        Salt::from_b64(&self.salt).map_err(|_| invalid_backup())?;
++        let params = &self.scrypt_params;
++        let n = 1u64
++            .checked_shl(u32::from(params.log_n))
++            .ok_or_else(invalid_backup)?;
++        let blocks = n
++            .checked_mul(u64::from(params.r))
++            .ok_or_else(invalid_backup)?;
++        let memory = blocks.checked_mul(128).ok_or_else(invalid_backup)?;
++        let work = blocks
++            .checked_mul(u64::from(params.p))
++            .ok_or_else(invalid_backup)?;
++        if params.r == 0
++            || params.p == 0
++            || params.len != BACKUP_KEY_LENGTH
++            || memory > MAX_BACKUP_KDF_MEMORY
++            || work > MAX_BACKUP_KDF_WORK
++        {
++            return Err(invalid_backup());
++        }
++        let _: Params = params.clone().try_into().map_err(|_| invalid_backup())?;
++        Ok(())
+     }
+ }
+ 
+@@ -107,12 +271,35 @@ pub trait WalletBackup: WalletCore {
+         // setup
+         info!(self.logger(), "starting backup...");
+         let backup_file = PathBuf::from(&backup_path);
+-        if backup_file.exists() {
++        if fs::symlink_metadata(&backup_file).is_ok() {
+             Err(Error::FileAlreadyExists {
+                 path: backup_path.to_string(),
+             })?;
+         }
+         let tmp_base_path = get_parent_path(&backup_file)?;
++        if tmp_base_path
++            .components()
++            .any(|c| matches!(c, std::path::Component::ParentDir))
++        {
++            return Err(invalid_backup());
++        }
++        let mut ancestor = tmp_base_path.as_path();
++        while !ancestor.exists() && !ancestor.as_os_str().is_empty() {
++            ancestor = ancestor.parent().ok_or_else(invalid_backup)?;
++        }
++        let existing = if ancestor.as_os_str().is_empty() {
++            Path::new(".")
++        } else {
++            ancestor
++        };
++        if existing
++            .canonicalize()?
++            .starts_with(self.wallet_dir().canonicalize()?)
++        {
++            // Staging an archive inside its source tree can recursively archive
++            // the growing temporary file and cannot produce a safe snapshot.
++            return Err(invalid_backup());
++        }
+         let files = get_backup_paths(&tmp_base_path)?;
+         let scrypt_params = scrypt_params.unwrap_or_default();
+         let salt: String = rand::rng()
+@@ -145,7 +332,10 @@ pub trait WalletBackup: WalletCore {
+             &self.wallet_dir(),
+             &files.zip
+         );
++        admit_wallet_source(self.wallet_dir())?;
++        backup_pub_data.validate()?;
+         zip_dir(self.wallet_dir(), &files.zip, true, self.logger())?;
++        admit_zip_entries(&mut get_zip_archive(&files.zip)?, WALLET_ZIP_LIMITS, false)?;
+ 
+         // encrypt the backup file
+         debug!(
+@@ -153,6 +343,9 @@ pub trait WalletBackup: WalletCore {
+             "\nencrypting {:?} to {:?}", &files.zip, &files.encrypted
+         );
+         encrypt_file(&files.zip, &files.encrypted, password, &backup_pub_data)?;
++        if fs::metadata(&files.encrypted)?.len() > MAX_BACKUP_BYTES - 65_557 {
++            return Err(invalid_backup());
++        }
+ 
+         // add backup nonce + salt + version to final zip file
+         fs::write(
+@@ -169,6 +362,11 @@ pub trait WalletBackup: WalletCore {
+             false,
+             self.logger(),
+         )?;
++        admit_zip_entries(
++            &mut get_zip_archive(&backup_file)?,
++            ENVELOPE_ZIP_LIMITS,
++            true,
++        )?;
+ 
+         info!(self.logger(), "backup completed");
+         Ok(())
+@@ -250,11 +448,17 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
+ 
+     // unpack given zip file and retrieve backup data
+     info!(logger, "unzipping {:?}", backup_file);
+-    unzip(&backup_file, &PathBuf::from(files.tempdir.path()), &logger)?;
++    unzip_with_limits(
++        &backup_file,
++        files.tempdir.path(),
++        &logger,
++        ENVELOPE_ZIP_LIMITS,
++        true,
++    )?;
+     let json_pub_data = fs::read_to_string(files.backup_pub_data)?;
+     debug!(logger, "using retrieved backup_pub_data: {}", json_pub_data);
+     let backup_pub_data: BackupPubData =
+-        serde_json::from_str(json_pub_data.as_str()).map_err(InternalError::from)?;
++        serde_json::from_str(json_pub_data.as_str()).map_err(|_| invalid_backup())?;
+     let version = backup_pub_data.version;
+     debug!(logger, "retrieved version: {}", &version);
+     if version != BACKUP_VERSION {
+@@ -263,6 +467,8 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
+         });
+     }
+ 
++    backup_pub_data.validate()?;
++
+     // decrypt backup
+     info!(
+         logger.clone(),
+@@ -272,8 +478,8 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
  
      // check the target wallet directory doesn't already exist
      let fingerprint = get_fingerprint_from_zip(&files.zip)?;
@@ -1188,7 +1631,7 @@ index 4026786..18da61b 100644
          return Err(Error::WalletDirAlreadyExists {
              path: wallet_dir.to_string_lossy().to_string(),
          });
-@@ -284,12 +285,42 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
+@@ -284,12 +490,48 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
          logger.clone(),
          "unzipping {:?} to {:?}", &files.zip, &target_dir_path
      );
@@ -1210,18 +1653,24 @@ index 4026786..18da61b 100644
 +    use std::io::Write;
 +    #[cfg(unix)]
 +    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-+    let invalid = || Error::Recovery { code: "RECOVERY_RESTORE_UNCERTAIN".into() };
-+    if !fs::symlink_metadata(wallet_dir)?.is_dir() { return Err(invalid()); }
++    let invalid = || Error::Recovery {
++        code: "RECOVERY_RESTORE_UNCERTAIN".into(),
++    };
++    if !fs::symlink_metadata(wallet_dir)?.is_dir() {
++        return Err(invalid());
++    }
 +    #[cfg(unix)]
 +    fs::set_permissions(wallet_dir, fs::Permissions::from_mode(0o700))?;
-+    let restore_id: [u8;32] = rand::rng().random();
++    let restore_id: [u8; 32] = rand::rng().random();
 +    let record = serde_json::json!({
 +        "version":1,"restoreId":hex::encode(restore_id),"backupSha256":hash_file(backup_file)?,
 +    });
 +    let mut options = fs::OpenOptions::new();
 +    options.write(true).create_new(true);
 +    #[cfg(unix)]
-+    options.mode(0o600).custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
++    options
++        .mode(0o600)
++        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
 +    let mut marker = options.open(wallet_dir.join(RESTORED_SNAPSHOT_FILE))?;
 +    marker.write_all(&serde_json::to_vec(&record).map_err(InternalError::from)?)?;
 +    marker.sync_all()?;
@@ -1232,14 +1681,40 @@ index 4026786..18da61b 100644
  pub(crate) fn get_backup_paths(tmp_base_path: &Path) -> Result<BackupPaths, Error> {
      fs::create_dir_all(tmp_base_path)?;
      let tempdir = tempfile::tempdir_in(tmp_base_path)?;
-@@ -348,12 +379,13 @@ pub(crate) fn zip_dir(
+@@ -321,7 +563,16 @@ pub(crate) fn zip_dir(
+     logger: &Logger,
+ ) -> Result<(), Error> {
+     // setup
+-    let writer = fs::File::create(path_out)?;
++    let mut output = fs::OpenOptions::new();
++    output.write(true).create_new(true);
++    #[cfg(unix)]
++    {
++        use std::os::unix::fs::OpenOptionsExt;
++        output
++            .mode(0o600)
++            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
++    }
++    let writer = output.open(path_out)?;
+     let mut zip = ZipWriter::new(writer);
+     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Zstd);
+     let mut buffer = [0u8; 4096];
+@@ -348,12 +599,21 @@ pub(crate) fn zip_dir(
          let path = entry.path();
          let name = path.strip_prefix(prefix).map_err(InternalError::from)?;
          let name_str = name.to_str().ok_or_else(|| InternalError::Unexpected)?;
-+        if entry.file_type().is_symlink() { return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() }); }
++        if entry.file_type().is_symlink() {
++            return Err(Error::Recovery {
++                code: "RECOVERY_STORAGE_INVALID".into(),
++            });
++        }
          if path.is_file() {
 -            if path.ends_with(LOG_FILE) {
-+            if path.ends_with(LOG_FILE) || path.file_name().is_some_and(|name| name == RESTORED_SNAPSHOT_FILE) {
++            if path.ends_with(LOG_FILE)
++                || path
++                    .file_name()
++                    .is_some_and(|name| name == RESTORED_SNAPSHOT_FILE)
++            {
                  continue;
 -            }; // skip log file
 +            }; // Logs and restore stamps are not reusable backup authority.
@@ -1249,7 +1724,7 @@ index 4026786..18da61b 100644
                  .map_err(InternalError::from)?;
              let mut f = fs::File::open(path)?;
              loop {
-@@ -366,7 +398,7 @@ pub(crate) fn zip_dir(
+@@ -366,7 +626,7 @@ pub(crate) fn zip_dir(
              }
          } else if !name.as_os_str().is_empty() {
              debug!(logger, "adding directory {path:?} as {name:?}");
@@ -1258,7 +1733,116 @@ index 4026786..18da61b 100644
                  .map_err(InternalError::from)?;
          }
      }
-@@ -389,13 +421,32 @@ fn get_zip_archive(zip_path: &PathBuf) -> Result<ZipArchive<fs::File>, Error> {
+@@ -380,35 +640,190 @@ pub(crate) fn zip_dir(
+ }
+ 
+ fn get_zip_archive(zip_path: &PathBuf) -> Result<ZipArchive<fs::File>, Error> {
+-    let file = fs::File::open(zip_path).map_err(|_| Error::InvalidFilePath {
++    let mut file = fs::File::open(zip_path).map_err(|_| Error::InvalidFilePath {
+         file_path: zip_path.to_string_lossy().to_string(),
+     })?;
+-    ZipArchive::new(file).map_err(|_| Error::InvalidFilePath {
+-        file_path: zip_path.to_string_lossy().to_string(),
+-    })
++    let metadata = file.metadata()?;
++    if !metadata.is_file() || !(22..=MAX_BACKUP_BYTES).contains(&metadata.len()) {
++        return Err(invalid_backup());
++    }
++    // Bound central-directory allocation before the ZIP parser sees a claimed
++    // entry count. Native backups never need ZIP64 or multi-disk archives under
++    // these limits. EOCD and its optional comment must end at the actual EOF.
++    let tail_length = std::cmp::min(metadata.len(), 65_557) as usize;
++    file.seek(SeekFrom::End(-(tail_length as i64)))?;
++    let mut tail = vec![0u8; tail_length];
++    file.read_exact(&mut tail)?;
++    let end = (0..=tail.len() - 22)
++        .rev()
++        .find(|&offset| {
++            tail[offset..offset + 4] == *b"PK\x05\x06"
++                && offset
++                    + 22
++                    + usize::from(u16::from_le_bytes([tail[offset + 20], tail[offset + 21]]))
++                    == tail.len()
++        })
++        .ok_or_else(invalid_backup)?;
++    let word = |offset| u16::from_le_bytes([tail[end + offset], tail[end + offset + 1]]);
++    let dword =
++        |offset| u32::from_le_bytes(tail[end + offset..end + offset + 4].try_into().unwrap());
++    let count = usize::from(word(10));
++    let directory_size = u64::from(dword(12));
++    let directory_offset = u64::from(dword(16));
++    let actual_end = metadata.len() - tail.len() as u64 + end as u64;
++    if word(4) != 0
++        || word(6) != 0
++        || usize::from(word(8)) != count
++        || count == 0
++        || count > MAX_BACKUP_ENTRIES
++        || directory_size > MAX_BACKUP_DIRECTORY_BYTES
++        || directory_offset.checked_add(directory_size) != Some(actual_end)
++    {
++        return Err(invalid_backup());
++    }
++    let archive = ZipArchive::new(file).map_err(|_| invalid_backup())?;
++    if archive.len() != count {
++        return Err(invalid_backup());
++    }
++    Ok(archive)
++}
++
++fn admit_zip_entries(
++    archive: &mut ZipArchive<fs::File>,
++    limits: BackupZipLimits,
++    envelope: bool,
++) -> Result<(), Error> {
++    if archive.len() == 0 || archive.len() > limits.entries {
++        return Err(invalid_backup());
++    }
++    let mut names = HashSet::new();
++    let mut total = 0u64;
++    let mut identities = HashMap::new();
++    for index in 0..archive.len() {
++        let entry = archive.by_index(index).map_err(|_| invalid_backup())?;
++        let name = entry.name().map_err(|_| invalid_backup())?;
++        let Some(path) = entry.enclosed_name() else {
++            return Err(invalid_backup());
++        };
++        admit_backup_path(name.as_ref(), entry.is_dir(), &mut identities)?;
++        let parts: Vec<_> = name.trim_end_matches('/').split('/').collect();
++        let kind = entry.unix_mode().unwrap_or_default() & 0o170000;
++        if name.len() > MAX_BACKUP_PATH_BYTES
++            || parts.len() > MAX_BACKUP_PATH_DEPTH
++            || parts
++                .iter()
++                .any(|p| p.is_empty() || *p == "." || *p == "..")
++            || name.contains('\\')
++            || name.contains('\0')
++            || !names.insert(path.to_path_buf())
++            || !matches!(kind, 0 | 0o100000 | 0o040000)
++            || entry.size() > limits.file_bytes
++            || (entry.is_dir() && entry.size() != 0)
++        {
++            return Err(invalid_backup());
++        }
++        total = total.checked_add(entry.size()).ok_or_else(invalid_backup)?;
++        if total > limits.total_bytes {
++            return Err(invalid_backup());
++        }
++        if envelope
++            && (entry.is_dir()
++                || !matches!(name.as_ref(), "backup.enc" | "backup.pub_data")
++                || (name == "backup.pub_data" && entry.size() > MAX_BACKUP_METADATA_BYTES))
++        {
++            return Err(invalid_backup());
++        }
++    }
++    if envelope
++        && (names.len() != 2
++            || !names.contains(Path::new("backup.enc"))
++            || !names.contains(Path::new("backup.pub_data")))
++    {
++        return Err(invalid_backup());
++    }
++    Ok(())
  }
  
  fn get_fingerprint_from_zip(zip_path: &PathBuf) -> Result<String, Error> {
@@ -1272,38 +1856,69 @@ index 4026786..18da61b 100644
 -    Ok(fingerprint.to_string().replace("/", ""))
 +    let fingerprint = fingerprint.trim_end_matches('/').to_string();
 +    if fingerprint.len() != 8 || !fingerprint.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-+        return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() });
++        return Err(Error::Recovery {
++            code: "RECOVERY_STORAGE_INVALID".into(),
++        });
 +    }
 +    let mut names = HashSet::new();
 +    for index in 0..archive.len() {
 +        let entry = archive.by_index(index).map_err(InternalError::from)?;
 +        let entry_name = entry.name().map_err(InternalError::from)?;
 +        let Some(path) = entry.enclosed_name() else {
-+            return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() });
++            return Err(Error::Recovery {
++                code: "RECOVERY_STORAGE_INVALID".into(),
++            });
 +        };
 +        let mut components = path.components();
-+        if components.next().and_then(|part| part.as_os_str().to_str()) != Some(fingerprint.as_str())
-+            || components.any(|part| !matches!(part,std::path::Component::Normal(_)))
-+            || entry_name.contains('\\') || !names.insert(entry_name.to_string())
++        if components.next().and_then(|part| part.as_os_str().to_str())
++            != Some(fingerprint.as_str())
++            || components.any(|part| !matches!(part, std::path::Component::Normal(_)))
++            || entry_name.contains('\\')
++            || !names.insert(entry_name.to_string())
 +        {
-+            return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() });
++            return Err(Error::Recovery {
++                code: "RECOVERY_STORAGE_INVALID".into(),
++            });
 +        }
 +    }
 +    Ok(fingerprint)
  }
  
  pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Result<(), Error> {
-@@ -404,11 +455,21 @@ pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Res
++    unzip_with_limits(zip_path, path_out, logger, WALLET_ZIP_LIMITS, false)
++}
++
++fn unzip_with_limits(
++    zip_path: &PathBuf,
++    path_out: &Path,
++    logger: &Logger,
++    limits: BackupZipLimits,
++    envelope: bool,
++) -> Result<(), Error> {
+     let mut archive = get_zip_archive(zip_path)?;
++    admit_zip_entries(&mut archive, limits, envelope)?;
+     for i in 0..archive.len() {
          let mut file = archive.by_index(i).map_err(InternalError::from)?;
          let outpath = match file.enclosed_name() {
              Some(path) => path_out.join(path),
 -            None => continue,
-+            None => return Err(Error::Recovery { code:"RECOVERY_STORAGE_INVALID".into() }),
++            None => {
++                return Err(Error::Recovery {
++                    code: "RECOVERY_STORAGE_INVALID".into(),
++                });
++            }
          };
-+        if outpath.file_name().is_some_and(|name| name == RESTORED_SNAPSHOT_FILE) { continue; }
++        if outpath
++            .file_name()
++            .is_some_and(|name| name == RESTORED_SNAPSHOT_FILE)
++        {
++            continue;
++        }
 +        let kind = file.unix_mode().unwrap_or_default() & 0o170000;
-+        if !matches!(kind,0 | 0o100000 | 0o040000) {
-+            return Err(Error::Recovery { code:"RECOVERY_STORAGE_INVALID".into() });
++        if !matches!(kind, 0 | 0o100000 | 0o040000) {
++            return Err(Error::Recovery {
++                code: "RECOVERY_STORAGE_INVALID".into(),
++            });
 +        }
          if file.is_dir() {
              debug!(logger, "creating directory {i} as {}", outpath.display());
@@ -1311,36 +1926,322 @@ index 4026786..18da61b 100644
 +            #[cfg(unix)]
 +            {
 +                use std::os::unix::fs::PermissionsExt;
-+                fs::set_permissions(&outpath,fs::Permissions::from_mode(0o700))?;
++                fs::set_permissions(&outpath, fs::Permissions::from_mode(0o700))?;
 +            }
          } else {
              debug!(
                  logger,
-@@ -421,9 +482,20 @@ pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Res
+@@ -421,9 +836,33 @@ pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Res
              {
                  debug!(logger, "creating parent dir {}", p.display());
                  fs::create_dir_all(p)?;
 +                #[cfg(unix)]
 +                {
 +                    use std::os::unix::fs::PermissionsExt;
-+                    fs::set_permissions(p,fs::Permissions::from_mode(0o700))?;
++                    fs::set_permissions(p, fs::Permissions::from_mode(0o700))?;
 +                }
++            }
++            let mut options = fs::OpenOptions::new();
++            options.write(true).create_new(true);
++            #[cfg(unix)]
++            {
++                use std::os::unix::fs::OpenOptionsExt;
++                options
++                    .mode(0o600)
++                    .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
++            }
++            let mut outfile = options.open(&outpath)?;
++            let expected = file.size();
++            let copied = io::copy(&mut file.by_ref().take(expected + 1), &mut outfile)?;
++            if copied != expected {
++                return Err(invalid_backup());
              }
-             let mut outfile = fs::File::create(&outpath)?;
-             io::copy(&mut file, &mut outfile)?;
+-            let mut outfile = fs::File::create(&outpath)?;
+-            io::copy(&mut file, &mut outfile)?;
 +            #[cfg(unix)]
 +            {
 +                use std::os::unix::fs::PermissionsExt;
-+                fs::set_permissions(&outpath,fs::Permissions::from_mode(0o600))?;
++                fs::set_permissions(&outpath, fs::Permissions::from_mode(0o600))?;
 +            }
 +            outfile.sync_all()?;
          }
      }
  
-@@ -559,6 +631,55 @@ mod tests {
+@@ -431,6 +870,7 @@ pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Res
+ }
+ 
+ fn get_cypher_secrets(password: &str, backup_pub_data: &BackupPubData) -> Result<Key, Error> {
++    backup_pub_data.validate()?;
+     // hash password using scrypt with the provided salt
+     let password_bytes = password.as_bytes();
+     let salt = Salt::from_b64(&backup_pub_data.salt).map_err(InternalError::from)?;
+@@ -537,7 +977,9 @@ fn decrypt_file(
+                 .map_err(|_| Error::WrongPassword)?;
+             destination_file.write_all(&cleartext)?;
+         } else if read_count == 0 {
+-            break;
++            // Every stream ends with an authenticated last chunk, including an
++            // empty final chunk when plaintext length is an exact multiple.
++            return Err(invalid_backup());
+         } else {
+             let nonce = stream_be32_nonce(&nonce_prefix, position, true);
+             let cleartext = aead
+@@ -559,6 +1001,418 @@ mod tests {
      #[cfg(unix)]
      use std::os::unix::fs::PermissionsExt;
  
++    fn public_data() -> BackupPubData {
++        BackupPubData {
++            scrypt_params: ScryptParams::new(Some(10), Some(8), Some(1)),
++            salt: "abcdefghijklmnopqrstuvwx".into(),
++            nonce: "abcdefghijklmnopqrs".into(),
++            version: BACKUP_VERSION,
++        }
++    }
++
++    fn plain_zip(path: &Path, entries: &[(&str, &[u8])]) {
++        let mut writer = ZipWriter::new(fs::File::create(path).unwrap());
++        let options = SimpleFileOptions::default()
++            .compression_method(zip::CompressionMethod::Stored)
++            .unix_permissions(0o600);
++        for (name, bytes) in entries {
++            writer.start_file(*name, options).unwrap();
++            writer.write_all(bytes).unwrap();
++        }
++        writer.finish().unwrap().sync_all().unwrap();
++    }
++
++    #[test]
++    fn backup_metadata_rejects_malformed_nonce_and_unbounded_kdf_without_panicking() {
++        for nonce in [
++            "",
++            "short",
++            "abcdefghijklmnopqr",
++            "abcdefghijklmnopqrst",
++            "éééééééééé",
++        ] {
++            let mut data = public_data();
++            data.nonce = nonce.into();
++            assert!(
++                std::panic::catch_unwind(|| data.validate())
++                    .unwrap()
++                    .is_err()
++            );
++        }
++        for (log_n, r, p, len) in [
++            (63, 8, 1, 32),
++            (255, 8, 1, 32),
++            (17, u32::MAX, 1, 32),
++            (17, 8, u32::MAX, 32),
++            (17, 0, 1, 32),
++            (17, 8, 0, 32),
++            (17, 8, 1, 64),
++            (20, 8, 1, 32),
++            (17, 8, 16, 32),
++        ] {
++            let mut data = public_data();
++            data.scrypt_params = ScryptParams { log_n, r, p, len };
++            assert!(
++                std::panic::catch_unwind(|| data.validate())
++                    .unwrap()
++                    .is_err()
++            );
++        }
++        let mut data = public_data();
++        data.scrypt_params = ScryptParams::default();
++        data.validate().unwrap();
++        // Retain the existing upstream custom-backup regression's admitted cost.
++        data.scrypt_params = ScryptParams::new(Some(18), Some(9), Some(2));
++        data.validate().unwrap();
++    }
++
++    #[test]
++    fn backup_restore_rejects_invalid_public_metadata_before_installing_wallet() {
++        let files = tempfile::tempdir().unwrap();
++        for (index, field) in ["nonce", "kdf", "salt", "unknown"].iter().enumerate() {
++            let mut data = serde_json::to_value(public_data()).unwrap();
++            match *field {
++                "nonce" => data["nonce"] = serde_json::json!(""),
++                "kdf" => data["scrypt_params"]["log_n"] = serde_json::json!(63),
++                "salt" => data["salt"] = serde_json::json!("!".repeat(24)),
++                _ => data["unexpected"] = serde_json::json!(true),
++            }
++            let archive = files.path().join(format!("invalid-{index}.backup"));
++            plain_zip(
++                &archive,
++                &[
++                    ("backup.pub_data", &serde_json::to_vec(&data).unwrap()),
++                    ("backup.enc", &[0u8; 16]),
++                ],
++            );
++            let target = tempfile::tempdir().unwrap();
++            let result = std::panic::catch_unwind(|| {
++                restore_backup(
++                    archive.to_str().unwrap(),
++                    "fixture-password",
++                    target.path().to_str().unwrap(),
++                )
++            });
++            assert!(
++                matches!(result.unwrap(), Err(Error::Recovery { code }) if code == "RECOVERY_BACKUP_INVALID")
++            );
++            assert!(
++                fs::read_dir(target.path())
++                    .unwrap()
++                    .all(|entry| !entry.unwrap().path().is_dir())
++            );
++        }
++    }
++
++    #[test]
++    fn backup_zip_admission_rejects_limits_aliases_and_unexpected_envelope_before_writes() {
++        let files = tempfile::tempdir().unwrap();
++        let logger = slog::Logger::root(slog::Discard, slog::o!());
++        let limits = BackupZipLimits {
++            entries: 2,
++            file_bytes: 8,
++            total_bytes: 12,
++        };
++        let cases: Vec<Vec<(&str, &[u8])>> = vec![
++            vec![("first", b"123456"), ("second", b"1234567")],
++            vec![("first", b"123456789")],
++            vec![("first", b"1"), ("second", b"2"), ("third", b"3")],
++            vec![("dir//file", b"1")],
++            vec![("dir/../file", b"1")],
++            vec![("dir\\file", b"1")],
++            vec![("../outside", b"1")],
++            vec![("dir/file", b"1"), ("DIR/other", b"2")],
++            vec![("first", b"1"), ("first/second", b"2")],
++        ];
++        for (index, entries) in cases.iter().enumerate() {
++            let archive = files.path().join(format!("case-{index}.zip"));
++            plain_zip(&archive, entries);
++            let destination = tempfile::tempdir().unwrap();
++            assert!(
++                unzip_with_limits(&archive, destination.path(), &logger, limits, false).is_err()
++            );
++            assert_eq!(fs::read_dir(destination.path()).unwrap().count(), 0);
++        }
++        let archive = files.path().join("envelope.zip");
++        plain_zip(
++            &archive,
++            &[("backup.enc", b"ciphertext"), ("unexpected", b"metadata")],
++        );
++        let destination = tempfile::tempdir().unwrap();
++        assert!(
++            unzip_with_limits(
++                &archive,
++                destination.path(),
++                &logger,
++                ENVELOPE_ZIP_LIMITS,
++                true
++            )
++            .is_err()
++        );
++        assert_eq!(fs::read_dir(destination.path()).unwrap().count(), 0);
++    }
++
++    #[test]
++    fn backup_source_quota_and_existing_output_are_rejected_without_overwrite() {
++        let directory = tempfile::tempdir().unwrap();
++        let source = directory.path().join("wallet");
++        fs::create_dir(&source).unwrap();
++        let large = source.join("oversize.db");
++        let file = fs::File::create(&large).unwrap();
++        file.set_len(MAX_BACKUP_FILE_BYTES + 1).unwrap(); // Sparse, no giant fixture allocation.
++        assert!(
++            matches!(admit_wallet_source(&source),Err(Error::Recovery { code })
++            if code=="RECOVERY_BACKUP_INVALID")
++        );
++        drop(file);
++        fs::remove_file(large).unwrap();
++        fs::write(source.join("safe"), b"wallet data").unwrap();
++        admit_wallet_source(&source).unwrap();
++        let archive = directory.path().join("previous.backup");
++        fs::write(&archive, b"existing backup must survive").unwrap();
++        let logger = slog::Logger::root(slog::Discard, slog::o!());
++        assert!(zip_dir(&source, &archive, true, &logger).is_err());
++        assert_eq!(fs::read(&archive).unwrap(), b"existing backup must survive");
++    }
++
++    #[test]
++    fn backup_extraction_preserves_preexisting_case_and_unicode_alias_targets() {
++        let files = tempfile::tempdir().unwrap();
++        let logger = slog::Logger::root(slog::Discard, slog::o!());
++        for (index, (original, alias)) in [("Existing", "existing"), ("café", "cafe\u{301}")]
++            .into_iter()
++            .enumerate()
++        {
++            let destination = tempfile::tempdir().unwrap();
++            fs::write(destination.path().join(original), b"preserve original").unwrap();
++            let filesystem_aliases = destination.path().join(alias).exists();
++            let archive = files.path().join(format!("alias-{index}.zip"));
++            plain_zip(&archive, &[(alias, b"archive replacement")]);
++            let result = unzip(&archive, destination.path(), &logger);
++            if filesystem_aliases {
++                assert!(result.is_err());
++            } else {
++                result.unwrap();
++                assert_eq!(
++                    fs::read(destination.path().join(alias)).unwrap(),
++                    b"archive replacement"
++                );
++            }
++            assert_eq!(
++                fs::read(destination.path().join(original)).unwrap(),
++                b"preserve original"
++            );
++        }
++    }
++
++    #[test]
++    fn backup_zip_preflights_central_directory_claims_before_parser_allocation() {
++        let files = tempfile::tempdir().unwrap();
++        let valid = files.path().join("valid.zip");
++        plain_zip(&valid, &[("file", b"data")]);
++        get_zip_archive(&valid).unwrap();
++        let bytes = fs::read(&valid).unwrap();
++        let end = bytes.len() - 22;
++        for (index, field) in ["entries", "directory", "offset", "multidisk"]
++            .iter()
++            .enumerate()
++        {
++            let mut data = bytes.clone();
++            match *field {
++                "entries" => data[end + 8..end + 12].fill(0xff),
++                "directory" => data[end + 12..end + 16].copy_from_slice(&u32::MAX.to_le_bytes()),
++                "offset" => data[end + 16..end + 20].copy_from_slice(&u32::MAX.to_le_bytes()),
++                _ => data[end + 4] = 1,
++            }
++            let path = files.path().join(format!("invalid-directory-{index}.zip"));
++            fs::write(&path, data).unwrap();
++            assert!(get_zip_archive(&path).is_err());
++        }
++    }
++
++    #[test]
++    fn backup_stream_requires_authenticated_final_chunk_even_at_exact_block_boundary() {
++        let files = tempfile::tempdir().unwrap();
++        let clear = files.path().join("clear");
++        let encrypted = files.path().join("encrypted");
++        let restored = files.path().join("restored");
++        let data = public_data();
++        fs::write(&clear, [7u8; BACKUP_BUFFER_LEN_ENCRYPT]).unwrap();
++        encrypt_file(&clear, &encrypted, "fixture-password", &data).unwrap();
++        decrypt_file(&encrypted, &restored, "fixture-password", &data).unwrap();
++        assert_eq!(
++            fs::read(&restored).unwrap(),
++            [7u8; BACKUP_BUFFER_LEN_ENCRYPT]
++        );
++        let bytes = fs::read(&encrypted).unwrap();
++        assert_eq!(bytes.len(), BACKUP_BUFFER_LEN_DECRYPT + 16);
++        fs::write(&encrypted, &bytes[..bytes.len() - 16]).unwrap();
++        assert!(
++            matches!(decrypt_file(&encrypted, &restored, "fixture-password", &data),
++            Err(Error::Recovery { code }) if code == "RECOVERY_BACKUP_INVALID")
++        );
++    }
++
 +    #[cfg(feature = "_online")]
 +    #[test]
 +    fn encrypted_wallet_restore_stamps_fresh_quarantine_and_preserves_outbox() {
@@ -1351,42 +2252,153 @@ index 4026786..18da61b 100644
 +        let keys = crate::keys::restore_keys(BitcoinNetwork::Regtest,
 +            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".into(),
 +            WitnessVersion::Taproot).unwrap();
-+        let wallet = Wallet::new(WalletData {
-+            data_dir:source.path().to_str().unwrap().into(),bitcoin_network:BitcoinNetwork::Regtest,
-+            database_type:DatabaseType::Sqlite,max_allocations_per_utxo:5,supported_schemas:vec![AssetSchema::Nia],
-+        },SinglesigKeys::from_keys(&keys,None)).unwrap();
-+        let binding = hex::encode(sha256_digest(format!("regtest:taproot:{}:{}",
-+            keys.account_xpub_vanilla,keys.account_xpub_colored).as_bytes()));
-+        wallet.initialize_onchain_recovery(serde_json::json!({
-+            "version":1,"walletBinding":binding,"cohort":"11".repeat(16),
-+            "network":"regtest","witnessVersion":"taproot",
-+        }).to_string(),true).unwrap();
++        let wallet = Wallet::new(
++            WalletData {
++                data_dir: source.path().to_str().unwrap().into(),
++                bitcoin_network: BitcoinNetwork::Regtest,
++                database_type: DatabaseType::Sqlite,
++                max_allocations_per_utxo: 5,
++                supported_schemas: vec![AssetSchema::Nia],
++            },
++            SinglesigKeys::from_keys(&keys, None),
++        )
++        .unwrap();
++        let binding = hex::encode(sha256_digest(
++            format!(
++                "regtest:taproot:{}:{}",
++                keys.account_xpub_vanilla, keys.account_xpub_colored
++            )
++            .as_bytes(),
++        ));
++        wallet
++            .initialize_onchain_recovery(
++                serde_json::json!({
++                    "version":1,"walletBinding":binding,"cohort":"11".repeat(16),
++                    "network":"regtest","witnessVersion":"taproot",
++                })
++                .to_string(),
++                true,
++            )
++            .unwrap();
 +        wallet.assert_no_pending_onchain_send().unwrap();
-+        fs::write(wallet.wallet_dir().join(RESTORED_SNAPSHOT_FILE),b"stale inherited marker").unwrap();
++        fs::write(
++            wallet.wallet_dir().join(RESTORED_SNAPSHOT_FILE),
++            b"stale inherited marker",
++        )
++        .unwrap();
 +        let archive = files.path().join("wallet.backup");
-+        wallet.backup_customize(archive.to_str().unwrap(),"fixture-password",
-+            Some(ScryptParams::new(Some(10),Some(8),Some(1)))).unwrap();
-+        restore_backup(archive.to_str().unwrap(),"fixture-password",target.path().to_str().unwrap()).unwrap();
-+        restore_backup(archive.to_str().unwrap(),"fixture-password",second_target.path().to_str().unwrap()).unwrap();
++        wallet
++            .backup_customize(
++                archive.to_str().unwrap(),
++                "fixture-password",
++                Some(ScryptParams::new(Some(10), Some(8), Some(1))),
++            )
++            .unwrap();
++        let original_archive_hash = hash_file(&archive).unwrap();
++        assert!(matches!(
++            wallet.backup_customize(
++                archive.to_str().unwrap(),
++                "fixture-password",
++                Some(ScryptParams::new(Some(10), Some(8), Some(1)))
++            ),
++            Err(Error::FileAlreadyExists { .. })
++        ));
++        assert_eq!(hash_file(&archive).unwrap(), original_archive_hash);
++        let invalid_export = files.path().join("invalid-kdf.backup");
++        assert!(
++            matches!(wallet.backup_customize(invalid_export.to_str().unwrap(),"fixture-password",
++            Some(ScryptParams::new(Some(63),Some(8),Some(1)))),Err(Error::Recovery { code })
++            if code=="RECOVERY_BACKUP_INVALID")
++        );
++        assert!(!invalid_export.exists());
++        let recursive_export = wallet.wallet_dir().join("recursive.backup");
++        assert!(
++            matches!(wallet.backup_customize(recursive_export.to_str().unwrap(),"fixture-password",
++            Some(ScryptParams::new(Some(10),Some(8),Some(1)))),Err(Error::Recovery { code })
++            if code=="RECOVERY_BACKUP_INVALID")
++        );
++        assert!(!recursive_export.exists());
++        restore_backup(
++            archive.to_str().unwrap(),
++            "fixture-password",
++            target.path().to_str().unwrap(),
++        )
++        .unwrap();
++        restore_backup(
++            archive.to_str().unwrap(),
++            "fixture-password",
++            second_target.path().to_str().unwrap(),
++        )
++        .unwrap();
 +        let restored_dir = target.path().join(&keys.master_fingerprint);
-+        let first:serde_json::Value=serde_json::from_slice(&fs::read(restored_dir.join(RESTORED_SNAPSHOT_FILE)).unwrap()).unwrap();
-+        let second:serde_json::Value=serde_json::from_slice(&fs::read(second_target.path().join(&keys.master_fingerprint).join(RESTORED_SNAPSHOT_FILE)).unwrap()).unwrap();
-+        assert_eq!(first["version"],1);
-+        assert_eq!(first["restoreId"].as_str().unwrap().len(),64);
-+        assert_ne!(first["restoreId"],second["restoreId"]);
-+        assert_eq!(first["backupSha256"].as_str(),Some(hash_file(&archive).unwrap().as_str()));
++        let first: serde_json::Value =
++            serde_json::from_slice(&fs::read(restored_dir.join(RESTORED_SNAPSHOT_FILE)).unwrap())
++                .unwrap();
++        let second: serde_json::Value = serde_json::from_slice(
++            &fs::read(
++                second_target
++                    .path()
++                    .join(&keys.master_fingerprint)
++                    .join(RESTORED_SNAPSHOT_FILE),
++            )
++            .unwrap(),
++        )
++        .unwrap();
++        assert_eq!(first["version"], 1);
++        assert_eq!(first["restoreId"].as_str().unwrap().len(), 64);
++        assert_ne!(first["restoreId"], second["restoreId"]);
++        assert_eq!(
++            first["backupSha256"].as_str(),
++            Some(hash_file(&archive).unwrap().as_str())
++        );
 +        #[cfg(unix)]
 +        {
-+            assert_eq!(fs::metadata(restored_dir.join(RESTORED_SNAPSHOT_FILE)).unwrap().permissions().mode()&0o777,0o600);
-+            assert_eq!(fs::metadata(restored_dir.join(".flutter-onchain-v1")).unwrap().permissions().mode()&0o777,0o700);
++            assert_eq!(
++                fs::metadata(restored_dir.join(RESTORED_SNAPSHOT_FILE))
++                    .unwrap()
++                    .permissions()
++                    .mode()
++                    & 0o777,
++                0o600
++            );
++            assert_eq!(
++                fs::metadata(restored_dir.join(".flutter-onchain-v1"))
++                    .unwrap()
++                    .permissions()
++                    .mode()
++                    & 0o777,
++                0o700
++            );
 +        }
-+        let restored = Wallet::load(target.path().to_str().unwrap(),&keys.master_fingerprint,Some(keys.mnemonic.clone())).unwrap();
-+        let state:serde_json::Value=serde_json::from_str(&restored.onchain_recovery_state().unwrap()).unwrap();
-+        assert_eq!(state["restoredSnapshot"],true);
-+        assert!(matches!(restored.assert_no_pending_onchain_send(),Err(Error::Recovery{code}) if code=="RECOVERY_RESTORE_UNCERTAIN"));
-+        assert!(matches!(restore_backup(archive.to_str().unwrap(),"fixture-password",target.path().to_str().unwrap()),Err(Error::WalletDirAlreadyExists{..})));
-+        let wrong_target=tempfile::tempdir().unwrap();
-+        assert!(matches!(restore_backup(archive.to_str().unwrap(),"wrong-password",wrong_target.path().to_str().unwrap()),Err(Error::WrongPassword)));
++        let restored = Wallet::load(
++            target.path().to_str().unwrap(),
++            &keys.master_fingerprint,
++            Some(keys.mnemonic.clone()),
++        )
++        .unwrap();
++        let state: serde_json::Value =
++            serde_json::from_str(&restored.onchain_recovery_state().unwrap()).unwrap();
++        assert_eq!(state["restoredSnapshot"], true);
++        assert!(
++            matches!(restored.assert_no_pending_onchain_send(),Err(Error::Recovery{code}) if code=="RECOVERY_RESTORE_UNCERTAIN")
++        );
++        assert!(matches!(
++            restore_backup(
++                archive.to_str().unwrap(),
++                "fixture-password",
++                target.path().to_str().unwrap()
++            ),
++            Err(Error::WalletDirAlreadyExists { .. })
++        ));
++        let wrong_target = tempfile::tempdir().unwrap();
++        assert!(matches!(
++            restore_backup(
++                archive.to_str().unwrap(),
++                "wrong-password",
++                wrong_target.path().to_str().unwrap()
++            ),
++            Err(Error::WrongPassword)
++        ));
 +        assert!(!wrong_target.path().join(&keys.master_fingerprint).exists());
 +    }
 +
@@ -1429,6 +2441,19 @@ index 0000000..9ea6ff4
 +    }
 +  ]
 +}
+diff --git a/src/wallet/core.rs b/src/wallet/core.rs
+index 9f245ef..2132f7b 100644
+--- a/src/wallet/core.rs
++++ b/src/wallet/core.rs
+@@ -423,6 +423,8 @@ pub(crate) fn setup_new_wallet(
+         return Err(Error::InexistentDataDir);
+     }
+     let data_dir_path = fs::canonicalize(data_dir_path)?;
++    #[cfg(target_os = "ios")]
++    super::ios_container::require_private_container(&data_dir_path)?;
+     let wallet_dir = data_dir_path.join(fingerprint);
+     if !wallet_dir.exists() {
+         fs::create_dir(&wallet_dir)?;
 diff --git a/src/wallet/durable_observation.rs b/src/wallet/durable_observation.rs
 new file mode 100644
 index 0000000..6f09fd6
@@ -1787,10 +2812,10 @@ index 0000000..6f09fd6
 +}
 diff --git a/src/wallet/durable_onchain.rs b/src/wallet/durable_onchain.rs
 new file mode 100644
-index 0000000..763f962
+index 0000000..cb5b0f5
 --- /dev/null
 +++ b/src/wallet/durable_onchain.rs
-@@ -0,0 +1,2240 @@
+@@ -0,0 +1,2443 @@
 +//! Flutter's native outbox. No status, cancellation or restart path invokes End.
 +//! Its complete cohort is included in the wallet's encrypted native backup.
 +use super::*;
@@ -1824,6 +2849,7 @@ index 0000000..763f962
 +fn fail(code: &str) -> Error {
 +    Error::Recovery { code: code.into() }
 +}
++fn is_false(value: &bool) -> bool { !*value }
 +fn storage(_: impl std::fmt::Display) -> Error {
 +    fail("RECOVERY_STORAGE_INVALID")
 +}
@@ -2062,6 +3088,9 @@ index 0000000..763f962
 +    failure_code: Option<String>,
 +    cancel_requested: bool,
 +    dispatch_started: bool,
++    /// Native-MAC authenticated ack.clean success, persisted before local release.
++    #[serde(default, skip_serializing_if = "is_false")]
++    revocation_confirmed: bool,
 +    amount: String,
 +    fee_rate: String,
 +    asset_id: Option<String>,
@@ -2088,6 +3117,7 @@ index 0000000..763f962
 +            failure_code: None,
 +            cancel_requested: false,
 +            dispatch_started: false,
++            revocation_confirmed: false,
 +        }
 +    }
 +    fn terminal(&self) -> bool {
@@ -2097,7 +3127,12 @@ index 0000000..763f962
 +        if (self.dispatch_started && !matches!(self.phase, Phase::Committing | Phase::Accepted))
 +            || !hex(&self.operation_id, 32)
 +            || !hex(&self.fingerprint, 64)
-+            || (self.cancel_requested && matches!(self.phase, Phase::Committing | Phase::Accepted))
++            || (self.cancel_requested && self.phase == Phase::Accepted)
++            || (self.revocation_confirmed
++                && (self.kind != Kind::Rgb
++                    || self.phase != Phase::Committing
++                    || !self.dispatch_started
++                    || !self.cancel_requested))
 +        {
 +            return Err(storage("record identity"));
 +        }
@@ -2197,6 +3232,8 @@ index 0000000..763f962
 +            Phase::Rejected
 +        };
 +        self.failure_code = code.map(str::to_owned);
++        self.revocation_confirmed = false;
++        if accepted { self.cancel_requested = false; }
 +        self.command = None;
 +        self.unsigned_psbt = None;
 +        self.signed_psbt = None;
@@ -2708,6 +3745,38 @@ index 0000000..763f962
 +            .collect::<Vec<_>>();
 +        Ok(json!({"version":1,"walletBinding":outbox.wallet_binding,"cohort":outbox.cohort,"revision":outbox.revision.to_string(),"restoredSnapshot":outbox.restored_snapshot,"total":accepted.len(),"receipts":receipts}).to_string())
 +    }
++    /// Refresh can ACK or broadcast a pending payment. Snapshot inspection
++    /// must not advance it, even if the snapshot predates a later cancellation.
++    pub(crate) fn assert_snapshot_refresh_authority(&self) -> Result<(), Error> {
++        super::backup::reject_restored_snapshot_marker(&self.get_wallet_dir())?;
++        match fs::symlink_metadata(self.get_wallet_dir().join(DIRECTORY)) {
++            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
++                // Preserve ordinary upstream wallets, but never treat a lost
++                // managed journal as a fresh wallet merely because it is gone.
++                match fs::symlink_metadata(self.get_wallet_dir().join("rgb-sdk-profile.json")) {
++                    Ok(_) => return Err(storage("missing managed journal")),
++                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
++                    Err(error) => return Err(storage(error)),
++                }
++                let txn = self.database().begin_transaction()?;
++                let managed = block_on(txn.inner().query_one_raw(Statement::from_string(
++                    DbBackend::Sqlite,
++                    "SELECT name FROM sqlite_master WHERE type='table' AND name='flutter_onchain_anchor'".to_owned(),
++                ))).map_err(storage)?.is_some();
++                txn.commit()?;
++                if managed { Err(storage("missing managed journal")) } else { Ok(()) }
++            }
++            Err(error) => Err(storage(error)),
++            Ok(_) => {
++                let store = Store::open(self, false)?;
++                if store.read(self)?.restored_snapshot {
++                    Err(fail("RECOVERY_RESTORE_UNCERTAIN"))
++                } else {
++                    Ok(())
++                }
++            }
++        }
++    }
 +    /// Ordinary mutations cannot overtake an uncertain authorized payment.
 +    pub fn assert_no_pending_onchain_send(&self) -> Result<(), Error> {
 +        let store = Store::open(self, false)?;
@@ -2958,6 +4027,12 @@ index 0000000..763f962
 +                    accepted = true;
 +                }
 +            }
++        }
++        if !accepted && !outbox.restored_snapshot && outbox.records[i].revocation_confirmed {
++            // The exact sender-proxy revocation was already durably certified by an
++            // explicit Cancel. Completing its local cleanup makes no external call.
++            self.complete_revoked_rgb_cancel(&store, &mut outbox, i)?;
++            return Ok(outbox.records[i].response().to_string());
 +        }
 +        if !accepted && outbox.records[i].phase == Phase::Committing {
 +            if !outbox.restored_snapshot && !outbox.records[i].dispatch_started {
@@ -3233,11 +4308,99 @@ index 0000000..763f962
 +        }
 +        Ok(outbox.records[i].response().to_string())
 +    }
-+    /// Revoke only an operation that has never authorized End. A tombstone survives delayed calls.
++    fn revoke_durable_rgb(&self, record: &Record) -> Result<DurableRevocation, Error> {
++        self.validate_durable_plan(record)?;
++        let psbt = Psbt::from_str(record.unsigned_psbt.as_deref().ok_or_else(|| storage("plan"))?)
++            .map_err(storage)?;
++        let (_, _, info, _) = self.get_transfer_end_data(&psbt)?;
++        let txid = record.txid.as_deref().ok_or_else(|| storage("txid"))?;
++        let txn = self.database().begin_transaction()?;
++        let batches = txn.get_batch_transfers_by_txid(txid)?;
++        if batches.len() != 1 || batches[0].incoming
++            || Some(batches[0].idx) != record.batch_transfer_index
++            || !matches!(batches[0].status, TransferStatus::Initiated | TransferStatus::Failed)
++            || batches[0].operation_secret_key != info.operation_secret_key
++        { return Err(fail("RECOVERY_PENDING")); }
++        let seed: [u8;32] = info.operation_secret_key.clone()
++            .and_then(|seed| seed.try_into().ok()).ok_or_else(|| storage("operation key"))?;
++        let signing_key = ed25519_from_seed(&seed);
++        let sender = hex::encode(signing_key.verifying_key().to_bytes());
++        let asset = record.asset_id.as_ref().ok_or_else(|| storage("asset"))?;
++        let recipients = &info.transfers.get(asset).ok_or_else(|| storage("asset"))?.recipients;
++        // The current command contract approves exactly one recipient. Never revoke
++        // an incomplete subset if a future native format adds recipient batching.
++        if info.transfers.len() != 1 || recipients.len() != 1 {
++            return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++        }
++        let rows = txn.get_transfers_for_asset(batches[0].idx, asset)?;
++        if rows.len() != recipients.len() || recipients.iter().any(|recipient|
++            !rows.iter().any(|row| row.recipient_id.as_deref() == Some(&recipient.recipient_id)
++                && row.recipient_pubkey.as_ref() == Some(&recipient.public_key)
++                && row.requested_assignment.as_ref() == Some(&recipient.assignment)))
++        { return Err(fail("RECOVERY_REQUEST_MISMATCH")); }
++        let mut ids: Vec<_> = recipients.iter().map(|recipient| recipient.proxy_ids(&sender).1).collect();
++        ids.sort();
++        ids.dedup();
++        if ids.len() != recipients.len() { return Err(fail("RECOVERY_REQUEST_MISMATCH")); }
++        let endpoint = info.sender_transport_endpoint.as_deref().ok_or_else(|| storage("sender endpoint"))?;
++        let url = self.convert_transport_endpoint_url(endpoint)?;
++        txn.commit()?;
++        let signature = hex::encode(sign_ed25519(&signing_key, &sha256_digest(ids.concat().as_bytes())));
++        let result = ProxyClient::new(&url, self.bitcoin_network())
++            .and_then(|proxy| proxy.clean_ack(&ids, &signature));
++        Ok(match result {
++            Ok(response) => durable_revocation_response(response),
++            Err(_) => DurableRevocation::Unknown,
++        })
++    }
++    fn complete_revoked_rgb_cancel(
++        &mut self, store: &Store, outbox: &mut Outbox, i: usize,
++    ) -> Result<(), Error> {
++        let record = &outbox.records[i];
++        if !record.revocation_confirmed || !record.cancel_requested
++            || record.kind != Kind::Rgb || record.phase != Phase::Committing
++        { return Err(storage("revocation certificate")); }
++        let txid = record.txid.as_deref().ok_or_else(|| storage("txid"))?;
++        let txn = self.database().begin_transaction()?;
++        let rows = txn.get_batch_transfers_by_txid(txid)?;
++        if rows.len() != 1 || rows[0].incoming || Some(rows[0].idx) != record.batch_transfer_index
++            || !matches!(rows[0].status, TransferStatus::Initiated | TransferStatus::Failed)
++        { return Err(fail("RECOVERY_PENDING")); }
++        for row in rows {
++            if row.status == TransferStatus::Initiated {
++                txn.del_reserved_txos_for_batch_transfer(row.idx)?;
++                let mut updated: DbBatchTransferActMod = row.into();
++                updated.status = ActiveValue::Set(TransferStatus::Failed);
++                txn.update_batch_transfer(&mut updated)?;
++            }
++        }
++        self.update_backup_info(&txn, false)?;
++        txn.commit()?;
++        // A crash before this final write leaves the revocation certificate pending;
++        // Status can repeat only this idempotent local cleanup, never ack.clean or End.
++        outbox.records[i].finish(false, Some("cancelled"));
++        store.write(outbox)
++    }
++    /// Cancel only an exact operation that has not started external submission.
++    /// If Commit overtook a caller's observation, this is a protected no-op.
++    /// Explicit dispatched RGB revocation has a separate signer-gated entry point.
 +    pub fn cancel_onchain_send(
 +        &mut self,
-+        _online: Option<Online>,
++        online: Option<Online>,
 +        raw: String,
++    ) -> Result<String, Error> {
++        self.cancel_onchain_send_impl(online, raw, false)
++    }
++    /// Explicit proxy revocation has its own entry point. A queued legacy Cancel
++    /// cannot acquire this authority if Commit dispatched after its observation.
++    pub fn revoke_onchain_send(&mut self, online: Online, raw: String) -> Result<String, Error> {
++        let e = Envelope::parse(&raw)?;
++        if e.request.kind != Kind::Rgb { return Err(fail("RECOVERY_REQUEST_INVALID")); }
++        self.check_xprv()?;
++        self.cancel_onchain_send_impl(Some(online), raw, true)
++    }
++    fn cancel_onchain_send_impl(
++        &mut self, online: Option<Online>, raw: String, allow_dispatched_revocation: bool,
 +    ) -> Result<String, Error> {
 +        let e = Envelope::parse(&raw)?;
 +        let store = Store::open(self, false)?;
@@ -3259,15 +4422,66 @@ index 0000000..763f962
 +                return Ok(outbox.records.last().unwrap().response().to_string());
 +            }
 +        };
++        if outbox.records[i].terminal() {
++            return Ok(outbox.records[i].response().to_string());
++        }
++        if outbox.records[i].unsigned_psbt.is_some() {
++            self.validate_durable_plan(&outbox.records[i])?;
++        }
++        if self.reconcile_record(&mut outbox.records[i])? {
++            store.write(&outbox)?;
++            return Ok(outbox.records[i].response().to_string());
++        }
 +        if outbox.records[i].phase == Phase::Committing && !outbox.records[i].dispatch_started {
 +            outbox.records[i].phase = Phase::Prepared;
 +        }
-+        if matches!(
-+            outbox.records[i].phase,
-+            Phase::Committing | Phase::Accepted | Phase::Rejected
-+        ) {
-+            if self.reconcile_record(&mut outbox.records[i])? {
++        if outbox.records[i].phase == Phase::Committing {
++            if outbox.records[i].kind != Kind::Rgb {
++                // An absent Bitcoin observation cannot revoke a broadcastable TX.
++                return Ok(outbox.records[i].response().to_string());
++            }
++            if outbox.records[i].revocation_confirmed {
++                self.complete_revoked_rgb_cancel(&store, &mut outbox, i)?;
++                return Ok(outbox.records[i].response().to_string());
++            }
++            if !allow_dispatched_revocation {
++                // Preserve the original Cancel contract even when an in-flight
++                // Commit overtakes a caller's pre-dispatch status observation.
++                return Ok(outbox.records[i].response().to_string());
++            }
++            let Some(online) = online else {
++                return Ok(outbox.records[i].response().to_string());
++            };
++            self.require_recovery_online_profile(&outbox.network)?;
++            let record = &outbox.records[i];
++            // Prefer proof of the already submitted payment over cancellation.
++            if self.recover_submitted_onchain(
++                online,
++                record.signed_psbt.as_deref().ok_or_else(|| storage("signed plan"))?,
++                record.asset_id.as_deref(), record.batch_transfer_index,
++            )? {
++                outbox.records[i].finish(true, None);
 +                store.write(&outbox)?;
++                return Ok(outbox.records[i].response().to_string());
++            }
++            outbox.records[i].cancel_requested = true;
++            store.write(&outbox)?;
++            match self.revoke_durable_rgb(&outbox.records[i])? {
++                DurableRevocation::Revoked => {
++                    outbox.records[i].revocation_confirmed = true;
++                    outbox.records[i].failure_code = None;
++                    // This certificate is durable before any reservation is released.
++                    store.write(&outbox)?;
++                    self.complete_revoked_rgb_cancel(&store, &mut outbox, i)?;
++                }
++                DurableRevocation::Released => {
++                    outbox.records[i].failure_code = Some("cancellation_not_safe".into());
++                    store.write(&outbox)?;
++                }
++                DurableRevocation::Unknown => {
++                    outbox.records[i].failure_code = Some("cancellation_unavailable".into());
++                    store.write(&outbox)?;
++                }
 +            }
 +            return Ok(outbox.records[i].response().to_string());
 +        }
@@ -3318,6 +4532,18 @@ index 0000000..763f962
 +        outbox.records[i].finish(false, Some("cancelled"));
 +        store.write(&outbox)?;
 +        Ok(outbox.records[i].response().to_string())
++    }
++}
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum DurableRevocation { Revoked, Released, Unknown }
++fn durable_revocation_response(response: JsonRpcResponse<bool>) -> DurableRevocation {
++    match response.error {
++        None if response.result == Some(true) => DurableRevocation::Revoked,
++        Some(error) => match map_proxy_error(error) {
++            Error::ProxyTxAlreadyReleased => DurableRevocation::Released,
++            _ => DurableRevocation::Unknown,
++        },
++        _ => DurableRevocation::Unknown,
 +    }
 +}
 +fn persist_plan(
@@ -4030,14 +5256,453 @@ index 0000000..763f962
 +        );
 +        assert_eq!(wallet.get_asset_balance(asset).unwrap().settled, 0);
 +    }
++    include!("durable_revocation_tests.rs");
++    include!("durable_snapshot_tests.rs");
++}
+diff --git a/src/wallet/durable_revocation_tests.rs b/src/wallet/durable_revocation_tests.rs
+new file mode 100644
+index 0000000..fed6eb8
+--- /dev/null
++++ b/src/wallet/durable_revocation_tests.rs
+@@ -0,0 +1,157 @@
++mod revocation_qualification {
++    use super::*;
++    use bdk_wallet::bitcoin::{Amount, OutPoint, ScriptBuf, Sequence, TxIn, TxOut, Witness, absolute, transaction};
++
++    fn reply(result: Value, error: Value) -> JsonRpcResponse<bool> {
++        serde_json::from_value(json!({"jsonrpc":"2.0","id":"test","result":result,"error":error})).unwrap()
++    }
++
++    #[test]
++    fn revocation_requires_affirmative_success_not_false_null_or_an_error() {
++        assert_eq!(durable_revocation_response(reply(json!(true), Value::Null)), DurableRevocation::Revoked);
++        for result in [json!(false), Value::Null] {
++            assert_eq!(durable_revocation_response(reply(result, Value::Null)), DurableRevocation::Unknown);
++        }
++        for code in [-104, -502, -500] {
++            assert_eq!(durable_revocation_response(reply(json!(true), json!({"code":code,"message":"test"}))), DurableRevocation::Unknown);
++        }
++        assert_eq!(durable_revocation_response(reply(json!(true), json!({"code":-107,"message":"released"}))), DurableRevocation::Released);
++    }
++
++    #[test]
++    fn legacy_journal_mac_stays_identical_when_the_new_certificate_is_absent() {
++        let (_root, wallet, _) = setup();
++        let store = Store::open(&wallet, false).unwrap();
++        let mut outbox = store.read(&wallet).unwrap();
++        outbox.records.push(Record::new(command(&wallet, &"e1".repeat(16))));
++        store.write(&outbox).unwrap();
++        let raw = fs::read(current_file(&wallet)).unwrap();
++        assert!(!String::from_utf8(raw.clone()).unwrap().contains("revocationConfirmed"));
++        let decoded: Outbox = serde_json::from_slice(&raw).unwrap();
++        assert!(!decoded.records[0].revocation_confirmed);
++        assert_eq!(serde_json::to_vec(&decoded).unwrap(), raw);
++        store.authenticate(&decoded).unwrap();
++        assert_eq!(store.read(&wallet).unwrap().records[0].phase, Phase::Preparing);
++    }
++
++    fn dispatched_rgb(wallet: &Wallet) -> Record {
++        let mut e = command(wallet, &"e2".repeat(16));
++        e.request.kind = Kind::Rgb;
++        e.request.address = None;
++        e.request.asset_id = Some("rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE".into());
++        e.request.recipient_id = Some("native-test-recipient".into());
++        e.request.transport_endpoints = vec!["rpc://127.0.0.1:49790/json-rpc".into()];
++        e.request.sender_transport_endpoint = Some("rpc://127.0.0.1:49790/json-rpc".into());
++        e.request.witness_amount_sat = Some("1000".into());
++        e.request.expiration_timestamp = Some("2000000000".into());
++        e.request.invoice_public_key = Some("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".into());
++        e.request.invoice_encryption = Some("Required".into());
++        e.request.min_confirmations = 3;
++        e.request.fingerprint.clear();
++        e.request.fingerprint = sha256::Hash::hash(&serde_json::to_vec(&e).unwrap()).to_string();
++        e.validate().unwrap();
++        let transaction = BdkTransaction {
++            version: transaction::Version::TWO, lock_time: absolute::LockTime::ZERO,
++            input: vec![TxIn { previous_output: OutPoint { txid:"11".repeat(32).parse().unwrap(),vout:0 },
++                script_sig:ScriptBuf::new(), sequence:Sequence::ENABLE_RBF_NO_LOCKTIME, witness:Witness::default() }],
++            output:vec![TxOut { value:Amount::from_sat(1000),script_pubkey:ScriptBuf::new() }],
++        };
++        let mut unsigned = Psbt::from_unsigned_tx(transaction).unwrap();
++        unsigned.inputs[0].witness_utxo = Some(TxOut { value:Amount::from_sat(2000),script_pubkey:ScriptBuf::new() });
++        let mut signed = unsigned.clone();
++        signed.inputs[0].final_script_witness = Some(Witness::from_slice(&[b"test-only-final-witness"]));
++        let mut r = Record::new(e);
++        r.phase = Phase::Committing;
++        r.txid = Some(unsigned.unsigned_tx.compute_txid().to_string());
++        r.batch_transfer_index = Some(1);
++        r.unsigned_psbt = Some(unsigned.to_string());
++        r.signed_psbt = Some(signed.to_string());
++        r.dispatch_started = true;
++        r
++    }
++
++    #[test]
++    fn a_cancel_request_never_revokes_or_releases_a_dispatched_record_by_itself() {
++        let (_root, wallet, _) = setup();
++        let store = Store::open(&wallet, false).unwrap();
++        let outbox = store.read(&wallet).unwrap();
++        let mut record = dispatched_rgb(&wallet);
++        record.cancel_requested = true;
++        record.validate(&outbox).unwrap();
++        assert_eq!(record.phase, Phase::Committing);
++        assert_eq!(record.response()["endAuthorized"], true);
++        assert!(!record.revocation_confirmed);
++        assert!(!record.terminal());
++    }
++
++    #[test]
++    fn the_certificate_is_bound_to_dispatched_cancelling_rgb_state() {
++        let (_root, wallet, _) = setup();
++        let store = Store::open(&wallet, false).unwrap();
++        let outbox = store.read(&wallet).unwrap();
++        let mut record = dispatched_rgb(&wallet);
++        record.cancel_requested = true;
++        record.revocation_confirmed = true;
++        record.validate(&outbox).unwrap();
++        assert!(serde_json::to_string(&record).unwrap().contains("\"revocationConfirmed\":true"));
++        let mut missing_cancel = record.clone(); missing_cancel.cancel_requested = false;
++        code(missing_cancel.validate(&outbox), "RECOVERY_STORAGE_INVALID");
++        let mut no_dispatch = record.clone(); no_dispatch.dispatch_started = false;
++        code(no_dispatch.validate(&outbox), "RECOVERY_STORAGE_INVALID");
++        let mut uncommitted = record.clone(); uncommitted.phase = Phase::Prepared;
++        code(uncommitted.validate(&outbox), "RECOVERY_STORAGE_INVALID");
++        let mut bitcoin = Record::new(command(&wallet, &"e3".repeat(16)));
++        bitcoin.revocation_confirmed = true;
++        code(bitcoin.validate(&outbox), "RECOVERY_STORAGE_INVALID");
++    }
++
++    #[test]
++    fn terminal_certificates_compact_proof_and_keep_cancelled_outcomes_unambiguous() {
++        let (_root, wallet, _) = setup();
++        let store = Store::open(&wallet, false).unwrap();
++        let outbox = store.read(&wallet).unwrap();
++        let mut rejected = dispatched_rgb(&wallet);
++        rejected.cancel_requested = true;
++        rejected.revocation_confirmed = true;
++        rejected.finish(false, Some("cancelled"));
++        rejected.validate(&outbox).unwrap();
++        assert_eq!(rejected.response()["phase"], "rejected");
++        assert_eq!(rejected.response()["endAuthorized"], false);
++        assert_eq!(rejected.response()["failureCode"], "cancelled");
++        assert!(rejected.signed_psbt.is_none() && rejected.unsigned_psbt.is_none() && rejected.command.is_none());
++        assert!(!rejected.revocation_confirmed);
++        let mut accepted = dispatched_rgb(&wallet);
++        accepted.cancel_requested = true;
++        accepted.finish(true, None);
++        accepted.validate(&outbox).unwrap();
++        assert!(!accepted.cancel_requested);
++        assert_eq!(accepted.response()["phase"], "accepted");
++        assert_eq!(accepted.response()["endAuthorized"], true);
++    }
++    #[test]
++    fn explicit_revocation_rejects_bitcoin_before_any_online_action() {
++        let (_root, mut wallet, _) = setup();
++        let raw = serde_json::to_string(&command(&wallet, &"e4".repeat(16))).unwrap();
++        code(wallet.revoke_onchain_send(Online { id:0 }, raw), "RECOVERY_REQUEST_INVALID");
++    }
++
++    #[test]
++    fn watch_only_cannot_acquire_signed_proxy_revocation_authority() {
++        let (_root, wallet, _) = setup();
++        let keys = wallet.get_keys();
++        let readonly_root = tempfile::tempdir().unwrap();
++        let mut readonly = Wallet::new(WalletData {
++            data_dir:readonly_root.path().to_str().unwrap().into(), bitcoin_network:BitcoinNetwork::Regtest,
++            database_type:DatabaseType::Sqlite, max_allocations_per_utxo:5, supported_schemas:vec![AssetSchema::Bfa],
++        }, SinglesigKeys {
++            account_xpub_vanilla:keys.account_xpub_vanilla,
++            account_xpub_colored:keys.account_xpub_colored,
++            vanilla_keychain:None,
++            master_fingerprint:keys.master_fingerprint,
++            mnemonic:None, witness_version:WitnessVersion::Taproot,
++        }).unwrap();
++        let raw = serde_json::to_string(dispatched_rgb(&readonly).command.as_ref().unwrap()).unwrap();
++        assert!(matches!(readonly.revoke_onchain_send(Online { id:0 }, raw), Err(Error::WatchOnly)));
++    }
++
++}
+diff --git a/src/wallet/durable_snapshot_tests.rs b/src/wallet/durable_snapshot_tests.rs
+new file mode 100644
+index 0000000..fed4b47
+--- /dev/null
++++ b/src/wallet/durable_snapshot_tests.rs
+@@ -0,0 +1,180 @@
++mod snapshot_refresh_qualification {
++    use super::*;
++    use crate::wallet::backup::ScryptParams;
++
++    fn pending_rows(wallet: &Wallet) -> Vec<DbBatchTransfer> {
++        let txn = wallet.database().begin_transaction().unwrap();
++        for (index, (incoming, status)) in [
++            (false, TransferStatus::WaitingCounterparty),
++            (true, TransferStatus::WaitingCounterparty),
++            (true, TransferStatus::WaitingSafeHeight),
++            (true, TransferStatus::WaitingBroadcast),
++            (true, TransferStatus::WaitingConfirmations),
++            (false, TransferStatus::WaitingConfirmations),
++        ]
++        .into_iter()
++        .enumerate()
++        {
++            let mut row: DbBatchTransferActMod = DbBatchTransfer {
++                idx: index as i32 + 1,
++                txid: Some(format!("{:064x}", index + 1)),
++                status,
++                created_at: 1,
++                updated_at: 1,
++                expiration: Some(2),
++                min_confirmations: 1,
++                incoming,
++                operation_secret_key: None,
++                broadcast_deadline: Some(3),
++                retention_deadline: None,
++            }
++            .into();
++            row.idx = ActiveValue::NotSet;
++            txn.set_batch_transfer(row).unwrap();
++        }
++        let rows = txn.iter_batch_transfers().unwrap();
++        txn.commit().unwrap();
++        rows
++    }
++
++    fn require_quarantine(wallet: &mut Wallet, expected: &[DbBatchTransfer]) {
++        // The guard must win BEFORE online/session admission, journal recovery,
++        // filtering or pending-state dispatch. Invalid Online is a tripwire:
++        // without the guard this returns Offline instead of quarantine.
++        code(
++            wallet.refresh(Online { id: 0 }, None, vec![], false),
++            "RECOVERY_RESTORE_UNCERTAIN",
++        );
++        code(
++            wallet.refresh(Online { id: 0 }, Some("unknown-asset".into()), vec![], true),
++            "RECOVERY_RESTORE_UNCERTAIN",
++        );
++        let txn = wallet.database().begin_transaction().unwrap();
++        assert_eq!(txn.iter_batch_transfers().unwrap(), expected);
++        txn.commit().unwrap();
++    }
++
++    #[test]
++    fn encrypted_restored_pending_send_and_receive_cannot_enter_generic_refresh() {
++        let (_source, mut wallet, identity) = setup();
++        let expected = pending_rows(&wallet);
++        let store = Store::open(&wallet, false).unwrap();
++        let mut outbox = store.read(&wallet).unwrap();
++        outbox
++            .records
++            .push(Record::new(command(&wallet, &"f1".repeat(16))));
++        store.write(&outbox).unwrap();
++        drop(store);
++        // Pending payments on the current intact wallet retain refresh access.
++        wallet.assert_snapshot_refresh_authority().unwrap();
++        assert!(matches!(
++            wallet.refresh(Online { id: 0 }, None, vec![], false),
++            Err(Error::Offline)
++        ));
++        let files = tempfile::tempdir().unwrap();
++        let archive = files.path().join("pending.backup");
++        wallet
++            .backup_customize(
++                archive.to_str().unwrap(),
++                "fixture-password",
++                Some(ScryptParams::new(Some(10), Some(8), Some(1))),
++            )
++            .unwrap();
++        let destination = tempfile::tempdir().unwrap();
++        super::super::super::backup::restore_backup(
++            archive.to_str().unwrap(),
++            "fixture-password",
++            destination.path().to_str().unwrap(),
++        )
++        .unwrap();
++        let keys = wallet.get_keys();
++        let mut restored = Wallet::load(
++            destination.path().to_str().unwrap(),
++            &keys.master_fingerprint,
++            keys.mnemonic,
++        )
++        .unwrap();
++        // Raw native refresh is blocked even BEFORE initializeOnchainRecovery.
++        require_quarantine(&mut restored, &expected);
++        restored
++            .initialize_onchain_recovery(identity, false)
++            .unwrap();
++        require_quarantine(&mut restored, &expected);
++        // Once authenticated, quarantine survives deletion of the transient
++        // marker; neither a passive refresh nor a reopen can clear it.
++        fs::remove_file(
++            restored
++                .get_wallet_dir()
++                .join(super::super::super::backup::RESTORED_SNAPSHOT_FILE),
++        )
++        .unwrap();
++        require_quarantine(&mut restored, &expected);
++        let restored_keys = restored.get_keys();
++        drop(restored);
++        let mut reopened = Wallet::load(
++            destination.path().to_str().unwrap(),
++            &restored_keys.master_fingerprint,
++            restored_keys.mnemonic,
++        )
++        .unwrap();
++        require_quarantine(&mut reopened, &expected);
++    }
++
++    #[test]
++    fn lost_managed_journal_and_alias_restore_markers_never_grant_refresh_authority() {
++        let (_source, wallet, _) = setup();
++        fs::remove_dir_all(wallet.get_wallet_dir().join(DIRECTORY)).unwrap();
++        code(
++            wallet.assert_snapshot_refresh_authority(),
++            "RECOVERY_STORAGE_INVALID",
++        );
++        let marker = wallet
++            .get_wallet_dir()
++            .join(super::super::super::backup::RESTORED_SNAPSHOT_FILE);
++        let missing = wallet.get_wallet_dir().join("nonexistent-marker-target");
++        std::os::unix::fs::symlink(missing, &marker).unwrap();
++        code(
++            wallet.assert_snapshot_refresh_authority(),
++            "RECOVERY_RESTORE_UNCERTAIN",
++        );
++    }
++    #[test]
++    fn unmanaged_native_wallet_is_compatible_but_sdk_profile_requires_its_journal() {
++        let root = tempfile::tempdir().unwrap();
++        let keys = crate::keys::generate_keys(BitcoinNetwork::Regtest, WitnessVersion::Taproot);
++        let wallet = Wallet::new(
++            WalletData {
++                data_dir: root.path().to_str().unwrap().into(),
++                bitcoin_network: BitcoinNetwork::Regtest,
++                database_type: DatabaseType::Sqlite,
++                max_allocations_per_utxo: 5,
++                supported_schemas: vec![AssetSchema::Nia],
++            },
++            SinglesigKeys::from_keys(&keys, None),
++        )
++        .unwrap();
++        wallet.assert_snapshot_refresh_authority().unwrap();
++        let profile = wallet.get_wallet_dir().join("rgb-sdk-profile.json");
++        write_private(&profile, b"{}");
++        code(
++            wallet.assert_snapshot_refresh_authority(),
++            "RECOVERY_STORAGE_INVALID",
++        );
++    }
++    #[test]
++    fn current_managed_pending_wallet_retains_refresh_and_honors_exclusive_journal_lease() {
++        let (_source, wallet, _) = setup();
++        wallet.assert_snapshot_refresh_authority().unwrap();
++        let store = Store::open(&wallet, false).unwrap();
++        let mut outbox = store.read(&wallet).unwrap();
++        outbox
++            .records
++            .push(Record::new(command(&wallet, &"f2".repeat(16))));
++        store.write(&outbox).unwrap();
++        code(wallet.assert_snapshot_refresh_authority(), "RECOVERY_BUSY");
++        drop(store);
++        // Pending authority is valid for normal refresh; only simultaneous
++        // ownership or permanent snapshot quarantine prevents admission.
++        wallet.assert_snapshot_refresh_authority().unwrap();
++    }
++}
+diff --git a/src/wallet/ios_container.rs b/src/wallet/ios_container.rs
+new file mode 100644
+index 0000000..9ba839f
+--- /dev/null
++++ b/src/wallet/ios_container.rs
+@@ -0,0 +1,70 @@
++//! The iOS SQLite VFS intentionally supports only private application storage.
++//! Enforce this in the core as well as the Flutter adapter: raw UniFFI callers
++//! must not select an external FAT/exFAT or network volume for wallet databases.
++
++use std::{
++    fs, io,
++    path::{Path, PathBuf},
++};
++
++fn contained_directory(directory: &Path, container: &Path) -> io::Result<PathBuf> {
++    if !directory.is_absolute() || !container.is_absolute() {
++        return Err(io::Error::new(
++            io::ErrorKind::PermissionDenied,
++            "Private container required",
++        ));
++    }
++    let root = fs::canonicalize(container)?;
++    let directory = fs::canonicalize(directory)?;
++    if root.parent().is_none() || directory == root || !directory.starts_with(&root) {
++        return Err(io::Error::new(
++            io::ErrorKind::PermissionDenied,
++            "Private container required",
++        ));
++    }
++    Ok(directory)
++}
++
++#[cfg(target_os = "ios")]
++pub(super) fn require_private_container(directory: &Path) -> Result<(), crate::Error> {
++    // HOME is established by the iOS application sandbox. Fail closed if the
++    // embedding process has no valid private container; never guess a volume.
++    let home = std::env::var_os("HOME").ok_or_else(|| crate::Error::InvalidFilePath {
++        file_path: "iOS private application container required".to_owned(),
++    })?;
++    contained_directory(directory, Path::new(&home))?;
++    Ok(())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn canonical_private_container_rejects_external_and_symlink_escapes() {
++        let temporary = tempfile::tempdir().unwrap();
++        let home = temporary.path().join("home");
++        let inside = home.join("Library/wallet");
++        let outside = temporary.path().join("external");
++        let sibling = temporary.path().join("home-sibling");
++        for path in [&inside, &outside, &sibling] {
++            fs::create_dir_all(path).unwrap();
++        }
++        assert_eq!(
++            contained_directory(&inside, &home).unwrap(),
++            fs::canonicalize(&inside).unwrap()
++        );
++        assert!(contained_directory(&home, &home).is_err());
++        assert!(contained_directory(&outside, &home).is_err());
++        assert!(contained_directory(&sibling, &home).is_err());
++        assert!(contained_directory(Path::new("relative"), &home).is_err());
++        assert!(contained_directory(&inside, Path::new("/")).is_err());
++        assert!(contained_directory(&inside, &temporary.path().join("absent")).is_err());
++        #[cfg(unix)]
++        {
++            let escape = home.join("escape");
++            std::os::unix::fs::symlink(&outside, &escape).unwrap();
++            assert!(contained_directory(&escape, &home).is_err());
++        }
++    }
 +}
 diff --git a/src/wallet/mod.rs b/src/wallet/mod.rs
-index 1b7852c..af94262 100644
+index 1b7852c..f4de259 100644
 --- a/src/wallet/mod.rs
 +++ b/src/wallet/mod.rs
-@@ -13,6 +13,10 @@ pub(crate) mod offline;
+@@ -4,6 +4,8 @@
+ 
+ pub(crate) mod backup;
+ pub(crate) mod core;
++#[cfg(any(test, target_os = "ios"))]
++mod ios_container;
+ #[cfg(feature = "_online")]
+ pub(crate) mod indexer;
+ pub(crate) mod multisig;
+@@ -12,7 +14,13 @@ pub(crate) mod offline;
+ #[cfg(feature = "_online")]
  pub(crate) mod online;
  #[cfg(feature = "_online")]
++mod settled_revalidation;
++#[cfg(feature = "_online")]
  mod prepared_sweep;
 +#[cfg(feature = "_online")]
 +mod durable_onchain;
@@ -4047,10 +5712,85 @@ index 1b7852c..af94262 100644
  mod prepared_sweep_fixture;
  pub mod rust_only;
 diff --git a/src/wallet/online.rs b/src/wallet/online.rs
-index fa40d01..9962d9d 100644
+index fa40d01..8956a2b 100644
 --- a/src/wallet/online.rs
 +++ b/src/wallet/online.rs
-@@ -7182,6 +7182,17 @@ pub trait WalletOnline: WalletOffline {
+@@ -399,6 +399,13 @@ impl ResolveRejectList for WalletRejectListResolver<'_> {
+ }
+ 
+ pub trait WalletOnline: WalletOffline {
++    /// Generic refresh may release signed transactions and is not a read-only
++    /// snapshot operation. Concrete journal-backed wallets additionally verify
++    /// the authenticated persisted quarantine flag.
++    fn assert_refresh_authority(&self) -> Result<(), Error> {
++        super::backup::reject_restored_snapshot_marker(self.wallet_dir())
++    }
++
+     fn blockchain_resolver(&self) -> ChainResolver<'_> {
+         ChainResolver {
+             inner: &self.online_data().as_ref().unwrap().resolver,
+@@ -4414,6 +4421,7 @@ pub trait WalletOnline: WalletOffline {
+         if incoming
+             && batch_transfer.broadcast_deadline.is_some()
+             && confirmations.unwrap_or(0) == 0
++            && !super::settled_revalidation::consumed_witness(txn, &txid)?
+         {
+             if confirmation_deadline_passed(batch_transfer) {
+                 info!(
+@@ -4790,6 +4798,7 @@ pub trait WalletOnline: WalletOffline {
+         skip_sync: bool,
+     ) -> Result<RefreshResult, Error> {
+         super::prepared_sweep::release_lost_sweeps(self, txn)?;
++        let revalidation = super::settled_revalidation::inspect(self, txn)?;
+         let mut db_data = txn.get_db_data(false)?;
+ 
+         if asset_id.is_some() {
+@@ -4805,8 +4814,27 @@ pub trait WalletOnline: WalletOffline {
+         };
+         db_data.batch_transfers.retain(|t| t.waiting());
+ 
+-        let mut refresh_result = HashMap::new();
++        let mut refresh_result = revalidation.changes;
+         for transfer in &db_data.batch_transfers {
++            // Do not immediately re-promote a demoted record, or progress a
++            // descendant while its producer/chain observation remains unsafe.
++            if refresh_result.contains_key(&transfer.idx)
++                || revalidation.blocked_ancestors.contains(&transfer.idx)
++                || revalidation.unavailable
++            {
++                if revalidation.unavailable && !refresh_result.contains_key(&transfer.idx) {
++                    refresh_result.insert(
++                        transfer.idx,
++                        RefreshedTransfer {
++                            updated_status: None,
++                            failure: Some(Error::Network {
++                                details: "Current RGB confirmation state is unavailable.".into(),
++                            }),
++                        },
++                    );
++                }
++                continue;
++            }
+             let mut failure = None;
+             let mut updated_status = None;
+             // a failed refresh must not leave its partial changes behind (e.g. the colorings of a
+@@ -6499,6 +6527,15 @@ pub trait WalletOnline: WalletOffline {
+     > {
+         let fee_rate_checked = self.check_fee_rate(fee_rate)?;
+ 
++        // A caller can prepare a send without first requesting UI refresh.
++        // Revalidate before any RGB input selection, across send/mint/burn/link
++        // and inflation. Unavailable ancestry never permits a new spend.
++        if super::settled_revalidation::inspect(self, txn)?.unavailable {
++            return Err(Error::Network {
++                details: "Current RGB confirmation state is unavailable.".into(),
++            });
++        }
++
+         let db_data = txn.get_db_data(false)?;
+ 
+         let utxos = txn.get_unspent_txos(db_data.txos)?;
+@@ -7182,6 +7219,18 @@ pub trait WalletOnline: WalletOffline {
      }
  
      fn send_end_impl(&mut self, txn: &DbTxn, signed_psbt: &Psbt) -> Result<OperationResult, Error> {
@@ -4065,10 +5805,11 @@ index fa40d01..9962d9d 100644
 +    where
 +        F: FnMut(&DbTxn) -> Result<(), Error>,
 +    {
++        super::settled_revalidation::ensure_inputs(self, txn, signed_psbt)?;
          // a send ended again (e.g. retried after a crash) is completed only while it's still in
          // progress: one that has failed (which revoked its signed TX on the sender proxy) or
          // progressed must not be brought back to waiting for the counterparty. This is checked
-@@ -7225,7 +7236,14 @@ pub trait WalletOnline: WalletOffline {
+@@ -7225,7 +7274,14 @@ pub trait WalletOnline: WalletOffline {
              fascia.update_witness_tx(tx.clone());
          }
  
@@ -4084,7 +5825,7 @@ index fa40d01..9962d9d 100644
  
          // only the TX is needed to broadcast it
          atomic_write(
-@@ -7324,6 +7342,7 @@ pub trait WalletOnline: WalletOffline {
+@@ -7324,6 +7380,7 @@ pub trait WalletOnline: WalletOffline {
                      ),
                  )
              });
@@ -4092,7 +5833,7 @@ index fa40d01..9962d9d 100644
              let res = proxy_client.prepare_ack(
                  transfer_data,
                  &expiration,
-@@ -7510,7 +7529,19 @@ pub trait WalletOnline: WalletOffline {
+@@ -7510,7 +7567,19 @@ pub trait WalletOnline: WalletOffline {
      }
  
      fn send_btc_end_impl(&mut self, txn: &DbTxn, signed_psbt: &Psbt) -> Result<String, Error> {
@@ -4112,11 +5853,980 @@ index fa40d01..9962d9d 100644
          let tx = self.broadcast_psbt(txn, signed_psbt)?;
          self.finalize_vanilla_wallet_transaction(txn, signed_psbt, WalletTransactionType::SendBtc)?;
          Ok(tx.compute_txid().to_string())
+@@ -7658,6 +7727,7 @@ pub trait WalletOnline: WalletOffline {
+         txn: &DbTxn,
+         signed_psbt: &Psbt,
+     ) -> Result<OperationResult, Error> {
++        super::settled_revalidation::ensure_inputs(self, txn, signed_psbt)?;
+         self.check_end_initiated(txn, signed_psbt)?;
+         let (txid, _transfer_dir, info_contents, fascia) =
+             self.get_transfer_end_data(signed_psbt)?;
+@@ -7806,6 +7876,7 @@ pub trait WalletOnline: WalletOffline {
+         signed_psbt: &Psbt,
+         main_transition: TypeOfTransition,
+     ) -> Result<(OperationResult, InfoBatchTransfer), Error> {
++        super::settled_revalidation::ensure_inputs(self, txn, signed_psbt)?;
+         self.check_end_initiated(txn, signed_psbt)?;
+         let (txid, transfer_dir, info_contents, mut fascia) =
+             self.get_transfer_end_data(signed_psbt)?;
+@@ -8337,6 +8408,7 @@ pub trait WalletOnline: WalletOffline {
+     }
+ 
+     fn mint_end_impl(&mut self, txn: &DbTxn, signed_psbt: &Psbt) -> Result<OperationResult, Error> {
++        super::settled_revalidation::ensure_inputs(self, txn, signed_psbt)?;
+         // a mint ended again (e.g. retried after a crash) is completed only while it's still
+         // initiated: one that has failed (which released its inputs) or progressed must not be
+         // broadcast or brought back to waiting for confirmations
+@@ -8524,6 +8596,7 @@ pub trait RgbWalletOpsOnline: RgbWalletOpsOffline + WalletOnline {
+         skip_sync: bool,
+     ) -> Result<RefreshResult, Error> {
+         info!(self.logger(), "Refreshing asset {:?}...", asset_id);
++        self.assert_refresh_authority()?;
+         self.check_online(online)?;
+         let txn = self.database().begin_transaction()?;
+         if let Some(aid) = &asset_id {
+diff --git a/src/wallet/settled_revalidation.rs b/src/wallet/settled_revalidation.rs
+new file mode 100644
+index 0000000..9cb2595
+--- /dev/null
++++ b/src/wallet/settled_revalidation.rs
+@@ -0,0 +1,920 @@
++//! Revalidate confirmation and native RGB ancestry without submitting a payment.
++use super::online::WalletOnline;
++use super::*;
++use crate::database::entities::prelude::BatchTransfer;
++use std::collections::VecDeque;
++use std::time::{Duration, Instant};
++
++const MAX_REVALIDATION_WITNESSES: usize = 10_000;
++
++fn unavailable() -> Error {
++    Error::Network {
++        details: "Current RGB confirmation state is unavailable.".into(),
++    }
++}
++
++fn sufficient(confirmations: Option<u64>, required: u64) -> bool {
++    confirmations.is_some_and(|count| count >= required)
++}
++
++struct BoundedResolver<R> {
++    inner: R,
++    deadline: Instant,
++}
++impl<R: ResolveWitness> BoundedResolver<R> {
++    fn available(&self) -> Result<(), WitnessResolverError> {
++        if Instant::now() >= self.deadline {
++            Err(WitnessResolverError::ResolverIssue(
++                None,
++                "RGB revalidation deadline reached".into(),
++            ))
++        } else {
++            Ok(())
++        }
++    }
++}
++impl<R: ResolveWitness> ResolveWitness for BoundedResolver<R> {
++    fn resolve_witness(&self, id: RgbTxid) -> Result<WitnessStatus, WitnessResolverError> {
++        self.available()?;
++        self.inner.resolve_witness(id)
++    }
++    fn get_block_header(
++        &self,
++        height: NonZeroU32,
++    ) -> Result<bitcoin::block::Header, WitnessResolverError> {
++        self.available()?;
++        self.inner.get_block_header(height)
++    }
++    fn check_chain_net(&self, network: ChainNet) -> Result<(), WitnessResolverError> {
++        self.available()?;
++        self.inner.check_chain_net(network)
++    }
++}
++
++pub(crate) struct Revalidation {
++    pub(crate) changes: RefreshResult,
++    pub(crate) blocked_ancestors: HashSet<i32>,
++    pub(crate) unavailable: bool,
++}
++
++fn observed<W: WalletOnline + ?Sized>(
++    wallet: &W,
++    txid: &str,
++    deadline: Instant,
++    cache: &mut HashMap<String, Result<Option<u64>, Error>>,
++) -> Result<Option<u64>, Error> {
++    cache
++        .entry(txid.into())
++        .or_insert_with(|| {
++            if Instant::now() >= deadline {
++                Err(unavailable())
++            } else {
++                wallet.indexer().get_tx_confirmations(txid)
++            }
++        })
++        .clone()
++}
++
++/// RGB ancestry can reference a pre-existing blinded seal, so a Bitcoin child
++/// can stay confirmed while an RGB ancestor witness becomes unconfirmed. Walk
++/// the canonical op-input index instead of assuming Bitcoin ancestry covers it.
++fn ancestry_confirmed<W: WalletOnline + ?Sized>(
++    wallet: &W,
++    txn: &DbTxn,
++    witness: RgbTxid,
++    required: u64,
++    deadline: Instant,
++    cache: &mut HashMap<String, Result<Option<u64>, Error>>,
++) -> Result<bool, Error> {
++    let mut queue = VecDeque::new();
++    for bundle in RgbStore::bundles_of_witness(&txn, witness)? {
++        let contract = RgbStore::bundle_contract(&txn, bundle)?.ok_or_else(unavailable)?;
++        for op in RgbStore::ops_in_bundle(&txn, bundle)? {
++            queue.push_back((contract, op));
++        }
++    }
++    let mut seen = HashSet::new();
++    let mut invalid = false;
++    while let Some((contract, op)) = queue.pop_front() {
++        if !seen.insert(op) {
++            continue;
++        }
++        if seen.len() > 100_000 || Instant::now() >= deadline {
++            return Err(unavailable());
++        }
++        invalid |= RgbStore::any_op_invalid(&txn, &std::collections::BTreeSet::from([op]))?;
++        if let Some(bundle) = RgbStore::bundle_of_op(&txn, op)? {
++            let mut confirmed = false;
++            let mut failure = false;
++            for parent in RgbStore::bundle_witnesses(&txn, bundle)? {
++                match observed(wallet, &parent.to_string(), deadline, cache) {
++                    Ok(count) if sufficient(count, required) => {
++                        confirmed = true;
++                        break;
++                    }
++                    Err(_) => failure = true,
++                    _ => {}
++                }
++            }
++            if !confirmed {
++                return if failure {
++                    Err(unavailable())
++                } else {
++                    Ok(false)
++                };
++            }
++        } else {
++            let genesis = RgbStore::genesis(&txn, contract)?.ok_or_else(unavailable)?;
++            if genesis.id() != op {
++                return Err(unavailable());
++            }
++        }
++        for input in RgbStore::input_opouts_for_op(&txn, op)? {
++            queue.push_back((contract, input.op));
++        }
++    }
++    if invalid {
++        // An invalid native index without an observed insufficient witness is
++        // unresolved (e.g. another resolver failed), not current reorg proof.
++        Err(unavailable())
++    } else {
++        Ok(true)
++    }
++}
++
++/// The local coloring graph supplements the consensus store's transitive
++/// invalid-op index. A pending/uncertain producer must not leave its descendant
++/// allocations classified as settled, even if another observation is stale.
++fn ancestry_fence(data: &DbData, unsafe_roots: &HashSet<i32>) -> HashSet<i32> {
++    let asset_batches: HashMap<_, _> = data
++        .asset_transfers
++        .iter()
++        .map(|a| (a.idx, a.batch_transfer_idx))
++        .collect();
++    let failed: HashSet<_> = data
++        .batch_transfers
++        .iter()
++        .filter(|b| b.status.failed())
++        .map(|b| b.idx)
++        .collect();
++    let mut producers: HashMap<i32, HashSet<i32>> = HashMap::new();
++    for coloring in &data.colorings {
++        if ColoringType::INCOMING.contains(&coloring.r#type) {
++            if let Some(batch) = asset_batches.get(&coloring.asset_transfer_idx) {
++                if !failed.contains(batch) {
++                    producers
++                        .entry(coloring.txo_idx)
++                        .or_default()
++                        .insert(*batch);
++                }
++            }
++        }
++    }
++    let mut children: HashMap<i32, HashSet<i32>> = HashMap::new();
++    for coloring in data
++        .colorings
++        .iter()
++        .filter(|c| c.r#type == ColoringType::Input)
++    {
++        let Some(child) = asset_batches.get(&coloring.asset_transfer_idx) else {
++            continue;
++        };
++        for parent in producers.get(&coloring.txo_idx).into_iter().flatten() {
++            if parent != child {
++                children.entry(*parent).or_default().insert(*child);
++            }
++        }
++    }
++    let mut queue: VecDeque<_> = unsafe_roots.iter().copied().collect();
++    let mut traversed = unsafe_roots.clone();
++    let mut descendants = HashSet::new();
++    while let Some(parent) = queue.pop_front() {
++        for child in children.get(&parent).into_iter().flatten() {
++            descendants.insert(*child);
++            if traversed.insert(*child) {
++                queue.push_back(*child);
++            }
++        }
++    }
++    descendants
++}
++
++/// A previously consumed waiting batch with independently verified witness
++/// and complete RGB ancestry is not an unsafe root merely because its history
++/// projection has not been promoted yet. This lets a whole confirmed DAG recover
++/// in one refresh, while a genuinely unconfirmed ancestor still fences every
++/// descendant, including independently confirmed Bitcoin children.
++fn reconfirmation_fence(
++    data: &DbData,
++    confirmed: &HashSet<i32>,
++    unconfirmed: &HashSet<i32>,
++) -> HashSet<i32> {
++    let mut unsafe_roots: HashSet<_> = data
++        .batch_transfers
++        .iter()
++        .filter(|b| !b.status.settled() && !b.status.failed() && !confirmed.contains(&b.idx))
++        .map(|b| b.idx)
++        .collect();
++    unsafe_roots.extend(unconfirmed);
++    let mut blocked = ancestry_fence(data, &unsafe_roots);
++    blocked.extend(unconfirmed);
++    blocked
++}
++
++/// Unknown observations preserve their own last-known projection, while a
++/// separately observed insufficient witness still demotes its entire local DAG.
++/// An unrelated outage must not hide positive reorganization evidence.
++fn projection_fence(
++    data: &DbData,
++    confirmed: &HashSet<i32>,
++    unconfirmed: &HashSet<i32>,
++    uncertain: bool,
++) -> HashSet<i32> {
++    if uncertain {
++        let mut blocked = ancestry_fence(data, unconfirmed);
++        blocked.extend(unconfirmed);
++        blocked
++    } else {
++        reconfirmation_fence(data, confirmed, unconfirmed)
++    }
++}
++
++/// One local SQLite transaction contains consensus witness updates and the
++/// history projection. No extra unsigned recovery marker or consumption flag
++/// can be removed to make an already-consumed transfer look fresh.
++pub(crate) fn inspect<W: WalletOnline + ?Sized>(
++    wallet: &W,
++    txn: &DbTxn,
++) -> Result<Revalidation, Error> {
++    let deadline = Instant::now() + Duration::from_secs(20);
++    let known = RgbStore::all_witness_ords(&txn)?;
++    if known.len() > MAX_REVALIDATION_WITNESSES {
++        return Err(Error::Recovery {
++            code: "RECOVERY_CAPACITY".into(),
++        });
++    }
++    let updated = wallet.rgb_stock(txn)?.update_witnesses(
++        &BoundedResolver {
++            inner: wallet.blockchain_resolver(),
++            deadline,
++        },
++        0,
++        vec![],
++    )?;
++    let mut uncertain = !updated.failed.is_empty();
++    let data = txn.get_db_data(false)?;
++    let mut observations: HashMap<String, Result<Option<u64>, Error>> = HashMap::new();
++    let mut confirmed_batches = HashSet::new();
++    let mut unconfirmed_batches = HashSet::new();
++    for batch in &data.batch_transfers {
++        let Some(txid) = &batch.txid else {
++            continue;
++        }; // genesis has no witness.
++        if !batch.status.settled()
++            && !(batch.status.waiting_confirmations() && consumed_witness(txn, txid)?)
++        {
++            continue;
++        }
++        let confirmed = match observed(wallet, txid, deadline, &mut observations) {
++            Ok(count) => sufficient(count, u64::from(batch.min_confirmations)),
++            Err(_) => {
++                uncertain = true;
++                continue;
++            }
++        };
++        if !confirmed {
++            unconfirmed_batches.insert(batch.idx);
++            continue;
++        }
++        let witness = RgbTxid::from_str(txid).map_err(|_| Error::InvalidTxid)?;
++        match ancestry_confirmed(
++            wallet,
++            txn,
++            witness,
++            u64::from(batch.min_confirmations),
++            deadline,
++            &mut observations,
++        ) {
++            Ok(true) => {
++                confirmed_batches.insert(batch.idx);
++            }
++            Ok(false) => {
++                unconfirmed_batches.insert(batch.idx);
++            }
++            Err(_) => uncertain = true,
++        }
++    }
++    // An unavailable observation never demotes that witness's last-known
++    // projection. Positive insufficient observations remain authoritative even
++    // if another unrelated witness is unavailable; only those proven roots and
++    // their descendants are demoted. Both Begin and End reject uncertainty.
++    let blocked_ancestors =
++        projection_fence(&data, &confirmed_batches, &unconfirmed_batches, uncertain);
++    let mut changes = RefreshResult::new();
++    if uncertain {
++        changes.extend(
++            data.batch_transfers
++                .iter()
++                .filter(|b| !b.status.failed() && b.txid.is_some())
++                .map(|b| {
++                    (
++                        b.idx,
++                        RefreshedTransfer {
++                            updated_status: None,
++                            failure: Some(unavailable()),
++                        },
++                    )
++                }),
++        );
++    }
++    for batch in data
++        .batch_transfers
++        .iter()
++        .filter(|b| b.status.settled() && b.txid.is_some() && blocked_ancestors.contains(&b.idx))
++    {
++        let mut demoted: DbBatchTransferActMod = batch.clone().into();
++        demoted.status = ActiveValue::Set(TransferStatus::WaitingConfirmations);
++        // Preserve the original transfer timestamps. A chain reorganization is
++        // not a new payment and must not move its history entry to today.
++        block_on(BatchTransfer::update(demoted).exec(txn.inner()))?;
++        if batch.incoming {
++            let (_, transfer) =
++                batch.get_incoming_transfer(&data.asset_transfers, &data.transfers)?;
++            if let Some(recipient) = transfer.recipient_id.as_deref() {
++                wallet.delete_valid_consignment(recipient)?;
++            }
++        }
++        changes.insert(
++            batch.idx,
++            RefreshedTransfer {
++                updated_status: Some(TransferStatus::WaitingConfirmations),
++                failure: uncertain.then(unavailable),
++            },
++        );
++    }
++    Ok(Revalidation {
++        changes,
++        blocked_ancestors,
++        unavailable: uncertain,
++    })
++}
++
++/// Presence means this exact witness already entered the canonical native RGB
++/// store. A reorg must not let an old proxy deadline destroy that state.
++pub(crate) fn consumed_witness(txn: &DbTxn, txid: &str) -> Result<bool, Error> {
++    let txid = RgbTxid::from_str(txid).map_err(|_| Error::InvalidTxid)?;
++    Ok(!RgbStore::bundles_of_witness(&txn, txid)?.is_empty())
++}
++
++/// A plan can have been prepared before a reorg. Check its input producers
++/// again before End's first dispatch, without changing its transaction or
++/// creating another plan. The current outgoing reservation is not a producer.
++pub(crate) fn ensure_inputs<W: WalletOnline + ?Sized>(
++    wallet: &W,
++    txn: &DbTxn,
++    psbt: &Psbt,
++) -> Result<(), Error> {
++    if inspect(wallet, txn)?.unavailable {
++        return Err(unavailable());
++    }
++    let data = txn.get_db_data(false)?;
++    let current_txid = psbt.unsigned_tx.compute_txid().to_string();
++    let selected: HashSet<_> = psbt
++        .unsigned_tx
++        .input
++        .iter()
++        .map(|i| (i.previous_output.txid.to_string(), i.previous_output.vout))
++        .collect();
++    let txos: HashSet<_> = data
++        .txos
++        .iter()
++        .filter(|t| selected.contains(&(t.txid.clone(), t.vout)))
++        .map(|t| t.idx)
++        .collect();
++    for coloring in data
++        .colorings
++        .iter()
++        .filter(|c| txos.contains(&c.txo_idx) && ColoringType::INCOMING.contains(&c.r#type))
++    {
++        let at = data
++            .asset_transfers
++            .iter()
++            .find(|a| a.idx == coloring.asset_transfer_idx)
++            .ok_or_else(unavailable)?;
++        let batch = data
++            .batch_transfers
++            .iter()
++            .find(|b| b.idx == at.batch_transfer_idx)
++            .ok_or_else(unavailable)?;
++        if batch.status.pending() && batch.txid.as_ref() != Some(&current_txid) {
++            return Err(unavailable());
++        }
++    }
++    Ok(())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn explicit_zero_confirmation_policy_is_preserved_without_treating_absence_as_confirmation() {
++        assert!(sufficient(Some(0), 0));
++        assert!(!sufficient(Some(0), 1));
++        assert!(!sufficient(None, 0));
++        assert!(sufficient(Some(3), 3));
++        assert!(!sufficient(Some(2), 3));
++    }
++
++    fn batch(idx: i32, status: TransferStatus, incoming: bool) -> DbBatchTransfer {
++        DbBatchTransfer {
++            idx,
++            txid: Some(format!("{idx:064x}")),
++            status,
++            created_at: 1,
++            updated_at: 2,
++            expiration: None,
++            min_confirmations: 1,
++            incoming,
++            operation_secret_key: None,
++            broadcast_deadline: None,
++            retention_deadline: None,
++        }
++    }
++    fn asset(idx: i32, batch: i32) -> DbAssetTransfer {
++        DbAssetTransfer {
++            idx,
++            user_driven: true,
++            batch_transfer_idx: batch,
++            asset_id: Some("test-asset".into()),
++            transition_type: Some(TypeOfTransition::Transfer),
++        }
++    }
++    fn coloring(idx: i32, txo: i32, asset: i32, kind: ColoringType, amount: u64) -> DbColoring {
++        DbColoring {
++            idx,
++            txo_idx: txo,
++            asset_transfer_idx: asset,
++            r#type: kind,
++            assignment: Assignment::Fungible(amount),
++        }
++    }
++    fn txo(idx: i32, spent: bool) -> DbTxo {
++        DbTxo {
++            idx,
++            txid: format!("{idx:064x}"),
++            vout: 0,
++            btc_amount: "1000".into(),
++            spent,
++            exists: true,
++            pending_witness: false,
++        }
++    }
++    fn transfer(idx: i32, asset: i32, amount: u64) -> DbTransfer {
++        DbTransfer {
++            idx,
++            asset_transfer_idx: asset,
++            requested_assignment: Some(Assignment::Fungible(amount)),
++            recipient_type: Some(RecipientTypeFull::Witness { vout: Some(0) }),
++            recipient_id: None,
++            ack: Some(true),
++            invoice_string: None,
++            recipient_pubkey: None,
++            consignment_hash: None,
++            recipient_encryption: Encryption::Required,
++            ack_signature: None,
++            proxy_transfer_id: None,
++            invoice_expiration: None,
++        }
++    }
++
++    #[test]
++    fn ancestry_fence_protects_all_descendants_and_ignores_unrelated_or_failed_producers() {
++        let mut data = DbData {
++            batch_transfers: vec![
++                batch(1, TransferStatus::Settled, true),
++                batch(2, TransferStatus::Settled, false),
++                batch(3, TransferStatus::Settled, false),
++                batch(4, TransferStatus::Settled, true),
++            ],
++            asset_transfers: vec![asset(1, 1), asset(2, 2), asset(3, 3), asset(4, 4)],
++            transfers: vec![],
++            colorings: vec![
++                coloring(1, 1, 1, ColoringType::Receive, 10),
++                coloring(2, 1, 2, ColoringType::Input, 10),
++                coloring(3, 2, 2, ColoringType::Change, 9),
++                coloring(4, 2, 3, ColoringType::Input, 9),
++                coloring(5, 3, 3, ColoringType::Change, 8),
++                coloring(6, 4, 4, ColoringType::Receive, 1),
++            ],
++            txos: vec![txo(1, true), txo(2, true), txo(3, false), txo(4, false)],
++        };
++        assert_eq!(
++            ancestry_fence(&data, &HashSet::from([1])),
++            HashSet::from([2, 3])
++        );
++        assert!(ancestry_fence(&data, &HashSet::from([4])).is_empty());
++        data.batch_transfers[0].status = TransferStatus::Failed;
++        assert!(ancestry_fence(&data, &HashSet::from([1])).is_empty());
++    }
++
++    #[test]
++    fn pending_witness_is_counted_once_before_and_after_allocation_materialization() {
++        let directory = tempfile::tempdir().unwrap();
++        let database = super::super::core::setup_db(directory.path()).unwrap();
++        let txn = database.begin_transaction().unwrap();
++        let batches = vec![
++            batch(1, TransferStatus::Settled, true),
++            batch(2, TransferStatus::WaitingConfirmations, true),
++        ];
++        let assets = vec![asset(1, 1), asset(2, 2)];
++        let transfers = vec![transfer(1, 1, 100), transfer(2, 2, 1)];
++        let mut colors = vec![coloring(1, 1, 1, ColoringType::Receive, 100)];
++        for materialized in [false, true] {
++            if materialized {
++                colors.push(coloring(2, 2, 2, ColoringType::Receive, 1));
++            }
++            let balance = txn
++                .get_asset_balance(
++                    "test-asset".into(),
++                    Some(transfers.clone()),
++                    Some(assets.clone()),
++                    Some(batches.clone()),
++                    Some(colors.clone()),
++                    Some(vec![txo(1, false), txo(2, false)]),
++                )
++                .unwrap();
++            assert_eq!(
++                balance,
++                Balance {
++                    settled: 100,
++                    future: 101,
++                    spendable: 100
++                }
++            );
++        }
++        let confirmed = vec![batches[0].clone(), batch(2, TransferStatus::Settled, true)];
++        assert_eq!(
++            txn.get_asset_balance(
++                "test-asset".into(),
++                Some(transfers),
++                Some(assets),
++                Some(confirmed),
++                Some(colors),
++                Some(vec![txo(1, false), txo(2, false)])
++            )
++            .unwrap(),
++            Balance {
++                settled: 101,
++                future: 101,
++                spendable: 101
++            }
++        );
++    }
++
++    #[test]
++    fn reorged_outgoing_preserves_gross_balance_but_fences_its_pending_change() {
++        let directory = tempfile::tempdir().unwrap();
++        let database = super::super::core::setup_db(directory.path()).unwrap();
++        let txn = database.begin_transaction().unwrap();
++        let assets = vec![asset(1, 1), asset(2, 2)];
++        let colors = vec![
++            coloring(1, 1, 1, ColoringType::Receive, 100),
++            coloring(2, 1, 2, ColoringType::Input, 100),
++            coloring(3, 2, 2, ColoringType::Change, 99),
++        ];
++        let balance = txn
++            .get_asset_balance(
++                "test-asset".into(),
++                Some(vec![]),
++                Some(assets),
++                Some(vec![
++                    batch(1, TransferStatus::Settled, true),
++                    batch(2, TransferStatus::WaitingConfirmations, false),
++                ]),
++                Some(colors),
++                Some(vec![txo(1, true), txo(2, false)]),
++            )
++            .unwrap();
++        assert_eq!(
++            balance,
++            Balance {
++                settled: 100,
++                future: 99,
++                spendable: 0
++            }
++        );
++    }
++
++    fn historical_chain(depth: i32, status: TransferStatus) -> DbData {
++        let mut data = DbData {
++            batch_transfers: vec![batch(1, status, true)],
++            asset_transfers: vec![asset(1, 1)],
++            transfers: vec![],
++            colorings: vec![coloring(1, 1, 1, ColoringType::Receive, 1000)],
++            txos: vec![txo(1, depth > 1)],
++        };
++        for id in 2..=depth {
++            data.batch_transfers.push(batch(id, status, false));
++            data.asset_transfers.push(asset(id, id));
++            data.colorings.push(coloring(
++                2 * id - 2,
++                id - 1,
++                id,
++                ColoringType::Input,
++                1002 - id as u64,
++            ));
++            data.colorings.push(coloring(
++                2 * id - 1,
++                id,
++                id,
++                ColoringType::Change,
++                1001 - id as u64,
++            ));
++            data.txos.push(txo(id, id < depth));
++        }
++        data
++    }
++
++    fn balance_of(data: &DbData) -> Balance {
++        let directory = tempfile::tempdir().unwrap();
++        let database = super::super::core::setup_db(directory.path()).unwrap();
++        let txn = database.begin_transaction().unwrap();
++        txn.get_asset_balance(
++            "test-asset".into(),
++            Some(data.transfers.clone()),
++            Some(data.asset_transfers.clone()),
++            Some(data.batch_transfers.clone()),
++            Some(data.colorings.clone()),
++            Some(data.txos.clone()),
++        )
++        .unwrap()
++    }
++
++    #[test]
++    fn deep_reorg_counts_confirmed_frontier_once_and_recovers_entire_chain() {
++        let mut data = historical_chain(10, TransferStatus::Settled);
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 991,
++                future: 991,
++                spendable: 991
++            }
++        );
++        // Nine pending spends spend the same original asset successively.
++        // Their historical inputs must not inflate 1000 into their sum (8964).
++        for pending_from in 2..=10 {
++            for batch in &mut data.batch_transfers {
++                batch.status = if batch.idx >= pending_from {
++                    TransferStatus::WaitingConfirmations
++                } else {
++                    TransferStatus::Settled
++                };
++            }
++            assert_eq!(
++                balance_of(&data),
++                Balance {
++                    settled: 1002 - pending_from as u64,
++                    future: 991,
++                    spendable: 0,
++                }
++            );
++        }
++        for batch in &mut data.batch_transfers {
++            batch.status = TransferStatus::WaitingConfirmations;
++        }
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 0,
++                future: 991,
++                spendable: 0
++            }
++        );
++        let verified: HashSet<_> = (1..=10).collect();
++        // Exact positive proofs release every generation in one observation;
++        // the old waiting projection cannot force one refresh per ancestor.
++        assert!(reconfirmation_fence(&data, &verified, &HashSet::new()).is_empty());
++        assert_eq!(
++            reconfirmation_fence(&data, &verified, &HashSet::from([1])),
++            (1..=10).collect()
++        );
++        for batch in &mut data.batch_transfers {
++            batch.status = TransferStatus::Settled;
++        }
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 991,
++                future: 991,
++                spendable: 991
++            }
++        );
++    }
++
++    #[test]
++    fn branching_reorg_fences_descendants_without_blocking_confirmed_independent_branch() {
++        let mut data = historical_chain(4, TransferStatus::WaitingConfirmations);
++        // A second child spends the first producer's distinct allocation.
++        data.batch_transfers
++            .push(batch(5, TransferStatus::WaitingConfirmations, true));
++        data.batch_transfers
++            .push(batch(6, TransferStatus::WaitingConfirmations, false));
++        data.asset_transfers.push(asset(5, 5));
++        data.asset_transfers.push(asset(6, 6));
++        data.colorings
++            .push(coloring(20, 10, 5, ColoringType::Receive, 20));
++        data.colorings
++            .push(coloring(21, 10, 6, ColoringType::Input, 20));
++        data.colorings
++            .push(coloring(22, 11, 6, ColoringType::Change, 19));
++        data.txos.push(txo(10, true));
++        data.txos.push(txo(11, false));
++        let verified: HashSet<_> = (1..=6).collect();
++        assert_eq!(
++            reconfirmation_fence(&data, &verified, &HashSet::from([2])),
++            HashSet::from([2, 3, 4])
++        );
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 0,
++                future: 1016,
++                spendable: 0
++            }
++        );
++        // Positive confirmation on the independent branch is sufficient in
++        // the same pass; it does not depend on history insertion order.
++        for batch in &mut data.batch_transfers {
++            if [1, 5, 6].contains(&batch.idx) {
++                batch.status = TransferStatus::Settled;
++            }
++        }
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 1019,
++                future: 1016,
++                spendable: 19
++            }
++        );
++    }
++
++    #[test]
++    fn split_and_merge_frontiers_conserve_value_with_mixed_confirmation_policies() {
++        let mut data = DbData {
++            batch_transfers: (1..=5)
++                .map(|id| batch(id, TransferStatus::WaitingConfirmations, id == 1))
++                .collect(),
++            asset_transfers: (1..=5).map(|id| asset(id, id)).collect(),
++            transfers: vec![],
++            colorings: vec![
++                coloring(1, 1, 1, ColoringType::Receive, 1000),
++                coloring(2, 1, 2, ColoringType::Input, 1000),
++                coloring(3, 2, 2, ColoringType::Change, 600),
++                coloring(4, 3, 2, ColoringType::Change, 399),
++                coloring(5, 2, 3, ColoringType::Input, 600),
++                coloring(6, 4, 3, ColoringType::Change, 599),
++                coloring(7, 3, 4, ColoringType::Input, 399),
++                coloring(8, 5, 4, ColoringType::Change, 398),
++                coloring(9, 4, 5, ColoringType::Input, 599),
++                coloring(10, 5, 5, ColoringType::Input, 398),
++                coloring(11, 6, 5, ColoringType::Change, 996),
++            ],
++            txos: (1..=6).map(|id| txo(id, id < 6)).collect(),
++        };
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 0,
++                future: 996,
++                spendable: 0
++            }
++        );
++        data.batch_transfers[0].status = TransferStatus::Settled;
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 1000,
++                future: 996,
++                spendable: 0
++            }
++        );
++        for id in [2, 4] {
++            data.batch_transfers[(id - 1) as usize].status = TransferStatus::Settled;
++        }
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 998,
++                future: 996,
++                spendable: 0
++            }
++        );
++        // One branch has a stricter native policy. A low-threshold child cannot
++        // bypass its pending producer merely because the child's own proof is
++        // sufficient. Once both policies are met, the same pass releases all.
++        data.batch_transfers[2].min_confirmations = 6;
++        let observed: HashMap<_, _> = [(1, 8), (2, 7), (3, 3), (4, 6), (5, 2)].into();
++        let mut confirmed: HashSet<_> = data
++            .batch_transfers
++            .iter()
++            .filter(|b| sufficient(Some(observed[&b.idx]), u64::from(b.min_confirmations)))
++            .map(|b| b.idx)
++            .collect();
++        assert_eq!(
++            reconfirmation_fence(&data, &confirmed, &HashSet::from([3])),
++            HashSet::from([3, 5])
++        );
++        confirmed.insert(3);
++        assert!(reconfirmation_fence(&data, &confirmed, &HashSet::new()).is_empty());
++        for batch in &mut data.batch_transfers {
++            batch.status = TransferStatus::Settled;
++        }
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 996,
++                future: 996,
++                spendable: 996
++            }
++        );
++    }
++
++    #[test]
++    fn unrelated_unknown_observation_does_not_mask_positive_reorg_or_demote_unknown_branch() {
++        let mut data = historical_chain(4, TransferStatus::Settled);
++        data.batch_transfers
++            .push(batch(5, TransferStatus::Settled, true));
++        data.asset_transfers.push(asset(5, 5));
++        data.colorings
++            .push(coloring(20, 10, 5, ColoringType::Receive, 20));
++        data.txos.push(txo(10, false));
++        // Branch 2 has a positively observed zero-confirmation witness. The
++        // unrelated row 5 is unavailable: preserve its last-known Settled row.
++        let blocked = projection_fence(&data, &HashSet::from([1, 3, 4]), &HashSet::from([2]), true);
++        assert_eq!(blocked, HashSet::from([2, 3, 4]));
++        for batch in &mut data.batch_transfers {
++            if blocked.contains(&batch.idx) {
++                batch.status = TransferStatus::WaitingConfirmations;
++            }
++        }
++        assert!(data.batch_transfers[4].status.settled());
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 1020,
++                future: 1017,
++                spendable: 20
++            }
++        );
++        assert!(projection_fence(&data, &HashSet::new(), &HashSet::new(), true).is_empty());
++    }
++
++    #[test]
++    fn unbroadcast_reservation_subtracts_once_without_losing_confirmed_producer() {
++        let mut data = historical_chain(2, TransferStatus::Settled);
++        data.batch_transfers[1].status = TransferStatus::Initiated;
++        data.txos[0].spent = false;
++        data.txos[1].exists = false;
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 1000,
++                future: 999,
++                spendable: 0
++            }
++        );
++        data.batch_transfers[1].status = TransferStatus::Failed;
++        assert_eq!(
++            balance_of(&data),
++            Balance {
++                settled: 1000,
++                future: 1000,
++                spendable: 1000
++            }
++        );
++    }
++
++    #[test]
++    fn revalidation_deadline_never_turns_an_unobserved_witness_into_absence() {
++        struct Never;
++        impl ResolveWitness for Never {
++            fn resolve_witness(&self, _: RgbTxid) -> Result<WitnessStatus, WitnessResolverError> {
++                panic!("no network call after deadline")
++            }
++            fn check_chain_net(&self, _: ChainNet) -> Result<(), WitnessResolverError> {
++                panic!("no network call after deadline")
++            }
++        }
++        let resolver = BoundedResolver {
++            inner: Never,
++            deadline: Instant::now() - Duration::from_secs(1),
++        };
++        assert!(matches!(
++            resolver.resolve_witness(RgbTxid::from_str(&"11".repeat(32)).unwrap()),
++            Err(WitnessResolverError::ResolverIssue(None, _))
++        ));
++    }
++}
 diff --git a/src/wallet/singlesig.rs b/src/wallet/singlesig.rs
-index 9374659..bab2078 100644
+index 9374659..d915b4c 100644
 --- a/src/wallet/singlesig.rs
 +++ b/src/wallet/singlesig.rs
-@@ -878,7 +878,7 @@ impl Wallet {
+@@ -119,6 +119,10 @@ impl WalletOffline for Wallet {}
+ 
+ #[cfg(feature = "_online")]
+ impl WalletOnline for Wallet {
++    fn assert_refresh_authority(&self) -> Result<(), Error> {
++        self.assert_snapshot_refresh_authority()
++    }
++
+     fn wallet_specific_consistency_checks(&mut self, txn: &DbTxn) -> Result<(), Error> {
+         self.sync_wallet(
+             txn,
+@@ -878,7 +882,7 @@ impl Wallet {
          self.keys.mnemonic.is_none()
      }
  
@@ -4125,7 +6835,7 @@ index 9374659..bab2078 100644
          if self.watch_only() {
              error!(self.logger(), "Invalid operation for a watch only wallet");
              return Err(Error::WatchOnly);
-@@ -1187,6 +1187,36 @@ impl Wallet {
+@@ -1187,6 +1191,36 @@ impl Wallet {
          sender_transport_endpoint: Option<String>,
          dry_run: bool,
      ) -> Result<SendBeginResult, Error> {
@@ -4162,7 +6872,7 @@ index 9374659..bab2078 100644
          info!(self.logger(), "Sending (begin) to: {:?}...", recipient_map);
          self.check_online(online)?;
          let txn = self.database().begin_transaction()?;
-@@ -1203,9 +1233,7 @@ impl Wallet {
+@@ -1203,9 +1237,7 @@ impl Wallet {
          if !dry_run {
              self.update_backup_info(&txn, false)?;
          }
@@ -4173,7 +6883,7 @@ index 9374659..bab2078 100644
              psbt: begin_op_data.psbt.to_string(),
              batch_transfer_idx: begin_op_data.batch_transfer_idx,
              details: SendDetails {
-@@ -1218,7 +1246,10 @@ impl Wallet {
+@@ -1218,7 +1250,10 @@ impl Wallet {
                  entropy: begin_op_data.info_batch_transfer.entropy,
                  is_donation: donation,
              },
@@ -4185,7 +6895,7 @@ index 9374659..bab2078 100644
      }
  
      /// Complete the send operation by saving the PSBT to disk, POSTing consignments to the RGB
-@@ -1368,10 +1399,37 @@ impl Wallet {
+@@ -1368,10 +1403,37 @@ impl Wallet {
          skip_sync: bool,
          dry_run: bool,
      ) -> Result<String, Error> {

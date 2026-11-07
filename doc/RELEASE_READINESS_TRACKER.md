@@ -7,6 +7,41 @@ were removed because they overlapped and had drifted from the implementation.
 
 ## Document Control
 
+### November 8 RGB_L1 successor qualification
+
+The `.2` native candidate is separately sealed as
+`8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e`. Both installed SDK mobile consumers
+passed ten funded/ABI/recovery cases on iOS 27 and Android 17; the Android guest
+uses 16 KiB pages with compatibility fallbacks disabled. Final native checks
+include 48 recovery/backup/accounting/storage tests and eight additional offline
+observation cases. Historical failures and earlier source identities remain in
+[the executed evidence](BFA7_QUALIFICATION.md), rather than being relabeled.
+
+The user confirmed there is no approved recovery service/protocol. Portable RGB
+restored-wallet spending and mnemonic-only RGB recovery therefore remain
+unsupported. Aster's normal RGB_L1 activation and production gates remain closed;
+Dev also requires the team's new approved contract and deployment. Local fixture
+qualification does not approve Dev or mainnet assets. Aster's final full-flow
+and distinct process-cold acceptance now pass on both platforms, separately from
+the 14 offline existing-only wrapper cases. Android additionally proves pending,
+nonspendable RGB at zero confirmations and settlement after exactly one.
+
+API change/migration note for NOV-005: additions are `openExisting`, explicit
+`revokeOnchainSend`, strictly typed capability fields and the immutable
+`RgbLibBackupRecoveryCapabilities` descriptor. `init`/`reinit` keep their prior
+create-or-open behavior. Existing clients are source compatible; persistent
+wallet hosts should adopt `openExisting` and separate app metadata from the
+SDK's exclusive root. No application migration is required for this unreleased
+app. Snapshot spending is not enabled. The reviewed API snapshot also records
+the new bridge policy/reader declarations, with no Pigeon schema change.
+
+The separately authorized native-only `.2` beta is now public and all seven
+anonymous downloads, the fresh unmodified iOS installer and the actual Android
+public-repository artifact task pass. The freshly converted six Apple pairs
+retain zero DiskSpace imports. This is component/consumer acquisition evidence;
+it does not approve final signed-app privacy or the independent legacy runtime.
+See the exact acquisition digests in [the qualification record](BFA7_QUALIFICATION.md).
+
 ### November 6 React Native beta.40 and RGB_L1
 
 November 7 follow-up: Flutter now carries a separately named BFA.7 source
@@ -24,8 +59,9 @@ See [the source audit and dispositions](UPSTREAM_PARITY_BETA40.md).
 | --- | --- | --- | --- | --- |
 | NOV-001 | P1 | Verified | The beta.40 source, npm archive, and BFA.5 native provenance are pinned. Flutter has typed RGB_L1 session, exact amount, receive, transfer, issuance, backup and maintenance APIs. Existing RLN compatibility checks are still pinned independently. | Continue reviewing upstream changes against the immutable reference and keep separate native artifact evidence. |
 | NOV-002 | P0 | In progress | BFA.7 Flutter overlay implements authenticated native exact-payment identity, dispatch boundary, read-only status, cancellation tombstones and receipt recovery. Native fault/restart/backup tests pass. Restored snapshots remain fenced because an old backup cannot prove absence of a later payment. Aster has the adapter but stays gated. | Qualify funded mobile interruption/reorg cases and a freshness authority for unrestricted restored-wallet spending. No status or restart may replay End, proxy submission or broadcast. |
-| NOV-003 | P0 | In progress | Patched BFA.7 UniFFI lock has zero known vulnerabilities and zero unsound notices at the recorded RustSec revision; three unmaintained dependencies remain disclosed. Static iOS inputs still import DiskSpace APIs. Dual-engine packages retain independent RLN security/privacy gates. | Verify exact platform/native provenance and final signed-archive required-reason call paths. Advisory remediation alone does not approve a release. |
+| NOV-003 | P0 | In progress | Patched BFA.7 UniFFI lock has zero known vulnerabilities and zero unsound notices at the recorded RustSec revision; three unmaintained dependencies remain disclosed. The exact `.2` converter's six Apple framework/architecture pairs have no DiskSpace imports and retain fcntl/fsync. Unreferenced Rustix calls remain in static inputs; other linking configurations do not inherit that result. Dual-engine packages retain independent RLN security/privacy gates. | Final signed-app required-API and aggregate privacy evidence, plus the independent legacy RLN review, remain required. Advisory or component remediation alone does not approve a release. |
 | NOV-004 | P0 | In progress | BFA.7 native standalone genesis registration and exact Aster metadata bootstrap are implemented. Proxy 1.0, issuer-approved current contracts, backing deployment and funded acceptance remain required; historical BFA.5 exports cannot authenticate Dev or mainnet assets. | Obtain approved current export/hash/name/ticker/precision/backing contracts and explicit EVM mint-lock policy, then qualify exact BTC/USDT receive/send/history/restart on both mobile platforms. |
+| NOV-005 | P0 | Verified | Actual Aster qualification found its ownership marker in the SDK required-empty native root. A dedicated native child fixes that integration. READY opens require existing storage, authenticated profile/cohort checks and a compiled-wrapper capability. Bounded strict profile readers reject corrupt input instead of admitting new state or exhausting memory. Fourteen separate offline wrapper/device cases pass, followed by actual Aster funded flow and distinct process-cold reopen on both platforms. | Preserve old/partial state and reject missing storage before replacement. Qualification does not lift production/restore/Dev gates. See the API migration note and exact evidence above. |
 
 ### October 16 Production Privacy Disposition
 

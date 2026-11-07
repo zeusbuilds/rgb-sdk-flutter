@@ -10,6 +10,8 @@ swiftc -warnings-as-errors \
 "${WORK_DIR}/wire-codec-test"
 swiftc -warnings-as-errors \
   "${REPO_DIR}/ios/Classes/RgbLibOperationPolicy.swift" \
+  "${REPO_DIR}/ios/Classes/RgbLibRevocationPolicy.swift" \
+  "${REPO_DIR}/ios/Classes/RgbLibExistingOpenPolicy.swift" \
   "${REPO_DIR}/test/native/rgb_lib_operation_policy_main.swift" \
   -o "${WORK_DIR}/rgb-lib-operation-policy-test"
 "${WORK_DIR}/rgb-lib-operation-policy-test"
@@ -24,3 +26,8 @@ swiftc -warnings-as-errors \
   "${REPO_DIR}/test/native/rgb_lib_session_address_main.swift" \
   -o "${WORK_DIR}/rgb-lib-session-address-test"
 "${WORK_DIR}/rgb-lib-session-address-test"
+swiftc -warnings-as-errors \
+  "${REPO_DIR}/ios/Classes/RgbLibProfileReader.swift" \
+  "${REPO_DIR}/test/native/rgb_lib_profile_reader_main.swift" \
+  -o "${WORK_DIR}/rgb-lib-profile-reader-test"
+"${WORK_DIR}/rgb-lib-profile-reader-test"

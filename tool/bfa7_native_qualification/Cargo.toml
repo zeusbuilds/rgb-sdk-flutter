@@ -5,7 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-rgb-lib = { path = "../../.buildlog/bfa7-native/source", features = ["bitcoind", "electrum", "esplora"] }
+rgb-lib = { path = "../../.buildlog/bfa7-finalize/source", features = ["bitcoind", "electrum", "esplora"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 base64 = "0.23.1"
@@ -13,7 +13,7 @@ base64 = "0.23.1"
 [workspace]
 
 [patch.crates-io]
-esplora-client = { path = "../../.buildlog/bfa7-native/esplora-client" }
+esplora-client = { path = "../../.buildlog/bfa7-finalize/esplora-client" }
 rgb-aluvm = { git = "https://github.com/rgb-protocol/rgb-aluvm", rev = "eb956ccaadf64930990e2ed08f6c4232caee24f9" }
 rgb-ascii-armor = { git = "https://github.com/rgb-protocol/rgb-ascii-armor", rev = "40cdea632fd6d0527494893e83b99cea60ace310" }
 rgb-consensus = { git = "https://github.com/rgb-protocol/rgb-consensus", rev = "d4bbbce212e4d9967e10cc3c6a7db2f664d52bd2" }
@@ -24,3 +24,5 @@ rgb-schemas = { git = "https://github.com/rgb-protocol/rgb-schemas", rev = "b3f8
 rgb-strict-encoding = { git = "https://github.com/rgb-protocol/rgb-strict-encoding", rev = "e12b9944b30171950de03778d6666b24bc33d994" }
 rgb-strict-encoding-derive = { git = "https://github.com/rgb-protocol/rgb-strict-encoding", rev = "e12b9944b30171950de03778d6666b24bc33d994" }
 rgb-strict-types = { git = "https://github.com/rgb-protocol/rgb-strict-types", rev = "8714cdcc8af25333c27214cdf9f42a6388d484ff" }
+
+libsqlite3-sys = { path = "../../.buildlog/bfa7-finalize/sqlite3-sys" }

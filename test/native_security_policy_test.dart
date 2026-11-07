@@ -25,13 +25,16 @@ void main() {
     expect(rgbLibProductionBlockers('1' * 64).single, contains('no approved'));
   });
   test('patched BFA.7 audit does not grant production approval', () {
-    final blockers = rgbLibProductionBlockers(
+    for (final lock in [
       '4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f',
-    );
-    expect(blockers, hasLength(1));
-    expect(blockers.single, contains('zero known vulnerabilities'));
-    expect(blockers.single, contains('Three unmaintained dependencies'));
-    expect(blockers.single, contains('backup-freshness'));
-    expect(blockers.single, contains('not production approved'));
+      '81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6',
+    ]) {
+      final blockers = rgbLibProductionBlockers(lock);
+      expect(blockers, hasLength(1));
+      expect(blockers.single, contains('zero known vulnerabilities'));
+      expect(blockers.single, contains('Three unmaintained dependencies'));
+      expect(blockers.single, contains('backup-freshness'));
+      expect(blockers.single, contains('not production approved'));
+    }
   });
 }

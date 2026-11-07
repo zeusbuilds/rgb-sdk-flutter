@@ -42,8 +42,23 @@ Map<String, Object?> rgbLibIosPrivacyDisposition() {
       ? jsonDecode(manifest.readAsStringSync()) as Map<String, Object?>
       : const <String, Object?>{};
   final ios = data['ios'] as Map<String, Object?>?;
-  final source = data['sourceRevision'];
-  final archive = ios?['sha256'];
+  return rgbLibIosPrivacyDispositionForInputs(
+    sourceCommit: data['sourceRevision'],
+    archiveSha256: ios?['sha256'],
+  );
+}
+
+/// Exact linked-component review; final application approval stays separate.
+Map<String, Object?> rgbLibIosPrivacyDispositionForInputs({
+  required Object? sourceCommit,
+  required Object? archiveSha256,
+}) {
+  final source = sourceCommit;
+  final archive = archiveSha256;
+  final linkedComponentReviewed =
+      source == '9ec49c08be2e68f08521281e3efbd760ec989cb9' &&
+      archive ==
+          '60c33914222a62a822440bf155babd0b030a74f4fc166f7bd5c5955e6f49932c';
   final bfa7 =
       source == '9ec49c08be2e68f08521281e3efbd760ec989cb9' &&
       archive ==
@@ -57,10 +72,17 @@ Map<String, Object?> rgbLibIosPrivacyDisposition() {
     'scope': 'rgb-l1-native-ios-required-reason-api',
     'sourceCommit': source,
     'archiveSha256': archive,
-    'status': known ? 'blocked-known-unresolved' : 'unreviewed',
+    'status': linkedComponentReviewed
+        ? 'blocked-final-app-review'
+        : known
+        ? 'blocked-known-unresolved'
+        : 'unreviewed',
     'productionReady': false,
+    if (linkedComponentReviewed) 'linkedDiskSpaceImports': const <String>[],
     'blockers': [
-      if (bfa7)
+      if (linkedComponentReviewed)
+        'iOS privacy: the exact RGB_L1 successor has no linked statfs/fstatfs/statvfs/fstatvfs imports across its three Apple architectures. Final signed-app API and aggregate privacy-manifest evidence remain required; the independent legacy RLN disposition is unchanged.'
+      else if (bfa7)
         'iOS privacy: RGB_L1 BFA.7 retains statfs/fstatfs imports in the linked native FFI framework. DiskSpace call-path justification and final signed-app API/aggregate-manifest evidence remain unresolved; do not inherit a reason from RN or treat a clean dependency audit as privacy approval.'
       else if (known)
         'iOS privacy: RGB_L1 BFA.5 imports statfs/fstatfs. Review the linked call paths and signed archive before selecting a DiskSpace reason.'

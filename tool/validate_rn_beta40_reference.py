@@ -163,7 +163,7 @@ def validate_flutter_native_upgrade(current, reference):
     manifest_path = root / 'native/rgb_l1/source-manifest.json'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     require(current['version'] == manifest['version']
-            == '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1',
+            == '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2',
             'Flutter native upgrade has an unreviewed version')
     require(current['sourceRevision'] == manifest['source']['revision']
             == '9ec49c08be2e68f08521281e3efbd760ec989cb9',
@@ -184,7 +184,13 @@ def validate_flutter_native_upgrade(current, reference):
             and current['sourceManifestSha256']
             == hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
             'Flutter native upgrade provenance is incomplete or mismatched')
-    for patch in manifest['corePatches'] + [manifest['esplora']['patch']]:
+    sqlite = manifest['sqlite3']
+    require(sqlite['version'] == '0.37.0'
+            and sqlite['crateSha256'] == 'b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1'
+            and sqlite['iosCompileFlags'] == ['SQLITE_ENABLE_LOCKING_STYLE=0', 'RGB_SQLITE_IOS_CONTAINER_ONLY=1']
+            and current.get('features') == manifest.get('features') == {'dispatchedRgbRevocation': True},
+            'Flutter native SQLite/capability contract differs from its reviewed scope')
+    for patch in manifest['corePatches'] + [manifest['esplora']['patch'], sqlite['patch']]:
         path = manifest_path.parent / patch['path']
         require(hashlib.sha256(path.read_bytes()).hexdigest() == patch['sha256'],
                 f'Flutter native core patch differs: {patch["path"]}')

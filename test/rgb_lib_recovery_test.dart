@@ -86,7 +86,8 @@ void main() {
     'prepareOnchainSend' ||
     'commitOnchainSend' ||
     'onchainSendStatus' ||
-    'cancelOnchainSend' => jsonEncode(
+    'cancelOnchainSend' ||
+    'revokeOnchainSend' => jsonEncode(
       _status(call.arguments['requestJson'] as String, phase),
     ),
     'onchainRecoveryState' => jsonEncode({
@@ -152,6 +153,166 @@ void main() {
         address: 'mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn',
         feeRate: 2,
       );
+
+  RgbLibWallet unopened({void Function()? readKey}) => RgbLibWallet(
+    params: const RgbLibWalletParams(
+      network: 'regtest',
+      storageDirPath: '/private/existing-bfa7-wallet',
+    ),
+    keys: RgbLibKeys.reader(() {
+      readKey?.call();
+      return 'test-only-key-source';
+    }),
+  );
+
+  test(
+    'existing-only open requires wrapper capability before reading keys',
+    () async {
+      expect(
+        (await RgbLibWallet.getRuntimeInfo()).supportsExistingOnlyOpen,
+        isFalse,
+      );
+      for (final capability in [null, false]) {
+        var reads = 0;
+        dispatch = (call) {
+          final value = reply(call);
+          if (call.method != 'getRuntimeInfo') return value;
+          return {
+            ...value! as Map<String, Object?>,
+            'supportsExistingOnlyOpen': ?capability,
+          };
+        };
+        calls.clear();
+        final session = unopened(readKey: () => reads++);
+        await expectLater(
+          session.openExisting(),
+          throwsA(
+            isA<RgbLibWalletException>().having(
+              (error) => error.code,
+              'code',
+              'UNSUPPORTED_CAPABILITY',
+            ),
+          ),
+        );
+        expect(reads, 0);
+        expect(calls.map((call) => call.method), ['getRuntimeInfo']);
+        await session.destroy();
+      }
+    },
+  );
+
+  test(
+    'malformed existing-only wrapper claims cannot reach keys or open',
+    () async {
+      for (final capability in [null, 'true', 1]) {
+        var reads = 0;
+        dispatch = (call) {
+          final value = reply(call);
+          return call.method == 'getRuntimeInfo'
+              ? {
+                  ...value! as Map<String, Object?>,
+                  'supportsExistingOnlyOpen': capability,
+                }
+              : value;
+        };
+        calls.clear();
+        final session = unopened(readKey: () => reads++);
+        await expectLater(
+          session.openExisting(),
+          throwsA(isA<NativeProtocolException>()),
+        );
+        expect(reads, 0);
+        expect(calls.map((call) => call.method), ['getRuntimeInfo']);
+        await session.destroy();
+      }
+    },
+  );
+
+  test(
+    'existing-only open forwards strict mode and never replaces a missing profile',
+    () async {
+      dispatch = (call) {
+        final value = call.method == 'openWallet' ? null : reply(call);
+        if (call.method == 'getRuntimeInfo') {
+          return {
+            ...value! as Map<String, Object?>,
+            'supportsExistingOnlyOpen': true,
+          };
+        }
+        if (call.method == 'openWallet') {
+          expect((call.arguments as Map)['requireExisting'], isTrue);
+          throw PlatformException(
+            code: 'WALLET_STORAGE_MISSING',
+            message: 'private path',
+          );
+        }
+        return value;
+      };
+      final session = unopened();
+      await expectLater(
+        session.openExisting(),
+        throwsA(
+          isA<RgbLibWalletException>()
+              .having((error) => error.code, 'code', 'WALLET_STORAGE_MISSING')
+              .having(
+                (error) => error.message.contains('private path'),
+                'redacted',
+                isFalse,
+              ),
+        ),
+      );
+      expect(calls.map((call) => call.method), [
+        'getRuntimeInfo',
+        'openWallet',
+      ]);
+      await session.destroy();
+    },
+  );
+
+  test(
+    'existing-only reopen preserves queue lifecycle and legacy open modes',
+    () async {
+      dispatch = (call) {
+        final value = reply(call);
+        return call.method == 'getRuntimeInfo'
+            ? {
+                ...value! as Map<String, Object?>,
+                'supportsExistingOnlyOpen': true,
+              }
+            : value;
+      };
+      final session = unopened();
+      await session.openExisting();
+      expect(
+        calls
+            .singleWhere((call) => call.method == 'openWallet')
+            .arguments['requireExisting'],
+        isTrue,
+      );
+      final before = calls.length;
+      await expectLater(
+        session.openExisting(),
+        throwsA(
+          isA<RgbLibWalletException>().having(
+            (error) => error.code,
+            'code',
+            'WALLET_CONFIG_MISMATCH',
+          ),
+        ),
+      );
+      expect(calls.length, before);
+      await session.shutdown();
+      calls.clear();
+      await session.reinit();
+      expect(
+        calls
+            .singleWhere((call) => call.method == 'openWallet')
+            .arguments['requireExisting'],
+        isFalse,
+      );
+      await session.destroy();
+    },
+  );
 
   test('fixed vectors remain canonical and preserve exact uint64 values', () {
     final document =
@@ -900,6 +1061,218 @@ void main() {
         ),
       );
       expect(calls.length, before);
+    },
+  );
+
+  test(
+    'dispatched revocation capability is explicit and identity verified',
+    () async {
+      expect(
+        (await RgbLibWallet.getRuntimeInfo()).supportsDispatchedRgbRevocation,
+        isFalse,
+      );
+      dispatch = (call) {
+        final value = reply(call);
+        return call.method == 'getRuntimeInfo'
+            ? {
+                ...value! as Map<String, Object?>,
+                'supportsDispatchedRgbRevocation': true,
+              }
+            : value;
+      };
+      expect(
+        (await RgbLibWallet.getRuntimeInfo()).supportsDispatchedRgbRevocation,
+        isTrue,
+      );
+      dispatch = (call) {
+        final value = reply(call);
+        return call.method == 'getRuntimeInfo'
+            ? {
+                ...value! as Map<String, Object?>,
+                'supportsDispatchedRgbRevocation': true,
+                'integrationTree': 'f' * 40,
+              }
+            : value;
+      };
+      await expectLater(
+        RgbLibWallet.getRuntimeInfo(),
+        throwsA(isA<RgbLibWalletException>()),
+      );
+      expect(calls.where((call) => call.method == 'openWallet'), isEmpty);
+    },
+  );
+
+  test(
+    'dispatched revocation capability rejects malformed or incoherent claims',
+    () async {
+      for (final invalid in <Object?>['true', 1, null]) {
+        dispatch = (call) {
+          final value = reply(call);
+          return call.method == 'getRuntimeInfo'
+              ? {
+                  ...value! as Map<String, Object?>,
+                  'supportsDispatchedRgbRevocation': invalid,
+                }
+              : value;
+        };
+        await expectLater(
+          RgbLibWallet.getRuntimeInfo(),
+          throwsA(isA<NativeProtocolException>()),
+        );
+      }
+      dispatch = (call) {
+        final value = reply(call);
+        return call.method == 'getRuntimeInfo'
+            ? {
+                ...value! as Map<String, Object?>,
+                'supportsDispatchedRgbRevocation': true,
+                'durableOnchainRecovery': false,
+              }
+            : value;
+      };
+      await expectLater(
+        RgbLibWallet.getRuntimeInfo(),
+        throwsA(isA<NativeProtocolException>()),
+      );
+    },
+  );
+
+  test(
+    'invalid native backup is a stable payload-free typed failure',
+    () async {
+      dispatch = (call) => throw PlatformException(
+        code: 'RECOVERY_BACKUP_INVALID',
+        message: 'private native diagnostics',
+      );
+      await expectLater(
+        RgbLibWallet.getRuntimeInfo(),
+        throwsA(
+          isA<RgbLibWalletException>()
+              .having((error) => error.code, 'code', 'RECOVERY_BACKUP_INVALID')
+              .having(
+                (error) => error.message.contains('private native diagnostics'),
+                'redacted',
+                isFalse,
+              ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'explicit revocation requires its verified capability before native dispatch',
+    () async {
+      final session = await wallet();
+      final command = await btc(session);
+      final before = calls.length;
+      await expectLater(
+        session.revokeOnchainSend(command),
+        throwsA(
+          isA<RgbLibWalletException>().having(
+            (error) => error.code,
+            'code',
+            'UNSUPPORTED_CAPABILITY',
+          ),
+        ),
+      );
+      expect(calls.length, before);
+    },
+  );
+
+  test(
+    'ordinary cancellation never dispatches explicit revocation after a commit race',
+    () async {
+      dispatch = (call) {
+        final value = reply(call);
+        return call.method == 'getRuntimeInfo'
+            ? {
+                ...value! as Map<String, Object?>,
+                'supportsDispatchedRgbRevocation': true,
+              }
+            : value;
+      };
+      final session = await wallet();
+      final command = await session.createRecoverableRgbSendCommand(
+        operationId: _operation,
+        request: const RgbSendRequest(
+          invoice: 'rgb:native-validated-invoice',
+          assetId: _asset,
+          feeRate: 2,
+          witnessAmountSat: 1000,
+        ),
+      );
+      phase = 'prepared';
+      expect((await session.onchainSendStatus(command)).endAuthorized, isFalse);
+      phase = 'committing';
+      await session.commitOnchainSend(command);
+      expect(
+        (await session.cancelOnchainSend(command)).phase,
+        RecoverableOnchainSendPhase.committing,
+      );
+      expect(
+        calls.where((call) => call.method == 'revokeOnchainSend'),
+        isEmpty,
+      );
+      phase = 'rejected';
+      final cancelled = await session.revokeOnchainSend(command);
+      expect(cancelled.phase, RecoverableOnchainSendPhase.rejected);
+      expect(cancelled.endAuthorized, isFalse);
+      expect(
+        calls.where((call) => call.method == 'revokeOnchainSend').length,
+        1,
+      );
+      expect(
+        calls.where((call) => call.method == 'cancelOnchainSend').length,
+        1,
+      );
+      expect(
+        calls.where((call) => call.method == 'commitOnchainSend').length,
+        1,
+      );
+    },
+  );
+
+  test(
+    'L1 convenience refresh fails once on partial native observations',
+    () async {
+      final session = await wallet();
+      dispatch = (call) => call.method == 'refresh'
+          ? [
+              {
+                'batchTransferIdx': 1,
+                'updatedStatus': 'WaitingConfirmations',
+                'failure': {
+                  'name': 'RGB_LIB_Network',
+                  'message': 'private native diagnostics',
+                },
+              },
+              {
+                'batchTransferIdx': 2,
+                'updatedStatus': 'Settled',
+                'failure': null,
+              },
+            ]
+          : reply(call);
+      final detailed = await session.refreshTransfers();
+      expect(detailed.transfers[1]!.failure, isNotNull);
+      expect(detailed.transfers[2]!.failure, isNull);
+      final before = calls.where((call) => call.method == 'refresh').length;
+      await expectLater(
+        session.refreshWallet(),
+        throwsA(
+          isA<RgbLibWalletException>()
+              .having((error) => error.code, 'code', 'REFRESH_INCOMPLETE')
+              .having(
+                (error) => error.message.contains('private native diagnostics'),
+                'redacted',
+                isFalse,
+              ),
+        ),
+      );
+      expect(
+        calls.where((call) => call.method == 'refresh').length,
+        before + 1,
+      );
     },
   );
 }

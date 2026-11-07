@@ -37,6 +37,7 @@ class NativeDivergenceTests(unittest.TestCase):
             integrationTree=manifest['integration']['tree'],
             sourceLockSha256=manifest['integration']['uniffiLockSha256'],
             nativeOverlay=manifest['nativeOverlay'],
+            features=manifest['features'],
             sourceManifestSha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest())
 
     def verify(self, current=None):
@@ -51,7 +52,7 @@ class NativeDivergenceTests(unittest.TestCase):
     def test_each_identity_field_is_required(self):
         for field in ('version', 'sourceRevision', 'bridgeVersion', 'uniffiVersion',
                       'swiftModule', 'sourceOverlaySha256', 'integrationTree',
-                      'sourceLockSha256', 'nativeOverlay', 'sourceManifestSha256'):
+                      'sourceLockSha256', 'nativeOverlay', 'sourceManifestSha256', 'features'):
             with self.subTest(field=field):
                 changed = copy.deepcopy(self.current)
                 changed[field] = 'unreviewed'
@@ -62,7 +63,8 @@ class NativeDivergenceTests(unittest.TestCase):
         directory = self.root / 'native/rgb_l1'
         for relative in ('source-overlay.patch',
                          'patches/rgb-lib-bfa.7-registration.patch',
-                         'patches/esplora-client-0.12.3-guarded-blocking.patch'):
+                         'patches/esplora-client-0.12.3-guarded-blocking.patch',
+                         'patches/libsqlite3-sys-0.37.0-ios-container.patch'):
             path = directory / relative
             original = path.read_bytes()
             path.write_bytes(original + b'\ntampered\n')

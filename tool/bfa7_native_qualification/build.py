@@ -5,7 +5,7 @@ from pathlib import Path
 
 SDK = Path(__file__).resolve().parents[2]
 TOOL = Path(__file__).resolve().parent
-NATIVE = SDK / '.buildlog/bfa7-native'
+NATIVE = SDK / '.buildlog/bfa7-finalize'
 MANIFEST = SDK / 'native/rgb_l1/source-manifest.json'
 
 
@@ -33,6 +33,8 @@ def load_verified_build():
         'sourceManifestSha256': hashlib.sha256(manifest_bytes).hexdigest(),
         'sourceLockSha256': digest(native_lock),
         'consumerLockSha256': digest(TOOL / 'Cargo.lock'),
+        'consumerSourceSha256': digest(TOOL / 'src/main.rs'),
+        'consumerManifestSha256': digest(TOOL / 'Cargo.toml'),
         'rustToolchain': manifest['build']['rust'],
     }
     if any(built.get(key) != value for key, value in expected.items()):
@@ -60,7 +62,8 @@ def main():
     common = packages(lock)
     consumer = packages(TOOL / 'Cargo.lock')
     assert consumer - common == {('flutter-bfa7-native-qualification', '0.1.0', None, None)}, 'Unpinned consumer dependency.'
-    env = dict(os.environ, CARGO_TARGET_DIR=str(NATIVE / 'target-host'), CARGO_BUILD_JOBS='2')
+    env = dict(os.environ, CARGO_TARGET_DIR=str(NATIVE / 'target-host'), CARGO_BUILD_JOBS='2',
+               CARGO_PROFILE_DEV_DEBUG='0', CARGO_INCREMENTAL='0')
     toolchain = manifest['build']['rust']
     compiler = subprocess.check_output(['rustc', '+' + toolchain, '--version'], text=True).strip()
     subprocess.run(['cargo', '+' + toolchain, 'build', '--offline', '--locked', '--manifest-path', str(TOOL / 'Cargo.toml')],
@@ -72,6 +75,8 @@ def main():
     result = {'binarySha256': digest(binary), 'integrationTree': tree,
               'sourceManifestSha256': manifest_digest, 'sourceLockSha256': digest(lock),
               'consumerLockSha256': digest(TOOL / 'Cargo.lock'),
+              'consumerSourceSha256': digest(TOOL / 'src/main.rs'),
+              'consumerManifestSha256': digest(TOOL / 'Cargo.toml'),
               'sharedPackages': len(common & consumer), 'consumerOnlyPackage': 'flutter-bfa7-native-qualification',
               'rustToolchain': toolchain, 'rustc': compiler,
               'host': 'macOS native Rust, not a mobile ABI claim'}

@@ -3,6 +3,29 @@ import '../../models/burn_models.dart';
 import '../../models/utexo_core_models.dart';
 import '../utexo_wallet_types.dart';
 
+/// The verified backup scope of the supported public `RgbLibWallet` API.
+///
+/// Raw upstream native mutators used outside its platform operation policy are
+/// not a standalone restore-safe API.
+///
+/// An encrypted snapshot preserves private RGB state and payment evidence. It
+/// does not establish that another copy has not authorized a later payment.
+final class RgbLibBackupRecoveryCapabilities {
+  const RgbLibBackupRecoveryCapabilities._();
+
+  bool get encryptedSnapshotCreation => true;
+
+  /// Local inspection and exact read-only Status; generic transfer refresh is
+  /// blocked because it may ACK or broadcast pending transfers.
+  bool get readOnlySnapshotRestoration => true;
+
+  /// No approved authority currently establishes portable snapshot freshness.
+  bool get restoredWalletSpending => false;
+
+  /// A phrase does not reconstruct consignments, allocation history or outbox.
+  bool get mnemonicOnlyRgbRecovery => false;
+}
+
 /// Identity of one RGB_L1 profile, independent of transient native handles.
 final class RgbLibWalletIdentity {
   const RgbLibWalletIdentity({
@@ -33,21 +56,23 @@ final class RgbLibRuntimeInfo {
     required this.sourceManifestSha256,
     this.contractRegistration = false,
     this.durableOnchainRecovery = false,
+    this.supportsDispatchedRgbRevocation = false,
+    this.supportsExistingOnlyOpen = false,
   });
 
   static const expectedVersion =
-      '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1';
+      '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2';
   static const expectedSourceRevision =
       '9ec49c08be2e68f08521281e3efbd760ec989cb9';
   static const expectedBridgeVersion = 5;
   static const expectedIntegrationTree =
-      'c06ffffce1f0fd5273113132295fce3e6be25052';
+      '8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e';
   static const expectedOverlayPatchSha256 =
-      '3ae6c65184ef6a4ea534100dac82e3c532192482cbd0229c2aa0238d1cf044c7';
+      'd3369ff9d4dfd5638781b259688ee9bd9f43e52464b61e6408ea7a75c81bc273';
   static const expectedSourceLockSha256 =
-      '4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f';
+      '81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6';
   static const expectedSourceManifestSha256 =
-      'd274d1ae7c23f7a27175a94dda5266be11912c23ce95f56c5ca993e2bd3f373f';
+      'cf769ed49356e49a914dff638a4bddee9fd57fc6ebecf4b0193d8dd53aec2897';
 
   final String version;
   final String sourceRevision;
@@ -59,6 +84,17 @@ final class RgbLibRuntimeInfo {
   final BfaCapabilities capabilities;
   final bool contractRegistration;
   final bool durableOnchainRecovery;
+
+  /// Explicit cancellation may revoke an exact dispatched RGB operation.
+  /// This capability never permits a Status check to mutate the proxy.
+  final bool supportsDispatchedRgbRevocation;
+
+  /// The compiled platform wrapper can reject absent storage without creating
+  /// a native profile. This is independent of the Rust archive capabilities.
+  final bool supportsExistingOnlyOpen;
+
+  RgbLibBackupRecoveryCapabilities get backupRecovery =>
+      const RgbLibBackupRecoveryCapabilities._();
 }
 
 enum RgbLibAssetSchema {

@@ -197,8 +197,18 @@ fn run(input: Value) -> Result<Value> {
             wallet.import_contract_base64(STANDARD.encode(bytes), ASSET.into()),
         )?)?);
     }
+    if action == "status-offline" {
+        let label = input["label"].as_str().ok_or("missing label")?;
+        if label.is_empty() || !label.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-') {
+            return Err("invalid label".into());
+        }
+        let raw = read(&dir.join(format!("command-{label}.json")))?;
+        return Ok(serde_json::from_str(&native(wallet.onchain_send_status(None, raw))?)?);
+    }
     let online = native(wallet.go_online(OnlineOptions {
-        indexer_config: if input["faultIndexer"] == "esplora-broadcast-reply" {
+        indexer_config: if input["faultIndexer"] == "active-electrum-outage" {
+            IndexerConfig::Electrum { url: "tcp://127.0.0.1:49802".into() }
+        } else if input["faultIndexer"] == "esplora-broadcast-reply" {
             IndexerConfig::Esplora {
                 url: "http://127.0.0.1:49894".into(),
             }
@@ -221,6 +231,87 @@ fn run(input: Value) -> Result<Value> {
         )]),
     }))?;
     match action {
+        "active-indexer-outage" => {
+            let case = input["controlCase"].as_str().ok_or("missing outage scope")?;
+            if case.is_empty() || case.len()>48 || !case.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c==b'-') {
+                return Err("invalid outage scope".into());
+            }
+            let label = input["probeLabel"].as_str().ok_or("missing probe label")?;
+            if label.is_empty() || label.len()>32 || !label.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c==b'-') {
+                return Err("invalid probe label".into());
+            }
+            let control = root.join(case);
+            if !control.is_dir() || control.is_symlink() { return Err("unowned outage scope".into()); }
+            let original = read(&dir.join("command-rgb-reorg-v2.json"))?;
+            let command = read(&dir.join(format!("command-{label}.json")))?;
+            let before_recovery_balance = native(wallet.get_asset_balance(ASSET.into()))?;
+            let healthy_initial_refresh = native(wallet.refresh(online,Some(ASSET.into()),vec![],false))?;
+            let before_balance = native(wallet.get_asset_balance(ASSET.into()))?;
+            let expected = input["expectedUnits"].as_u64().ok_or("missing expected units")?;
+            if before_balance.settled != expected || before_balance.future != expected || before_balance.spendable != expected {
+                return Err("healthy native recovery did not restore exact test allocations".into());
+            }
+            let before_history = native(wallet.list_transfers(AssetFilter::Id(ASSET.into()),TransferScope::All))?;
+            let rgb_label = input["rgbProbeLabel"].as_str().ok_or("missing RGB probe label")?;
+            if rgb_label.is_empty() || rgb_label.len()>32 || !rgb_label.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c==b'-') {
+                return Err("invalid RGB probe label".into());
+            }
+            let rgb_command = read(&dir.join(format!("command-{rgb_label}.json")))?;
+            let rgb_prepared: Value = serde_json::from_str(&native(wallet.prepare_onchain_send(online,rgb_command.clone()))?)?;
+            if rgb_prepared["phase"] != "prepared" || rgb_prepared["endAuthorized"] != false {
+                return Err("local RGB probe did not prepare".into());
+            }
+            protected_write(&control.join("ONLINE_READY.json"), &serde_json::to_vec(&json!({"ready":true,
+                "healthyRecoveryBalance":before_balance,"rgbPrepared":rgb_prepared}))?)?;
+            let wait = |name: &str| -> Result<()> {
+                let limit = std::time::Instant::now() + std::time::Duration::from_secs(90);
+                while !control.join(name).is_file() {
+                    if std::time::Instant::now() >= limit { return Err("outage handshake timed out".into()); }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                Ok(())
+            };
+            wait("OUTAGE_ACTIVE.json")?;
+            let refresh = wallet.refresh(online,Some(ASSET.into()),vec![],false);
+            let refresh_result = match refresh {
+                Ok(value) => json!({"returned":true,"refresh":value}),
+                Err(_) => json!({"returned":false,"error":"indexer_unavailable"}),
+            };
+            let during_balance = native(wallet.get_asset_balance(ASSET.into()))?;
+            let during_history = native(wallet.list_transfers(AssetFilter::Id(ASSET.into()),TransferScope::All))?;
+            let accepted = native(wallet.onchain_send_status(None,original.clone()))?;
+            let prepared = wallet.prepare_onchain_send(online,command.clone());
+            let preparation = match prepared {
+                Ok(value) => serde_json::from_str::<Value>(&value)?,
+                Err(_) => json!({"phase":"error","knownNoEnd":true}),
+            };
+            // Even an unexpected local plan is never committed; revoke its local
+            // reservation safely so the probe cannot leave a manufactured lock.
+            let cleanup = native(wallet.cancel_onchain_send(None,command))?;
+            // One explicit Commit tests End's active-session input revalidation.
+            // The independently owned forwarder forbids every proxy mutation,
+            // so even a regression cannot submit a signed TX to the real proxy.
+            let rgb_commit = native(wallet.commit_onchain_send(online,rgb_command.clone()))?;
+            let rgb_cancel = native(wallet.cancel_onchain_send(None,rgb_command))?;
+            let after_cleanup_balance = native(wallet.get_asset_balance(ASSET.into()))?;
+            let outage = json!({"activeSessionOpenedBeforeOutage":true,"refresh":refresh_result,
+                "duringBalance":during_balance,"duringHistory":during_history,
+                "acceptedStatus":serde_json::from_str::<Value>(&accepted)?,"prepareOutcome":preparation,
+                "localCleanup":serde_json::from_str::<Value>(&cleanup)?,
+                "rgbPrepared":rgb_prepared,"rgbCommitOutcome":serde_json::from_str::<Value>(&rgb_commit)?,
+                "rgbLocalCancel":serde_json::from_str::<Value>(&rgb_cancel)?,
+                "afterCleanupBalance":after_cleanup_balance,"commitAttempts":1});
+            protected_write(&control.join("OUTAGE_OBSERVED.json"),&serde_json::to_vec(&outage)?)?;
+            wait("RESTORE_ACTIVE.json")?;
+            let restored_refresh = native(wallet.refresh(online,Some(ASSET.into()),vec![],false))?;
+            let restored_balance = native(wallet.get_asset_balance(ASSET.into()))?;
+            let restored_history = native(wallet.list_transfers(AssetFilter::Id(ASSET.into()),TransferScope::All))?;
+            let restored_accepted = native(wallet.onchain_send_status(None,original))?;
+            Ok(json!({"beforeRecoveryBalance":before_recovery_balance,"healthyInitialRefresh":healthy_initial_refresh,
+                "beforeBalance":before_balance,"beforeHistory":before_history,"outage":outage,
+                "restoredRefresh":restored_refresh,"restoredBalance":restored_balance,
+                "restoredHistory":restored_history,"restoredAccepted":serde_json::from_str::<Value>(&restored_accepted)?}))
+        }
         "balance" => Ok(
             json!({"btc":native(wallet.get_btc_balance(Some(online),false))?,"rgb":native(wallet.get_asset_balance(ASSET.into()))?}),
         ),
@@ -333,7 +424,7 @@ fn run(input: Value) -> Result<Value> {
         "receipts" => Ok(serde_json::from_str(&native(
             wallet.list_onchain_send_receipts(0, 100),
         )?)?),
-        "prepare" | "commit" | "status" | "cancel" => {
+        "prepare" | "commit" | "status" | "cancel" | "revoke" => {
             let label = input["label"].as_str().ok_or("missing label")?;
             if !label
                 .bytes()
@@ -346,6 +437,7 @@ fn run(input: Value) -> Result<Value> {
                 "prepare" => wallet.prepare_onchain_send(online, raw),
                 "commit" => wallet.commit_onchain_send(online, raw),
                 "cancel" => wallet.cancel_onchain_send(Some(online), raw),
+                "revoke" => wallet.revoke_onchain_send(online, raw),
                 _ => wallet.onchain_send_status(Some(online), raw),
             };
             Ok(serde_json::from_str(&native(response)?)?)

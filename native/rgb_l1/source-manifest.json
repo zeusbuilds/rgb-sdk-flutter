@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "name": "bfa.7-flutter.1",
-  "version": "0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1",
+  "name": "bfa.7-flutter.2",
+  "version": "0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2",
   "bridgeVersion": 5,
   "source": {
     "repository": "https://github.com/UTEXO-Protocol/rgb-lib-bfa.git",
@@ -38,9 +38,9 @@
   },
   "integration": {
     "patch": "source-overlay.patch",
-    "patchSha256": "3ae6c65184ef6a4ea534100dac82e3c532192482cbd0229c2aa0238d1cf044c7",
-    "tree": "c06ffffce1f0fd5273113132295fce3e6be25052",
-    "uniffiLockSha256": "4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f"
+    "patchSha256": "d3369ff9d4dfd5638781b259688ee9bd9f43e52464b61e6408ea7a75c81bc273",
+    "tree": "8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e",
+    "uniffiLockSha256": "81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6"
   },
   "build": {
     "rust": "1.94.0",
@@ -129,5 +129,22 @@
     }
   },
   "qualification": "Gated local candidate. Native builds and funded/platform/recovery qualification required before admission.",
-  "nativeOverlay": "flutter-bfa7-durable-v1"
+  "nativeOverlay": "flutter-bfa7-durable-v1",
+  "sqlite3": {
+    "version": "0.37.0",
+    "crateSha256": "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1",
+    "overlayTree": "f12117326760c4cd7ddad0506a77c280904fb26e",
+    "patch": {
+      "path": "patches/libsqlite3-sys-0.37.0-ios-container.patch",
+      "sha256": "57d0628f3878bb8811bbfd9a4cb20cca10665056f50d1a2d5bd66c659287dccd"
+    },
+    "iosCompileFlags": [
+      "SQLITE_ENABLE_LOCKING_STYLE=0",
+      "RGB_SQLITE_IOS_CONTAINER_ONLY=1"
+    ],
+    "storageContract": "iOS private application container only; enforced by raw Wallet setup and Swift lease before storage mutation"
+  },
+  "features": {
+    "dispatchedRgbRevocation": true
+  }
 }

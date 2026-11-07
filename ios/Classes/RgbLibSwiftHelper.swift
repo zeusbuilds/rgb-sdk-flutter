@@ -18,7 +18,7 @@ private func rgbInvalid(_ message: String) -> RgbBridgeFailure {
 /// (payload-free cases), never from a type-qualified description.
 private let rgbRecoveryErrorCodes: Set<String> = [
   "RECOVERY_STORAGE_INVALID", "RECOVERY_IDENTITY_MISMATCH", "RECOVERY_REQUEST_MISMATCH",
-  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN"
+  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN", "RECOVERY_BACKUP_INVALID"
 ]
 func rgbLibErrorCode(_ error: RGBLib.RgbLibError) -> String {
   if case .Recovery(let code) = error {
@@ -45,6 +45,10 @@ private func rgbWriteProfile(_ profile: [String: Any], to file: URL) throws {
   guard parent >= 0 else { throw rgbInvalid("Cannot persist wallet profile directory") }
   defer { Darwin.close(parent) }
   guard Darwin.fsync(parent) == 0 else { throw rgbInvalid("Cannot persist wallet profile directory") }
+}
+private func rgbReadProfile(_ file: URL, code: String) throws -> [String: Any] {
+  do { return try RgbLibProfileReader.read(file) }
+  catch { throw RgbBridgeFailure(code: code, message: "Invalid wallet profile storage") }
 }
 private struct RgbParams {
   let values: [String: Any]
@@ -118,9 +122,12 @@ private let rgbLockName = ".rgb-sdk.lock"
 private final class RgbLibLease {
   let root: URL
   private var descriptor: Int32 = -1
-  init(_ path: String) throws {
-    do { try RlnStorageDirectoryPolicy.prepare(path) }
-    catch { throw rgbInvalid("Storage must be an owner-only wallet directory.") }
+  init(_ path: String, existingOnly: Bool = false) throws {
+    if existingOnly && !FileManager.default.fileExists(atPath: path) {
+      throw RgbBridgeFailure(code: "WALLET_STORAGE_MISSING", message: "Existing wallet storage is required")
+    }
+    do { try RgbLibStorageDirectoryPolicy.prepare(path) }
+    catch { throw rgbInvalid("Storage must be an owner-only wallet directory inside the private app container.") }
     root = URL(fileURLWithPath: path, isDirectory: true).resolvingSymlinksInPath().standardizedFileURL
     let fm = FileManager.default
     let rlnMarker = root.appendingPathComponent(RlnStorageClaim.marker).path
@@ -189,6 +196,10 @@ final class RgbLibSwiftHelper {
     guard !RgbLibNetworkPolicy.deploymentUnavailable(net) else {
       throw RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "UTEXO Dev Signet is not qualified")
     }
+    guard let existingOnly = RgbLibExistingOpenPolicy.parseFlag(
+      p.values["requireExisting"], present: p.values.keys.contains("requireExisting")) else {
+      throw rgbInvalid("requireExisting must be a boolean")
+    }
     let witnessName = try p.string("witnessVersion")
     let witness: RGBLib.WitnessVersion
     switch witnessName {
@@ -227,17 +238,18 @@ final class RgbLibSwiftHelper {
       "masterFingerprint": keys.fingerprint, "accountXpubVanilla": keys.vanilla,
       "accountXpubColored": keys.colored
     ]
-    let lease = try RgbLibLease(p.string("dataDir"))
+    let lease = try RgbLibLease(p.string("dataDir"), existingOnly: existingOnly)
     let marker = lease.root.appendingPathComponent(rgbProfileName)
+    guard RgbLibExistingOpenPolicy.permitsProfile(
+      existingOnly: existingOnly, profileExists: FileManager.default.fileExists(atPath: marker.path)) else {
+      throw RgbBridgeFailure(code: "WALLET_STORAGE_MISSING", message: "Existing wallet storage is required")
+    }
     var profile = expected
     profile["recoveryCohort"] = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     var created = false
     if FileManager.default.fileExists(atPath: marker.path) {
-      let attributes = try marker.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
-      guard attributes.isRegularFile == true, attributes.isSymbolicLink != true,
-        attributes.fileSize ?? Int.max <= 65536,
-        let stored = try JSONSerialization.jsonObject(with: Data(contentsOf: marker)) as? [String: Any],
-        expected.allSatisfy({ key, value in (stored[key] as? NSObject)?.isEqual(value) == true }) else {
+      let stored = try rgbReadProfile(marker, code: "WALLET_PROFILE_MISMATCH")
+      guard expected.allSatisfy({ key, value in (stored[key] as? NSObject)?.isEqual(value) == true }) else {
         throw RgbBridgeFailure(code: "WALLET_PROFILE_MISMATCH", message: "Storage belongs to a different wallet profile")
       }
       guard let cohort = stored["recoveryCohort"] as? String,
@@ -297,10 +309,10 @@ final class RgbLibSwiftHelper {
     defer { try? fm.removeItem(at: stage) }
     try RGBLib.restoreBackup(backupPath: p.string("backupPath"), password: p.string("password"), dataDir: stage.path)
     let dirs = try fm.contentsOfDirectory(at: stage, includingPropertiesForKeys: nil).filter { fm.fileExists(atPath: $0.appendingPathComponent(rgbProfileName).path) }
-    guard dirs.count == 1,
-      var profile = try JSONSerialization.jsonObject(with: Data(contentsOf: dirs[0].appendingPathComponent(rgbProfileName))) as? [String: Any] else {
+    guard dirs.count == 1 else {
       throw RgbBridgeFailure(code: "BACKUP_PROFILE_MISSING", message: "Backup does not contain an SDK RGB Lib profile")
     }
+    var profile = try rgbReadProfile(dirs[0].appendingPathComponent(rgbProfileName), code: "BACKUP_PROFILE_MISMATCH")
     guard profile["formatVersion"] as? Int == 2, profile["backend"] as? String == "rgb-lib",
       profile["nativeSourceRevision"] as? String == rgbNativeSource,
       profile["nativeOverlay"] as? String == rgbNativeOverlay,
@@ -397,7 +409,7 @@ final class RgbLibSwiftHelper {
     switch operation {
     case "getRuntimeInfo":
       let artifact = rgbArtifactInfo()
-      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": 5, "integrationTree": artifact["integration_tree"] as? String ?? "", "overlayPatchSha256": artifact["overlay_patch_sha256"] as? String ?? "", "sourceLockSha256": artifact["source_lock_sha256"] as? String ?? "", "sourceManifestSha256": artifact["source_manifest_sha256"] as? String ?? "", "nativeOverlay": artifact["native_overlay"] as? String ?? "", "contractRegistration": true, "durableOnchainRecovery": true, "burn": true, "consignment": true, "bfa": true]
+      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": 5, "integrationTree": artifact["integration_tree"] as? String ?? "", "overlayPatchSha256": artifact["overlay_patch_sha256"] as? String ?? "", "sourceLockSha256": artifact["source_lock_sha256"] as? String ?? "", "sourceManifestSha256": artifact["source_manifest_sha256"] as? String ?? "", "nativeOverlay": artifact["native_overlay"] as? String ?? "", "supportsExistingOnlyOpen": true, "contractRegistration": true, "durableOnchainRecovery": true, "supportsDispatchedRgbRevocation": artifact["dispatched_rgb_revocation"] ?? false, "burn": true, "consignment": true, "bfa": true]
     case "openWallet": return try open(p)
     case "restoreBackup": try restore(p); return NSNull()
     default: break
@@ -449,6 +461,11 @@ final class RgbLibSwiftHelper {
     case "commitOnchainSend": return try w.commitOnchainSend(online: s.requireOnline(), requestJson: p.string("requestJson"))
     case "onchainSendStatus": return try w.onchainSendStatus(online: s.online, requestJson: p.string("requestJson"))
     case "cancelOnchainSend": return try w.cancelOnchainSend(online: s.online, requestJson: p.string("requestJson"))
+    case "revokeOnchainSend":
+      guard RgbLibRevocationPolicy.isAvailable(rgbArtifactInfo()["dispatched_rgb_revocation"]) else {
+        throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Dispatched RGB cancellation is unavailable")
+      }
+      return try w.revokeOnchainSend(online: s.requireOnline(), requestJson: p.string("requestJson"))
     case "onchainRecoveryState": return try w.onchainRecoveryState()
     case "listOnchainSendReceipts": return try w.listOnchainSendReceipts(offset: p.number("offset", UInt32.self), limit: p.number("limit", UInt16.self))
     case "goOnline":

@@ -19,7 +19,7 @@ internal class RgbLibBridgeError(val code: String, message: String) : Exception(
  */
 internal val rgbRecoveryErrorCodes = setOf(
   "RECOVERY_STORAGE_INVALID", "RECOVERY_IDENTITY_MISMATCH", "RECOVERY_REQUEST_MISMATCH",
-  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN"
+  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN", "RECOVERY_BACKUP_INVALID"
 )
 internal fun rgbLibErrorCode(error: RgbLibException): String =
   if (error is RgbLibException.Recovery) error.code.takeIf { it in rgbRecoveryErrorCodes } ?: "NATIVE_ERROR"
@@ -32,11 +32,13 @@ internal fun rgbLibErrorCode(error: RgbLibException): String =
  */
 /** [artifactInfo] returns the AAR's `rgb-lib-bfa-version.json`, or null. */
 internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { null }) {
-  private class Lease(input: File) : AutoCloseable {
+  private class Lease(input: File, existingOnly: Boolean = false) : AutoCloseable {
     val root = input.canonicalFile
     private val file: RandomAccessFile
     private val lock: FileLock
     init {
+      if (existingOnly && !input.exists())
+        throw RgbLibBridgeError("WALLET_STORAGE_MISSING", "Existing wallet storage is required")
       try {
         RlnStorageDirectoryPolicy().prepare(input.path)
       } catch (_: RlnStorageDirectoryPolicyException) {
@@ -134,10 +136,17 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     write(File(s.wallet.getWalletDir(), PROFILE), s.profile)
     write(File(s.lease.root, PROFILE), s.profile)
   }
-  private fun open(p: JSONObject): String {
+  private fun readProfile(file: File, code: String): JSONObject =
+    try { RgbLibProfileReader.read(file) }
+    catch (_: RgbLibProfileReadException) {
+      throw RgbLibBridgeError(code, "Invalid wallet profile storage")
+    }
+  private fun open(p: JSONObject, existingFlagPresent: Boolean): String {
     val net = p.getString("network")
     if (RgbLibNetworkPolicy.deploymentUnavailable(net))
       throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
+    val existingOnly = RgbLibExistingOpenPolicy.parseFlag(p.opt("requireExisting"), existingFlagPresent)
+      ?: fail("requireExisting must be a boolean")
     val witness = when (p.getString("witnessVersion")) {
       "taproot" -> WitnessVersion.TAPROOT
       "segwit-v0" -> WitnessVersion.SEG_WIT_V0
@@ -167,14 +176,16 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       "masterFingerprint" to keys.third,"accountXpubVanilla" to keys.first,
       "accountXpubColored" to keys.second
     ))
-    val lease = Lease(File(p.getString("dataDir")))
+    val lease = Lease(File(p.getString("dataDir")), existingOnly)
     var wallet: Wallet? = null
     var created = false
     try {
       val marker = File(lease.root, PROFILE)
+      if (!RgbLibExistingOpenPolicy.permitsProfile(existingOnly, marker.exists()))
+        throw RgbLibBridgeError("WALLET_STORAGE_MISSING", "Existing wallet storage is required")
       if (marker.exists() && (marker.canonicalFile != marker.absoluteFile || !marker.isFile || marker.length() > 65536))
         throw RgbLibBridgeError("WALLET_PROFILE_MISMATCH","Invalid wallet profile storage")
-      val profile = if (marker.exists()) JSONObject(marker.readText())
+      val profile = if (marker.exists()) readProfile(marker, "WALLET_PROFILE_MISMATCH")
         else JSONObject(expected.toString()).put("recoveryCohort", UUID.randomUUID().toString().replace("-", ""))
       if (expected.keys().asSequence().any { profile.opt(it)?.toString() != expected.get(it).toString() })
         throw RgbLibBridgeError("WALLET_PROFILE_MISMATCH", "Storage belongs to a different wallet profile")
@@ -224,11 +235,12 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         restoreBackup(p.getString("backupPath"), p.getString("password"), stage.path)
         val dirs = stage.listFiles().orEmpty().filter { it.isDirectory && File(it,PROFILE).isFile }
         if (dirs.size != 1) throw RgbLibBridgeError("BACKUP_PROFILE_MISSING", "Backup does not contain an SDK RGB Lib profile")
-        val profile = JSONObject(File(dirs[0],PROFILE).readText())
+        val profile = readProfile(File(dirs[0],PROFILE), "BACKUP_PROFILE_MISMATCH")
         if (RgbLibNetworkPolicy.deploymentUnavailable(profile.optString("network")))
           throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
-        val fingerprint = profile.getString("masterFingerprint")
-        if (profile.getInt("formatVersion") != 2 || profile.getString("backend") != "rgb-lib" ||
+        val fingerprint = profile.opt("masterFingerprint") as? String
+          ?: throw RgbLibBridgeError("BACKUP_PROFILE_MISMATCH", "Invalid backup profile")
+        if (profile.opt("formatVersion") != 2 || profile.opt("backend") != "rgb-lib" ||
           profile.optString("nativeSourceRevision") != SOURCE || profile.optString("nativeOverlay") != OVERLAY ||
           !Regex("[0-9a-f]{32}").matches(profile.optString("recoveryCohort")) ||
           !Regex("[a-fA-F0-9]{8}").matches(fingerprint) || dirs[0].name != fingerprint)
@@ -304,9 +316,11 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     when(operation) {
       "getRuntimeInfo" -> {
         val artifact = runCatching { JSONObject(artifactInfo()!!) }.getOrNull()
-        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to 5,"integrationTree" to (artifact?.optString("integration_tree") ?: ""),"overlayPatchSha256" to (artifact?.optString("overlay_patch_sha256") ?: ""),"sourceLockSha256" to (artifact?.optString("source_lock_sha256") ?: ""),"sourceManifestSha256" to (artifact?.optString("source_manifest_sha256") ?: ""),"nativeOverlay" to (artifact?.optString("native_overlay") ?: ""),"contractRegistration" to true,"durableOnchainRecovery" to true,"burn" to true,"consignment" to true,"bfa" to true)
+        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to 5,"integrationTree" to (artifact?.optString("integration_tree") ?: ""),"overlayPatchSha256" to (artifact?.optString("overlay_patch_sha256") ?: ""),"sourceLockSha256" to (artifact?.optString("source_lock_sha256") ?: ""),"sourceManifestSha256" to (artifact?.optString("source_manifest_sha256") ?: ""),"nativeOverlay" to (artifact?.optString("native_overlay") ?: ""),"supportsExistingOnlyOpen" to true,"contractRegistration" to true,"durableOnchainRecovery" to true,"supportsDispatchedRgbRevocation" to (if (artifact?.has("dispatched_rgb_revocation") == true) artifact.opt("dispatched_rgb_revocation").takeUnless { it === JSONObject.NULL } else false),"burn" to true,"consignment" to true,"bfa" to true)
       }
-      "openWallet" -> return open(p)
+      // JSONObject(Map) drops null values. Preserve original key presence so
+      // explicit null cannot silently become the legacy absent/defaultfalse.
+      "openWallet" -> return open(p, params.containsKey("requireExisting"))
       "restoreBackup" -> { restore(p); return null }
     }
     val handle = p.getString("handle")
@@ -354,6 +368,12 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       "commitOnchainSend" -> w.commitOnchainSend(online(s),p.getString("requestJson"))
       "onchainSendStatus" -> w.onchainSendStatus(s.online,p.getString("requestJson"))
       "cancelOnchainSend" -> w.cancelOnchainSend(s.online,p.getString("requestJson"))
+      "revokeOnchainSend" -> {
+        val artifact = runCatching { JSONObject(artifactInfo()!!) }.getOrNull()
+        if (!RgbLibRevocationPolicy.isAvailable(artifact?.opt("dispatched_rgb_revocation")))
+          throw RgbLibBridgeError("UNSUPPORTED_CAPABILITY", "Dispatched RGB cancellation is unavailable")
+        w.revokeOnchainSend(online(s),p.getString("requestJson"))
+      }
       "onchainRecoveryState" -> w.onchainRecoveryState()
       "listOnchainSendReceipts" -> w.listOnchainSendReceipts(number(p,"offset",0xffffffffL).toUInt(),number(p,"limit",500L).toUShort())
       "goOnline" -> {

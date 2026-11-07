@@ -1,7 +1,7 @@
 # Flutter BFA.7 native candidate
 
 This source build is distinct from upstream BFA.5/BFA.6 mobile releases. The
-candidate version is `0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1`, bridge 5.
+candidate version is `0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2`, bridge 5.
 Never label an upstream archive with that version without building this overlay.
 
 `source-manifest.json` pins BFA.7 commit
@@ -38,7 +38,7 @@ repository using the caller's existing Git credential mechanism. Credentials
 are never placed in the manifest, URL or artifact. The local mirror still has
 to match the exact commit and base tree.
 
-All output belongs to the ignored `.buildlog/bfa7-native/` directory. Mobile
+All output belongs to the ignored `.buildlog/bfa7-finalize/` directory. Mobile
 builds run sequentially against one target cache. A selected target can be
 rebuilt with `build --target <target>`; supported targets are listed in the
 manifest. Packaging can use `--platform android` or `--platform ios`.
@@ -52,6 +52,20 @@ bundled `libc++_shared.so`. The Swift archive includes device arm64 and arm64/
 x86_64 simulator static libraries plus generated Swift/header bindings. The
 existing checksum-verifying installer turns those libraries into frameworks
 with isolated UniFFI exports so the app can continue to link legacy RLN.
+
+The corresponding source archive also contains the already-patched
+`rgb-lib-bfa/`, `esplora-client/` and `sqlite3-sys/` trees, both Cargo lockfiles,
+generated bindings and these build tools. It contains regular source files,
+not a Git checkout. The immutable `prepare`/`verify` workflow above deliberately
+requires the pinned upstream Git history; do not pretend that an extracted tree
+is that history. The extracted UniFFI manifest can instead be built directly
+with Cargo `--locked`, using the exact toolchain, target compiler/linker and
+target-specific environment in `build_rgb_lib_bfa7.py::build_env`. In particular,
+iOS requires both reviewed SQLite flags and the corresponding Xcode SDK;
+Android requires the pinned NDK and 16 KiB linker flags. Keep all three sibling
+source directories together so the relative Cargo dependency paths resolve.
+Direct compilation is not the immutable distribution admission workflow or a
+claim of byte-for-byte reproducible compiler output.
 
 `artifacts/build-record.json` records exact source/overlay/tool identities and
 artifact sizes/digests. Archive entry order, permissions and timestamps are
@@ -84,3 +98,13 @@ its required registration, durable-send, restore and platform acceptance tests.
 revision, the narrowly updated dependency versions, and retained unmaintained
 dependency notices with their actual reachability. It does not replace funded
 recovery qualification or the final linked iOS privacy/API review.
+
+## Supported recovery API boundary
+
+Backup capabilities apply to the public Flutter `RgbLibWallet` API together with
+its Swift/Kotlin operation policy. The bundled upstream UniFFI/Rust signing,
+Begin/End, recipient and asset mutators are not a standalone restore-safe API
+when invoked outside that supported boundary. Native generic `refresh` is
+additionally quarantine guarded because it can ACK/broadcast pending transfers.
+The [backup and recovery contract](../../doc/RGB_LIB_BACKUP_RECOVERY.md) records
+the supported inspection methods and the unresolved portable-freshness blocker.

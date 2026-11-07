@@ -489,7 +489,16 @@ authoritative.
 mutating wallet state. The parameters bind the Bitcoin network, dedicated
 absolute storage directory, witness scheme, allocation limit and address reuse
 policy. Storage belongs to one backend and profile. `shutdown` closes a
-session for a later `reinit`; `destroy` and `dispose` close the object permanently.
+session; `destroy` and `dispose` close the object permanently.
+`init` and `reinit` retain create-or-open behavior for compatibility. For a
+provisioned wallet, use `openExisting([onlineParams])`: it requires the existing
+profile under the exclusive native lease and never creates a replacement
+profile when storage is missing. It requires the strictly typed compiled-wrapper
+capability `RgbLibRuntimeInfo.supportsExistingOnlyOpen`; an absent/false
+capability fails before reading keys. This capability is separate from native
+archive features. Applications should keep SDK files in a stable dedicated
+child directory, separate from app ownership markers, and treat missing or
+corrupt saved storage as a reconciliation failure.
 Operations are serialized and an uncertain payment is never retried by the SDK.
 The Aster activation and production gates are described in
 [the beta.40 audit](UPSTREAM_PARITY_BETA40.md).
@@ -535,7 +544,16 @@ integration tree, overlay patch/source-lock/source-manifest SHA-256 digests,
 source revision, bridge version and BFA capabilities. The wallet verifies the pinned
 runtime identity before reading keys. `RgbLibWalletException` carries a stable
 sanitized failure code for configuration, lifecycle, native availability and
-operation failures.
+operation failures. `RgbLibBackupRecoveryCapabilities`, available through
+`RgbLibRuntimeInfo.backupRecovery`, distinguishes encrypted snapshot creation
+and read-only restoration from unsupported restored-wallet spending and
+mnemonic-only RGB recovery. These fixed capabilities cannot be upgraded through
+runtime JSON. See [the recovery boundary](RGB_LIB_BACKUP_RECOVERY.md).
+
+Profile metadata reads on open and restore are capped at 64 KiB before and
+during reading. Only strict UTF-8 flat JSON metadata is admitted; recursive
+containers, parser extensions, malformed encodings and over-budget input are
+rejected with a stable profile failure, without replacing existing files.
 
 `RgbLibAssetMetadata` preserves exact `BigInt` supplies, schema, precision,
 timestamp, optional ticker/details/reject-list URL and linked contract IDs.
@@ -547,6 +565,15 @@ key. `RgbLibInvoiceData` preserves decoded assignment, expiry and transport
 fields together with encryption policy, optional public key and unknown query
 parameters. Decode and receive results do not authorize a send. Callers must
 validate the requested network, asset, amount, recipient and fees separately.
+
+`blindReceive` and `witnessReceive` retain a `minConfirmations` default of zero
+for compatibility. A host requiring confirmed receipts must explicitly choose
+its minimum; Aster uses one. Native `Settled` follows the minimum saved with
+that request and does not imply any greater chain finality. With a minimum of
+one, an observed zero-confirmation incoming transfer remains
+`WaitingConfirmations`, outside settled/spendable allocations. Changing host
+defaults does not rewrite the policy on an already issued request.
+
 `RgbLibTransfer` preserves shared transfer history plus the complete invoice,
 local consignment path and all `changeUtxos` when available. The legacy singular
 `changeUtxo` is present only when exactly one change output exists. Transfer amounts remain exact base
@@ -569,7 +596,8 @@ unsupported burn operations before an irreversible journal entry is written.
 
 `RgbLibDurableOperations` supplies `importContract`, native `getPublicKeys`,
 `hasPendingOnchainSends`, the two recoverable command factories and the explicit
-prepare/commit/status/cancel methods. Native artifact and Aster activation
+prepare/commit/status/cancel methods plus explicit `revokeOnchainSend`.
+Native artifact and Aster activation
 qualification remain separate from the capability to call these APIs.
 
 `importContract(contractBase64:, expectedAssetId:)` imports canonical public
@@ -599,6 +627,15 @@ boundary; it never substitutes a new transaction. `onchainSendStatus` and
 `cancelOnchainSend` never invoke End, post a consignment or broadcast. Missing
 acknowledgements remain fenced until exact native evidence establishes their
 outcome. A status of `accepted` means native submission, not chain confirmation.
+
+`revokeOnchainSend` is a separate, explicit value-changing proxy action for a
+signing RGB wallet with an online session and verified
+`supportsDispatchedRgbRevocation` capability. It reconciles acceptance first,
+then requires an affirmative revocation of the exact MAC-bound sender-proxy
+operation before durably certifying cancellation and releasing its reservation.
+False, unknown, released or unavailable responses retain the fence. Ordinary
+Cancel and passive Status never acquire this revocation authority; an already
+accepted payment stays accepted. No path creates a replacement payment.
 `RgbLibPendingOnchainOperation` from `listPendingOnchainSends` carries the exact
 verified command and native status, so a lost app marker can be rebuilt without
 a new payment or commit authorization. `hasPendingOnchainSends` audits the whole
@@ -609,6 +646,13 @@ read-only recovery validation. Native preparation still checks expiration;
 reconstruction must not extend the saved deadline. Status/audit reads remain
 available for watch-only sessions, while command creation and sending require
 signing authority. Normal mutations cannot overtake a pending operation.
+
+`refreshTransfers` retains per-transfer failures for deliberate inspection.
+`refreshWallet` fails with `REFRESH_INCOMPLETE` if any transfer observation failed;
+partial refresh is not a current complete portfolio. Generic refresh can
+progress pending transfers and is blocked on restored snapshots. Local
+inspection and exact read-only Status remain available under the documented
+recovery boundary.
 
 `getReceivedMint(recipientId)` returns a nullable `RgbLibReceivedMint` observation
 from the native BFA.7 wallet. Its six fields are `opid`, transaction-bound `lockId`,
@@ -691,7 +735,7 @@ root checklist and are snapshotted by `tool/api_snapshot.json`.
 - `ReceiveSettlementOutcomes`, `ReceiveStatus`, `ReceiveStatuses`, `RgbInvoiceRequest`
 - `RgbNodeError`, `RgbSdkException`, `RgbSdkFlutter`, `RgbSendRequest`
 - `RgbLibWallet`, `RgbLibWalletParams`, `RgbLibWalletException`, `RgbLibWalletIdentity`
-- `RgbLibKeys`, `RgbLibPublicKeys`, `RgbLibMnemonicReader`, `RgbLibRuntimeInfo`
+- `RgbLibKeys`, `RgbLibPublicKeys`, `RgbLibMnemonicReader`, `RgbLibRuntimeInfo`, `RgbLibBackupRecoveryCapabilities`
 - `RgbLibIndexer`, `RgbLibIndexerKind`, `RgbLibIndexerCheck`, `RgbLibUnlockParams`
 - `RgbLibWitnessVersion`, `RgbLibAssetSchema`, `RgbLibAssetMetadata`, `RgbLibMedia`
 - `RgbLibReceiveAssignment`, `RgbLibReceiveData`, `RgbLibInvoiceData`, `RgbLibTransfer`

@@ -18,7 +18,9 @@ List<String> nativeProductionBlockers(String sourceCommit) {
 /// RGB_L1 is a separate Rust graph and cannot inherit RLN's disposition.
 List<String> rgbLibProductionBlockers(Object? lockSha256) {
   if (lockSha256 ==
-      '4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f') {
+          '4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f' ||
+      lockSha256 ==
+          '81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6') {
     return const [
       'RGB_L1 BFA.7: the exact patched UniFFI lock has zero known vulnerabilities and zero unsound notices at RustSec 309392b18f6b17022f82c701f300433126901068. Three unmaintained dependencies remain (basic-toml, bincode, unsafe-libyaml); maintain their exact-graph disposition and review future advisories. Native funded/platform, reorg, backup-freshness and signed-archive privacy qualification remain required; RGB_L1 is not production approved.',
     ];

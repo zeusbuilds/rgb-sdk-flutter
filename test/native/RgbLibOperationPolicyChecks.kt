@@ -3,6 +3,8 @@ package com.utexo.rgb_sdk_flutter
 private class PendingPayment : Exception()
 
 fun main() {
+  check(RgbLibRevocationPolicy.isAvailable(true))
+  for (value in listOf(null, false, "true", 1, 1.0)) check(!RgbLibRevocationPolicy.isAvailable(value))
   val mutations = listOf(
     "sendBtc", "send", "createUtxos", "issueAssetNia", "issueAssetCfa", "issueAssetUda",
     "issueAssetIfa", "inflate", "burn", "drainTo", "deleteTransfers", "failTransfers",
@@ -20,12 +22,12 @@ fun main() {
     RgbLibOperationPolicy.perform(operation, { checks++ }) { calls++ }
     check(checks == 2 && calls == 1) { "Idle mutation was blocked: $operation" }
   }
-  val reads = listOf("getBtcBalance", "getAssetMetadata", "getPublicKeys", "getReceivedMint", "listTransfers",
-    "onchainRecoveryState", "listOnchainSendReceipts", "onchainSendStatus", "cancelOnchainSend", "backup", "sync", "refresh")
-  for (operation in reads) {
+  val allowedOperations = listOf("getBtcBalance", "getAssetMetadata", "getPublicKeys", "getReceivedMint", "listTransfers",
+    "onchainRecoveryState", "listOnchainSendReceipts", "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend", "backup", "sync", "refresh")
+  for (operation in allowedOperations) {
     var calls = 0
-    RgbLibOperationPolicy.perform(operation, { error("Recovery observation was blocked: $operation") }) { calls++ }
+    RgbLibOperationPolicy.perform(operation, { error("Explicit recovery operation was blocked: $operation") }) { calls++ }
     check(calls == 1)
   }
-  println("Kotlin operation policy: ${mutations.size} fenced mutations and ${reads.size} recovery observations passed")
+  println("Kotlin operation policy: ${mutations.size} fenced mutations and ${allowedOperations.size} explicitly allowed recovery operations passed")
 }

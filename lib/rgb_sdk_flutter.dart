@@ -127,6 +127,7 @@ export 'src/wallet/rgb_lib/wire.dart'
     show
         RgbLibAssetMetadata,
         RgbLibAssetSchema,
+        RgbLibBackupRecoveryCapabilities,
         RgbLibIndexerCheck,
         RgbLibInvoiceData,
         RgbLibMedia,

@@ -1,0 +1,25 @@
+diff --git a/sqlite3/sqlite3.c b/sqlite3/sqlite3.c
+index 851a250..d95a9f2 100644
+--- a/sqlite3/sqlite3.c
++++ b/sqlite3/sqlite3.c
+@@ -45759,7 +45759,7 @@ static int unixOpen(
+ #if SQLITE_ENABLE_LOCKING_STYLE
+   int isAutoProxy  = (flags & SQLITE_OPEN_AUTOPROXY);
+ #endif
+-#if defined(__APPLE__) || SQLITE_ENABLE_LOCKING_STYLE
++#if (defined(__APPLE__) && !defined(RGB_SQLITE_IOS_CONTAINER_ONLY)) || SQLITE_ENABLE_LOCKING_STYLE
+   struct statfs fsInfo;
+ #endif
+ 
+@@ -45956,7 +45956,10 @@ static int unixOpen(
+   }
+ #endif
+ 
+-#if defined(__APPLE__) || SQLITE_ENABLE_LOCKING_STYLE
++#if (defined(__APPLE__) && !defined(RGB_SQLITE_IOS_CONTAINER_ONLY)) || SQLITE_ENABLE_LOCKING_STYLE
++  /* iOS private-container builds use the normal POSIX VFS. Their wallet
++  ** API rejects external/file-provider paths, so the desktop FAT/exFAT
++  ** zero-inode workaround is outside the supported storage contract. */
+   if( fstatfs(fd, &fsInfo) == -1 ){
+     storeLastErrno(p, errno);
+     robust_close(p, fd, __LINE__);

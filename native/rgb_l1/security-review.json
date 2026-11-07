@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "reviewedAtUtc": "2026-11-07T11:05:05.087787+00:00",
+  "reviewedAtUtc": "2026-11-07T17:21:26.684413+00:00",
   "sourceRevision": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
-  "integrationTree": "c06ffffce1f0fd5273113132295fce3e6be25052",
-  "sourceOverlaySha256": "3ae6c65184ef6a4ea534100dac82e3c532192482cbd0229c2aa0238d1cf044c7",
-  "sourceLockSha256": "4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f",
-  "coreLockSha256": "c78bf3a9385bb9da50ba73776bd3c175b51e72e5f6ea3e7e07241c7841493b67",
+  "integrationTree": "8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e",
+  "sourceOverlaySha256": "d3369ff9d4dfd5638781b259688ee9bd9f43e52464b61e6408ea7a75c81bc273",
+  "sourceLockSha256": "81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6",
+  "coreLockSha256": "d1a2af73014d1b365071ccc209337ea6223a85cedc91049085469f635ea1be57",
   "auditTool": "cargo-audit-audit 0.22.2",
   "rustSecDatabase": {
     "advisory-count": 1422,
@@ -53,5 +53,13 @@
       "reachabilityAndDisposition": "Reachable via deprecated serde_yaml in pinned rgb-strict-types and the RGB runtime graph; replacing the parser requires upstream strict-type compatibility qualification."
     }
   ],
-  "scope": "Exact locked UniFFI dependency graph, including optional lockfile packages; advisory review does not replace native wallet, funded recovery, platform or privacy qualification. RGB_L1 remains gated."
+  "scope": "Exact locked UniFFI dependency graph, including optional lockfile packages; advisory review does not replace native wallet, funded recovery, platform or privacy qualification. RGB_L1 remains gated.",
+  "localSourceSubstitution": {
+    "package": "libsqlite3-sys",
+    "version": "0.37.0",
+    "registryCrateSha256": "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1",
+    "overlayTree": "f12117326760c4cd7ddad0506a77c280904fb26e",
+    "patchSha256": "57d0628f3878bb8811bbfd9a4cb20cca10665056f50d1a2d5bd66c659287dccd",
+    "reason": "Reviewed iOS private-container SQLite VFS; package versions and all other lockfile dependency edges unchanged. This advisory scan does not validate native behavior or approve iOS privacy."
+  }
 }

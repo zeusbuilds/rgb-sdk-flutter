@@ -158,6 +158,16 @@ jobs:
           cache: true
       - name: Install reviewed CocoaPods
         run: gem install cocoapods --version 1.16.2 --no-document
+      - name: Verify Swift wire and recovery policy regressions
+        run: bash tool/test_swift_wire_codec.sh
+      - name: Verify RGB_L1 private-container storage admission
+        run: |
+          xcrun swiftc \
+            ios/Classes/RlnStorageDirectoryPolicy.swift \
+            ios/Classes/RgbLibStorageDirectoryPolicy.swift \
+            test/native/rgb_lib_storage_policy_main.swift \
+            -o "${RUNNER_TEMP}/rgb-lib-storage-policy"
+          "${RUNNER_TEMP}/rgb-lib-storage-policy"
       - name: Resolve package and example lockfiles
         run: |
           flutter pub get --enforce-lockfile
