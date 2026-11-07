@@ -17,7 +17,13 @@ internal class RgbLibBridgeError(val code: String, message: String) : Exception(
  * `RGB_LIB_<Variant>`, matching RgbLibSwiftHelper's rgbLibErrorCode for the same
  * Rust variant. Used for rejections and for per-transfer refresh failures.
  */
-internal fun rgbLibErrorCode(error: RgbLibException) = "RGB_LIB_" + error.javaClass.simpleName
+internal val rgbRecoveryErrorCodes = setOf(
+  "RECOVERY_STORAGE_INVALID", "RECOVERY_IDENTITY_MISMATCH", "RECOVERY_REQUEST_MISMATCH",
+  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN"
+)
+internal fun rgbLibErrorCode(error: RgbLibException): String =
+  if (error is RgbLibException.Recovery) error.code.takeIf { it in rgbRecoveryErrorCodes } ?: "NATIVE_ERROR"
+  else "RGB_LIB_" + error.javaClass.simpleName
 
 /**
  * Thread-safe. The registry lock is held only for handle lookup and ownership
@@ -62,7 +68,8 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
   }
   private data class Session(
     val wallet: Wallet, val lease: Lease, val profile: JSONObject,
-    val reuse: Boolean, var online: Online? = null, var closed: Boolean = false
+    val reuse: Boolean, var online: Online? = null, var closed: Boolean = false,
+    val address: RgbLibSessionAddress = RgbLibSessionAddress()
   )
   private val sessions = mutableMapOf<String, Session>()
   private val registry = Any()
@@ -96,13 +103,12 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
   private fun strings(p: JSONObject, key: String) =
     p.getJSONArray(key).let { a -> (0 until a.length()).map { a.getString(it) } }
   private fun online(s: Session) = s.online ?: throw RgbLibBridgeError("WALLET_OFFLINE", "Call unlock first")
-  private fun network(name: String) = when (name) {
+  private fun network(name: String) = when (RgbLibNetworkPolicy.nativeNetwork(name)) {
     "mainnet" -> BitcoinNetwork.MAINNET
     "testnet" -> BitcoinNetwork.TESTNET
     "testnet4" -> BitcoinNetwork.TESTNET4
     "signet" -> BitcoinNetwork.SIGNET
     "regtest" -> BitcoinNetwork.REGTEST
-    "utexo" -> BitcoinNetwork.SIGNET_CUSTOM
     else -> fail("Unsupported Bitcoin network")
   }
   private fun write(file: File, profile: JSONObject) {
@@ -113,6 +119,13 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         it.fd.sync()
       }
       if (!pending.renameTo(file)) throw java.io.IOException("Cannot save wallet profile")
+      val parent = android.system.Os.open(file.parentFile!!.path,
+        android.system.OsConstants.O_RDONLY or android.system.OsConstants.O_NOFOLLOW or android.system.OsConstants.O_CLOEXEC,0)
+      try {
+        if (!android.system.OsConstants.S_ISDIR(android.system.Os.fstat(parent).st_mode))
+          throw java.io.IOException("Wallet profile parent is not a directory")
+        android.system.Os.fsync(parent)
+      } finally { android.system.Os.close(parent) }
     } finally {
       pending.delete()
     }
@@ -123,6 +136,8 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
   }
   private fun open(p: JSONObject): String {
     val net = p.getString("network")
+    if (RgbLibNetworkPolicy.deploymentUnavailable(net))
+      throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
     val witness = when (p.getString("witnessVersion")) {
       "taproot" -> WitnessVersion.TAPROOT
       "segwit-v0" -> WitnessVersion.SEG_WIT_V0
@@ -138,14 +153,16 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       (derived.accountXpubVanilla != given.first || derived.accountXpubColored != given.second ||
         !derived.masterFingerprint.equals(given.third, ignoreCase = true)))
       fail("The public keys do not match the mnemonic")
-    val keys = derived?.let { Triple(it.accountXpubVanilla, it.accountXpubColored, it.masterFingerprint) }
+    val rawKeys = derived?.let { Triple(it.accountXpubVanilla, it.accountXpubColored, it.masterFingerprint) }
       ?: given ?: fail("A mnemonic or public keys are required")
+    val keys = Triple(rawKeys.first,rawKeys.second,rawKeys.third.lowercase())
     val max = number(p,"maxAllocationsPerUtxo",0xffffffffL).toUInt()
     if (max == 0U) fail("maxAllocationsPerUtxo must be positive")
     val identity = "$net:${p.getString("witnessVersion")}:${keys.first}:${keys.second}"
     val id = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     val expected = JSONObject(mapOf(
-      "formatVersion" to 1,"backend" to "rgb-lib","id" to id,"network" to net,
+      "formatVersion" to 2,"backend" to "rgb-lib","id" to id,"network" to net,
+      "nativeSourceRevision" to SOURCE,"nativeOverlay" to OVERLAY,
       "witnessVersion" to p.getString("witnessVersion"),"maxAllocations" to max.toLong(),
       "masterFingerprint" to keys.third,"accountXpubVanilla" to keys.first,
       "accountXpubColored" to keys.second
@@ -155,13 +172,19 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     var created = false
     try {
       val marker = File(lease.root, PROFILE)
-      val profile = if (marker.exists()) JSONObject(marker.readText()) else expected
+      if (marker.exists() && (marker.canonicalFile != marker.absoluteFile || !marker.isFile || marker.length() > 65536))
+        throw RgbLibBridgeError("WALLET_PROFILE_MISMATCH","Invalid wallet profile storage")
+      val profile = if (marker.exists()) JSONObject(marker.readText())
+        else JSONObject(expected.toString()).put("recoveryCohort", UUID.randomUUID().toString().replace("-", ""))
       if (expected.keys().asSequence().any { profile.opt(it)?.toString() != expected.get(it).toString() })
         throw RgbLibBridgeError("WALLET_PROFILE_MISMATCH", "Storage belongs to a different wallet profile")
+      if (!Regex("[0-9a-f]{32}").matches(profile.optString("recoveryCohort")))
+        throw RgbLibBridgeError("WALLET_PROFILE_MISMATCH", "Wallet recovery identity is unavailable")
+      profile.remove("cachedAddress")
       if (!marker.exists()) {
         if (lease.root.listFiles().orEmpty().any { it.name != LOCK })
           throw RgbLibBridgeError("WALLET_STORAGE_NOT_EMPTY", "Use a separate empty wallet directory")
-        write(marker, expected)
+        write(marker, profile)
         created = true
       }
       wallet = Wallet(
@@ -169,6 +192,13 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         SinglesigKeys(keys.first, keys.second, null, keys.third, mnemonic, witness)
       )
       val session = Session(wallet, lease, profile, p.getBoolean("reuseAddresses"))
+      val recovery = JSONObject(wallet.initializeOnchainRecovery(JSONObject(mapOf(
+        "version" to 1,"walletBinding" to id,"cohort" to profile.getString("recoveryCohort"),
+        "network" to net,"witnessVersion" to p.getString("witnessVersion")
+      )).toString(), created))
+      if (recovery.optString("walletBinding") != id ||
+          recovery.optString("cohort") != profile.getString("recoveryCohort"))
+        throw RgbLibBridgeError("RECOVERY_IDENTITY_MISMATCH", "Native recovery identity does not match this wallet")
       save(session)
       val handle = UUID.randomUUID().toString()
       synchronized(registry) { sessions[handle] = session }
@@ -195,10 +225,17 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         val dirs = stage.listFiles().orEmpty().filter { it.isDirectory && File(it,PROFILE).isFile }
         if (dirs.size != 1) throw RgbLibBridgeError("BACKUP_PROFILE_MISSING", "Backup does not contain an SDK RGB Lib profile")
         val profile = JSONObject(File(dirs[0],PROFILE).readText())
+        if (RgbLibNetworkPolicy.deploymentUnavailable(profile.optString("network")))
+          throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
         val fingerprint = profile.getString("masterFingerprint")
-        if (profile.getInt("formatVersion") != 1 || profile.getString("backend") != "rgb-lib" ||
+        if (profile.getInt("formatVersion") != 2 || profile.getString("backend") != "rgb-lib" ||
+          profile.optString("nativeSourceRevision") != SOURCE || profile.optString("nativeOverlay") != OVERLAY ||
+          !Regex("[0-9a-f]{32}").matches(profile.optString("recoveryCohort")) ||
           !Regex("[a-fA-F0-9]{8}").matches(fingerprint) || dirs[0].name != fingerprint)
           throw RgbLibBridgeError("BACKUP_PROFILE_MISMATCH", "Invalid backup profile")
+        validateRestoredRecovery(dirs[0],profile)
+        profile.remove("cachedAddress")
+        write(File(dirs[0], PROFILE), profile)
         val destination = File(lease.root, fingerprint)
         if (!dirs[0].renameTo(destination)) throw java.io.IOException("Cannot install restored wallet")
         try {
@@ -210,8 +247,34 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       } finally { stage.deleteRecursively() }
     }
   }
+  private fun validateRestoredRecovery(walletDir: File, profile: JSONObject) {
+    val directory=File(walletDir,".flutter-onchain-v1")
+    val outbox=File(directory,"outbox.json")
+    val lock=File(directory,".lock")
+    if (walletDir.canonicalFile != walletDir.absoluteFile ||
+        directory.canonicalFile != directory.absoluteFile || !directory.isDirectory ||
+        outbox.canonicalFile != outbox.absoluteFile || !outbox.isFile || outbox.length() > 32L*1024*1024 ||
+        lock.canonicalFile != lock.absoluteFile || !lock.isFile || lock.length() != 0L)
+      throw RgbLibBridgeError("BACKUP_PROFILE_MISMATCH","Backup recovery state is unavailable")
+    val header=JSONObject(outbox.readText(Charsets.UTF_8))
+    if (header.optInt("version") != 1 || header.optString("walletBinding") != profile.getString("id") ||
+        header.optString("cohort") != profile.getString("recoveryCohort") ||
+        header.optString("network") != profile.getString("network") ||
+        header.optString("sourceRevision") != SOURCE || header.optString("overlay") != OVERLAY)
+      throw RgbLibBridgeError("BACKUP_PROFILE_MISMATCH","Backup recovery identity does not match this wallet")
+    // Zip extraction may not preserve Unix mode bits. Normalize only these
+    // authenticated, canonical files in the new private restore staging area.
+    if (!directory.setReadable(false,false) || !directory.setWritable(false,false) ||
+        !directory.setExecutable(false,false) || !directory.setReadable(true,true) ||
+        !directory.setWritable(true,true) || !directory.setExecutable(true,true) ||
+        !outbox.setReadable(false,false) || !outbox.setWritable(false,false) ||
+        !outbox.setExecutable(false,false) || !outbox.setReadable(true,true) || !outbox.setWritable(true,true) ||
+        !lock.setReadable(false,false) || !lock.setWritable(false,false) || !lock.setExecutable(false,false) ||
+        !lock.setReadable(true,true) || !lock.setWritable(true,true))
+      throw RgbLibBridgeError("BACKUP_PROFILE_MISMATCH","Backup recovery permissions cannot be secured")
+  }
   private fun consignment(s: Session, p: JSONObject): File {
-    val paths = s.wallet.listTransfers(AssetFilter.Id(p.getString("assetId")),p.getString("txid")).mapNotNull { it.consignmentPath }.distinct()
+    val paths = s.wallet.listTransfers(AssetFilter.Id(p.getString("assetId")),TransferScope.Txid(p.getString("txid"))).mapNotNull { it.consignmentPath }.distinct()
     if (paths.size != 1) throw RgbLibBridgeError("CONSIGNMENT_NOT_FOUND","No unique consignment for this transfer")
     val file = File(paths.single()).canonicalFile
     if (!file.isFile || !file.path.startsWith(File(s.wallet.getWalletDir()).canonicalPath + File.separator))
@@ -241,7 +304,7 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     when(operation) {
       "getRuntimeInfo" -> {
         val artifact = runCatching { JSONObject(artifactInfo()!!) }.getOrNull()
-        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to 4,"burn" to true,"consignment" to true,"bfa" to true)
+        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to 5,"integrationTree" to (artifact?.optString("integration_tree") ?: ""),"overlayPatchSha256" to (artifact?.optString("overlay_patch_sha256") ?: ""),"sourceLockSha256" to (artifact?.optString("source_lock_sha256") ?: ""),"sourceManifestSha256" to (artifact?.optString("source_manifest_sha256") ?: ""),"nativeOverlay" to (artifact?.optString("native_overlay") ?: ""),"contractRegistration" to true,"durableOnchainRecovery" to true,"burn" to true,"consignment" to true,"bfa" to true)
       }
       "openWallet" -> return open(p)
       "restoreBackup" -> { restore(p); return null }
@@ -254,49 +317,62 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       run(operation, handle, s, p)
     }
   }
+  private fun indexerConfig(s: Session, p: JSONObject): IndexerConfig {
+    val url=p.getString("indexerUrl")
+    val kind = RgbLibNetworkPolicy.indexerKind(s.profile.getString("network"),p.getString("indexerKind"))
+      ?: fail("Indexer does not match the wallet chain profile")
+    return when(kind) {
+          "electrum" -> IndexerConfig.Electrum(url)
+          "esplora" -> IndexerConfig.Esplora(url)
+          "devSignetElectrum" -> IndexerConfig.DevSignetElectrum(url)
+          "devSignetEsplora" -> IndexerConfig.DevSignetEsplora(url)
+          "bitcoind" -> IndexerConfig.Bitcoind(url,optional(p,"cookieFile")?.let { BitcoindAuth.CookieFile(it) } ?: BitcoindAuth.UserPass(p.getString("username"),p.getString("password")))
+          else -> fail("Unsupported indexer")
+    }
+  }
   private fun run(operation: String, handle: String, s: Session, p: JSONObject): Any? {
     val w = s.wallet
-    return when(operation) {
+    return RgbLibOperationPolicy.perform(operation, { w.assertNoPendingOnchainSend() }) {
+      when(operation) {
       "closeWallet" -> {
         synchronized(registry) { sessions.remove(handle) }
         s.closed = true; s.online = null
         try { w.close() } finally { s.lease.close() }
         null
       }
-      "getWalletIdentity" -> mapOf("id" to s.profile.getString("id"),"network" to s.profile.getString("network"),"masterFingerprint" to s.profile.getString("masterFingerprint"))
+      "getWalletIdentity" -> mapOf("id" to s.profile.getString("id"),"network" to s.profile.getString("network"),"masterFingerprint" to s.profile.getString("masterFingerprint"),"recoveryCohort" to s.profile.getString("recoveryCohort"))
+      "getPublicKeys" -> mapOf("accountXpubVanilla" to s.profile.getString("accountXpubVanilla"),"accountXpubColored" to s.profile.getString("accountXpubColored"),"masterFingerprint" to s.profile.getString("masterFingerprint"))
+      "getReceivedMint" -> {
+        val recipient = p.getString("recipientId")
+        // The core resolves a recipient-named local path; validate with its
+        // actual recipient parser before allowing any filesystem lookup.
+        RecipientInfo(recipient).use { it.recipientType() }
+        w.getReceivedMint(recipient)?.let { rgbDto(it) }
+      }
+      "importContract" -> w.importContract(p.getString("contractBase64"),p.getString("expectedAssetId"))
+      "prepareOnchainSend" -> w.prepareOnchainSend(online(s),p.getString("requestJson"))
+      "commitOnchainSend" -> w.commitOnchainSend(online(s),p.getString("requestJson"))
+      "onchainSendStatus" -> w.onchainSendStatus(s.online,p.getString("requestJson"))
+      "cancelOnchainSend" -> w.cancelOnchainSend(s.online,p.getString("requestJson"))
+      "onchainRecoveryState" -> w.onchainRecoveryState()
+      "listOnchainSendReceipts" -> w.listOnchainSendReceipts(number(p,"offset",0xffffffffL).toUInt(),number(p,"limit",500L).toUShort())
       "goOnline" -> {
-        val url=p.getString("indexerUrl")
-        val config=when(p.getString("indexerKind")) {
-          "electrum" -> IndexerConfig.Electrum(url)
-          "esplora" -> IndexerConfig.Esplora(url)
-          "bitcoind" -> IndexerConfig.Bitcoind(url,optional(p,"cookieFile")?.let { BitcoindAuth.CookieFile(it) } ?: BitcoindAuth.UserPass(p.getString("username"),p.getString("password")))
-          else -> fail("Unsupported indexer")
-        }
+        val config=indexerConfig(s,p)
         val ids=strings(p,"evmChainIds"); val urls=strings(p,"evmRpcUrls")
+        val minimums=strings(p,"evmMinMintLockBlocks"); val maximums=strings(p,"evmMaxMintLockBlocks")
         val endpoints=strings(p,"proxyEndpoints"); val keys=strings(p,"proxyAuthKeys")
-        if (ids.size != urls.size || endpoints.size != keys.size) fail("Configuration arrays do not match")
-        s.online=w.goOnline(OnlineOptions(config,false,20U,86400U,endpoints.zip(keys).toMap(),ids.map { it.toULong() }.zip(urls).toMap()))
+        if (ids.size != urls.size || ids.size != minimums.size || ids.size != maximums.size || endpoints.size != keys.size) fail("Configuration arrays do not match")
+        s.online=w.goOnline(OnlineOptions(config,false,20U,86400U,endpoints.zip(keys).toMap(),ids.indices.associate { i -> ids[i].toULong() to EvmChain(urls[i],minimums[i].toULong(),maximums[i].toULong()) }))
         null
       }
-      "getAddress" -> {
-        if (p.getBoolean("rotate") || !s.reuse || s.profile.isNull("cachedAddress")) {
-          val address=w.getAddress(); val previous=s.profile.opt("cachedAddress")
-          s.profile.put("cachedAddress",address)
-          // Never keep an in-memory address that was not persisted.
-          try { save(s) } catch (e: Throwable) {
-            if (previous == null) s.profile.remove("cachedAddress") else s.profile.put("cachedAddress",previous)
-            throw e
-          }
-        }
-        s.profile.getString("cachedAddress")
-      }
+      "getAddress" -> s.address.get(s.reuse,p.getBoolean("rotate")) { w.getAddress() }
       "getBtcBalance" -> rgbDto(w.getBtcBalance(s.online,p.getBoolean("skipSync")))
       "getAssetBalance" -> rgbDto(w.getAssetBalance(p.getString("assetId")))
       "listAssets" -> rgbDto(w.listAssets(strings(p,"filterAssetSchemas").map { schema(it) }))
       "getAssetMetadata" -> rgbDto(w.getAssetMetadata(p.getString("assetId")))
       "listUnspents" -> w.listUnspents(s.online,false,p.getBoolean("skipSync")).map { rgbDto(it) }
       "listTransactions" -> w.listTransactions(s.online,p.getBoolean("skipSync")).map { rgbDto(it) }
-      "listTransfers" -> w.listTransfers(optional(p,"assetId")?.let { AssetFilter.Id(it) } ?: AssetFilter.AnyOrNone,optional(p,"txid")).map { rgbDto(it) }
+      "listTransfers" -> w.listTransfers(optional(p,"assetId")?.let { AssetFilter.Id(it) } ?: AssetFilter.AnyOrNone,optional(p,"txid")?.let { TransferScope.Txid(it) } ?: TransferScope.All).map { rgbDto(it) }
       "createUtxos" -> w.createUtxos(online(s),p.getBoolean("upTo"),if(p.isNull("num")) null else number(p,"num",255).toUByte(),if(p.isNull("size")) null else number(p,"size",0xffffffffL).toUInt(),amount(p,"feeRate"),p.getBoolean("skipSync")).toInt()
       "sendBtc" -> w.sendBtc(online(s),p.getString("address"),amount(p,"amount"),amount(p,"feeRate"),p.getBoolean("skipSync"))
       "receive" -> {
@@ -304,7 +380,11 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         rgbDto(if(p.getBoolean("witness")) w.witnessReceive(s.online,optional(p,"assetId"),assignment,amount(p,"expirationTimestamp"),strings(p,"transportEndpoints"),number(p,"minConfirmations",255).toUByte(),null)
           else w.blindReceive(s.online,optional(p,"assetId"),assignment,amount(p,"expirationTimestamp"),strings(p,"transportEndpoints"),number(p,"minConfirmations",255).toUByte(),null))
       }
-      "decodeInvoice" -> Invoice(p.getString("invoice")).use { rgbDto(it.invoiceData()) }
+      "decodeInvoice" -> Invoice(p.getString("invoice")).use { invoice ->
+        val data=invoice.invoiceData()
+        val kind=RecipientInfo(data.recipientId).use { rgbEnum(it.recipientType()) }
+        rgbDto(data)+mapOf("recipientType" to kind)
+      }
       "send" -> send(s,p)
       "issueAssetNia" -> rgbDto(w.issueAssetNia(p.getString("ticker"),p.getString("name"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() }))
       "issueAssetCfa" -> rgbDto(w.issueAssetCfa(p.getString("name"),optional(p,"details"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() },optional(p,"filePath")))
@@ -316,7 +396,12 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       "refresh" -> w.refresh(online(s),null,emptyList(),p.getBoolean("skipSync")).map { (id,r) -> mapOf("batchTransferIdx" to id,"updatedStatus" to r.updatedStatus?.let { rgbEnum(it) },"failure" to r.failure?.let { mapOf("name" to rgbLibErrorCode(it),"message" to "RGB Lib transfer refresh failed.") }) }
       "deleteTransfers" -> w.deleteTransfers(if(p.isNull("batchTransferIdx")) null else number(p,"batchTransferIdx",Int.MAX_VALUE.toLong()).toInt(),p.getBoolean("noAssetOnly"))
       "drainTo" -> w.drainTo(online(s),p.getString("address"),amount(p,"feeRate"))
-      "checkIndexerUrl" -> checkIndexerUrl(p.getString("indexerUrl"),null,network(s.profile.getString("network"))).name.lowercase()
+      "checkIndexerUrl" -> {
+        if (RgbLibNetworkPolicy.deploymentUnavailable(s.profile.getString("network")))
+          throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
+        if (p.isNull("indexerKind")) checkIndexerUrl(p.getString("indexerUrl"),null,network(s.profile.getString("network"))).name.lowercase()
+        else checkIndexerConfig(indexerConfig(s,p),network(s.profile.getString("network"))).name.lowercase()
+      }
       "sync" -> { w.sync(online(s),SyncOptions(SyncKeychain.Colored,SyncStrategy.FULL_SYNC)); w.sync(online(s),SyncOptions(SyncKeychain.Vanilla(20U),SyncStrategy.FULL_SYNC)); null }
       "estimateFeeRate" -> w.getFeeEstimation(online(s),number(p,"blocks",65535).toUShort())
       // This UniFFI release has no block-height method. Preserve the optional API field.
@@ -325,9 +410,12 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       "getConsignmentPath" -> consignment(s,p).path
       "getConsignment" -> Base64.encodeToString(consignment(s,p).readBytes(),Base64.NO_WRAP)
       else -> fail("Unknown native operation")
+      }
     }
   }
   companion object {
+    private const val SOURCE="9ec49c08be2e68f08521281e3efbd760ec989cb9"
+    private const val OVERLAY="flutter-bfa7-durable-v1"
     private const val PROFILE="rgb-sdk-profile.json"
     private const val LOCK=".rgb-sdk.lock"
   }

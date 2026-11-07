@@ -1,5 +1,7 @@
 .dart_tool/
 .buildlog/
+__pycache__/
+*.pyc
 .idea/
 .packages
 .pub-cache/

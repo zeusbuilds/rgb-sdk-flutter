@@ -145,6 +145,13 @@ if text.count(marker) != 1 or "abiFilters" in text:
 # the plugin AAR's other ABIs. Keep this arm64 fixture complete for every ABI
 # the resulting APK advertises.
 text = text.replace(marker, marker + '        ndk.abiFilters.add("arm64-v8a")\n', 1)
+android_marker = "android {\n"
+if text.count(android_marker) != 1 or "jniLibs" in text:
+    raise SystemExit("Cannot safely apply explicit consumer JNI exclusions")
+# Defense in depth if a Flutter version rewrites the NDK selection: transitive
+# JNI libraries must not advertise an ABI without that ABI's Flutter engine.
+text = text.replace(android_marker, android_marker +
+    '    packaging.jniLibs.excludes.addAll(setOf("**/armeabi-v7a/**", "**/x86/**", "**/x86_64/**"))\n', 1)
 path.write_text(text)
 PY
   python3 - "${consumer_dir}/ios/Podfile" "${ios_minimum}" <<'PY'

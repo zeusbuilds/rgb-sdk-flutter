@@ -24,6 +24,12 @@ val rgbLibBaseline = JsonSlurper().parse(rgbLibBaselineFile) as Map<*, *>
 val rgbLibAndroid = rgbLibBaseline["android"] as Map<*, *>
 val rgbLibVersion = rgbLibBaseline["version"] as String
 val rgbLibCoordinate = rgbLibAndroid["mavenCoordinate"] as String
+val rgbLibCoordinateParts = rgbLibCoordinate.split(':')
+require(rgbLibCoordinateParts.size == 3 && rgbLibCoordinateParts.all { it.isNotBlank() }) {
+    "The RGB Lib Android coordinate must pin group, module and version"
+}
+val rgbLibAndroidRepository = rgbLibAndroid["repositoryUrl"] as String?
+val rgbLibAndroidArtifactDirectory = providers.environmentVariable("RGB_LIB_ANDROID_ARTIFACT_DIR")
 val rgbLibExpectedSize = (rgbLibAndroid["archiveSizeBytes"] as Number).toLong()
 val rgbLibExpectedSha256 = rgbLibAndroid["archiveSha256"] as String
 val buildRequirements = releaseBaseline["buildRequirements"] as Map<*, *>
@@ -78,6 +84,25 @@ rootProject.allprojects {
                     }
                 }
                 filter { includeModule(rlnAndroidParts[0], rlnAndroidParts[1]) }
+            }
+        }
+        if (rgbLibAndroidRepository != null || rgbLibAndroidArtifactDirectory.isPresent) {
+            exclusiveContent {
+                forRepository {
+                    ivy {
+                        name = "verifiedRgbLibNativeArtifact"
+                        url = if (rgbLibAndroidArtifactDirectory.isPresent) {
+                            uri(file(rgbLibAndroidArtifactDirectory.get()))
+                        } else {
+                            uri(rgbLibAndroidRepository!!)
+                        }
+                        patternLayout {
+                            artifact("[artifact]-[revision].[ext]")
+                        }
+                        metadataSources { artifact() }
+                    }
+                }
+                filter { includeModule(rgbLibCoordinateParts[0], rgbLibCoordinateParts[1]) }
             }
         }
     }

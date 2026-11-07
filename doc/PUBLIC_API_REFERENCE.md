@@ -7,6 +7,9 @@ The release verdict remains controlled by
 
 ## Durable On-Chain Sends (ROOT-01)
 
+This section describes the existing legacy RLN protocol. RGB_L1's BFA.7
+protocol uses the separately bound version-3 envelope described below.
+
 This additive Flutter-only protocol is locally implemented and unpublished.
 The official pinned native artifacts do not implement it. An old artifact
 returns unsupported, including for status; unsupported is never an absent
@@ -499,16 +502,37 @@ requiring signing. When both mnemonic and public keys are supplied, native
 validates that they describe the same wallet. Keys and read failures must stay
 out of logs and user-facing diagnostics.
 
+The gated logical `utexo` profile represents Dev Signet. Its native Bitcoin
+network is `Signet`, with an explicit Dev Signet Electrum/Esplora checkpoint
+resolver; it is never `SignetCustom` or the public Signet resolver. The logical
+profile name remains in wallet IDs, recovery cohorts and canonical commands.
+Public Signet remains a separate profile. A native `signet` invoice is compatible
+with a Dev send only after that Dev resolver has connected successfully and the
+invoice explicitly binds the selected locally registered asset; an invoice alone proves neither deployment
+nor chain. Both Dart and mobile channels reject unqualified Dev opens before
+key access. No runtime flag or test helper can open that gate.
+
 `RgbLibIndexer` selects Electrum, Esplora or authenticated bitcoind access.
 `RgbLibUnlockParams` supplies an explicit indexer or indexer URL, a proxy
 endpoint, EVM RPC endpoints keyed by decimal chain ID and optional proxy auth
-keys. `goOnline` applies this configuration. The first network operation can
+keys. BFA.7 uses `RgbLibEvmChain` entries in `evmChains`, each with `rpcUrl`,
+`minMintLockBlocks` and `maxMintLockBlocks`. These are explicit deployment-owned
+**backing-chain** block counts, with `2 <= min <= max`; they are not Bitcoin
+confirmation counts. A bare legacy `evmRpcUrls` map fails before connection;
+if retained for source compatibility, every entry must match a typed policy.
+`goOnline` applies this configuration. The first network operation can
 connect using defaults on supported public networks. Regtest requires an
 explicit online configuration.
 
+`RgbLibWalletParams.reuseAddresses` reuses the most recently native-derived
+address only within one open session. Reopening derives through native again;
+previous addresses remain valid. Address text from profile JSON or backups is
+never accepted as ownership evidence or used to seed that cache.
+
 `RgbLibWalletIdentity` exposes the persistent profile ID, network and master
-fingerprint. `RgbLibRuntimeInfo` describes the native artifact version, source
-revision, bridge version and BFA capabilities. The wallet verifies the pinned
+fingerprint. `RgbLibRuntimeInfo` describes the native artifact version, sealed
+integration tree, overlay patch/source-lock/source-manifest SHA-256 digests,
+source revision, bridge version and BFA capabilities. The wallet verifies the pinned
 runtime identity before reading keys. `RgbLibWalletException` carries a stable
 sanitized failure code for configuration, lifecycle, native availability and
 operation failures.
@@ -523,8 +547,9 @@ key. `RgbLibInvoiceData` preserves decoded assignment, expiry and transport
 fields together with encryption policy, optional public key and unknown query
 parameters. Decode and receive results do not authorize a send. Callers must
 validate the requested network, asset, amount, recipient and fees separately.
-`RgbLibTransfer` preserves shared transfer history plus the complete invoice
-and local consignment path when available. Transfer amounts remain exact base
+`RgbLibTransfer` preserves shared transfer history plus the complete invoice,
+local consignment path and all `changeUtxos` when available. The legacy singular
+`changeUtxo` is present only when exactly one change output exists. Transfer amounts remain exact base
 units and unresolved amounts remain absent.
 
 `RgbLibWitnessVersion` selects the address derivation scheme for a new
@@ -539,6 +564,80 @@ supported legacy RLN subset. `RgbLibNetworkInfo` reports the chain with
 optional native height. `RgbLibIndexerCheck` describes the protocol
 detected by the native engine. `BurnCapabilityWallet` lets a wallet reject
 unsupported burn operations before an irreversible journal entry is written.
+
+### BFA.7 contract registration and native recovery
+
+`RgbLibDurableOperations` supplies `importContract`, native `getPublicKeys`,
+`hasPendingOnchainSends`, the two recoverable command factories and the explicit
+prepare/commit/status/cancel methods. Native artifact and Aster activation
+qualification remain separate from the capability to call these APIs.
+
+`importContract(contractBase64:, expectedAssetId:)` imports canonical public
+genesis bytes and returns `ImportedRgbContract`, including exact supplies and
+whether the definition already existed. It does not credit allocations or
+funds. A deployment must verify the approved artifact SHA-256 and the returned
+asset ID, schema, name, ticker and precision. Import refuses to overtake a
+pending native send. `getPublicKeys` returns the actual verified native account
+keys, bound to the wallet identity; it never substitutes another derivation.
+
+New BFA.7 storage profiles bind the native source and overlay and carry a random
+recovery cohort. Existing BFA.5 directories are not silently upgraded. A native
+outbox is created together with a fresh profile; reopening and restored commands
+require the existing matching outbox. Version-3 `RecoverableOnchainSendCommand`
+binds `RGB_L1`, network, native wallet identity, recovery cohort, native source,
+overlay and all exact approved payment inputs. It is incompatible with the
+legacy RLN versions 1/2. Monetary values are canonical UInt64 decimal strings;
+RGB factories also accept `exactAmount` and `exactWitnessBlinding` to avoid
+narrowing. The recipient's native kind, Ed25519 key, encryption policy,
+recipient/sender transports, witness output and expiry stay bound. The advanced
+`RgbLibRecoverableCodec` implements this serialization; applications should use
+the wallet factories and persist their opaque `requestJson` instead.
+
+`prepareOnchainSend` prepares/signs a fixed native transaction and preserves its
+identity before returning. `commitOnchainSend` is the explicit authorization
+boundary; it never substitutes a new transaction. `onchainSendStatus` and
+`cancelOnchainSend` never invoke End, post a consignment or broadcast. Missing
+acknowledgements remain fenced until exact native evidence establishes their
+outcome. A status of `accepted` means native submission, not chain confirmation.
+`RgbLibPendingOnchainOperation` from `listPendingOnchainSends` carries the exact
+verified command and native status, so a lost app marker can be rebuilt without
+a new payment or commit authorization. `hasPendingOnchainSends` audits the whole
+native outbox even if an app marker was lost; corrupt or mismatched native state throws instead of returning false.
+
+Use `requireFreshInvoice: false` only to reconstruct a saved RGB command for
+read-only recovery validation. Native preparation still checks expiration;
+reconstruction must not extend the saved deadline. Status/audit reads remain
+available for watch-only sessions, while command creation and sending require
+signing authority. Normal mutations cannot overtake a pending operation.
+
+`getReceivedMint(recipientId)` returns a nullable `RgbLibReceivedMint` observation
+from the native BFA.7 wallet. Its six fields are `opid`, transaction-bound `lockId`,
+exact `BigInt` `amount`, backing-EVM `beforeBlock`, `evmChainId`, and
+`bridgeContract`. No asset identifier is invented. Null means no native-validated
+mint remains available for this recipient (including a failed receive). These
+requirements authorize neither an EVM lock nor a completed mint. WebRGB mint
+route authorization remains unavailable until its transport policy is qualified.
+
+`listOnchainSendReceipts` returns a `RgbLibOnchainSendReceiptPage` of accepted
+`RgbLibOnchainSendReceipt` entries. Gross amounts and approved fee rates remain
+exact `BigInt` values, so self-transfers do not lose their amount when an app
+journal is missing. A receipt is submission evidence, not a confirmation or a
+new send authorization. Pages include wallet/cohort identity and native revision;
+never merge pages from different revisions. The native limit is 500 per page.
+Historical accepted receipts remain readable on a restored snapshot even while
+freshness uncertainty fences new spending.
+
+The complete native outbox is inside the encrypted native backup cohort. Restore
+requires matching profile, source, overlay, cohort and outbox; files are not
+recreated when missing. A coherent old backup can predate a later authorized
+payment on the original installation. It therefore cannot prove that an absent
+or merely prepared operation never executed. Native restore records this
+freshness uncertainty; ordinary spending and absence/cancellation certificates
+remain fenced with `RECOVERY_RESTORE_UNCERTAIN`. SDK pending discovery/audit
+throws for a restored snapshot instead of returning a misleading empty list.
+Exact previously accepted evidence can still be read without replay. This source-level protocol and host tests alone do not
+establish funded process-kill, restored-state or release acceptance. Aster keeps
+RGB_L1 gated until its platform and product verification is complete.
 
 ## Symbol Coverage Checklist
 

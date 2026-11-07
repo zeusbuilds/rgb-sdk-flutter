@@ -26,5 +26,9 @@
     "removed": 22,
     "modified": 30,
     "pathsSha256": "c4b82e7b0a785e58439030bd88b5a436ad0ae75d0733ee53c9edd948af714ac5"
+  },
+  "nativeReference": {
+    "path": "rn_beta40_rgb_lib_reference.json",
+    "sha256": "669140dc1faf4715b0160d7638d61fe9cb7e643145a048d2020e1a0568b6577c"
   }
 }

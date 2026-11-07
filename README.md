@@ -14,10 +14,14 @@ for RN/native parity diagnostics.
 
 Current package version: `0.2.0-beta.3`.
 
-The on-chain `RgbLibWallet` uses the published rgb-lib BFA.5 artifacts
-referenced by React Native `1.0.0-beta.40`. It uses a dedicated storage
-directory and a protocol 1.0 RGB proxy. See
-[the beta.40 implementation and release gates](doc/UPSTREAM_PARITY_BETA40.md).
+The on-chain `RgbLibWallet` now uses a separately versioned BFA.7 Flutter
+native integration with standalone contract registration and durable
+prepare/commit/status/cancel recovery. It uses dedicated storage, an immutable
+recovery cohort and a protocol 1.0 RGB proxy. Restored backup snapshots stay
+fenced until freshness can be established. See
+[the BFA.7 integration and remaining gates](doc/BFA7_NATIVE_INTEGRATION.md).
+The original React Native `1.0.0-beta.40` BFA.5 artifact reference remains
+independently frozen and verified.
 
 The existing `UtexoWallet` remains an explicit RLN facade. Its baseline is:
 
@@ -419,3 +423,9 @@ recovery readiness.
 - [Security Policy](doc/SECURITY.md)
 - [Machine-Readable Test Matrix](tool/test_matrix/README.md)
 - [Example App](example/README.md)
+
+The dual-engine Android example packages only complete 64-bit targets
+(`arm64-v8a` and `x86_64`). Its Flutter `target-platform` selection also excludes
+all unselected JNI directories; a pure 32-bit or unknown target fails before
+packaging. RGB_L1 has no 32-bit native runtime. This example policy does not
+remove legacy RLN's separately available 32-bit SDK APIs/artifact support.

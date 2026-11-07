@@ -48,6 +48,13 @@ jobs:
       - name: Verify published React Native beta.40 reference
         run: python3 tool/validate_rn_beta40_reference.py --check-latest
 
+      - name: Test native source, archive and reference admission
+        run: >-
+          python3 -m unittest
+          tool/test_build_rgb_lib_bfa7.py
+          tool/test_install_rgb_lib_ios.py
+          tool/test_rn_beta40_native_divergence.py
+
       - name: Check generated release baseline
         run: dart run tool/generate_release_baseline.dart --check
 
@@ -121,6 +128,8 @@ jobs:
           done
           echo "Pinned NDK ${NDK_VERSION} could not be provisioned and verified." >&2
           exit 1
+      - name: Verify complete dual-engine ABI selection
+        run: python3 tool/test_dual_engine_abi_policy.py
       - name: Native JVM tests with exact-candidate evidence
         run: ./tool/test_native_android.sh
       - name: Preserve native evidence

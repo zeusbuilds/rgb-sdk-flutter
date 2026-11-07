@@ -123,6 +123,7 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
   }) async {
     _requireRecoverableMode();
     _requireUnlockedNode();
+    if (command.version == 3) _recoverableInvalid('command.backend');
     if (command.network != normalizeNativeRlnNetwork(_config.network) ||
         (command.version == 1 &&
             command.storageDirPath != _config.storageDirPath)) {

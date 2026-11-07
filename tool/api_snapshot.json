@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "description": "AST-normalized public API and bridge snapshot. Update only with a tracker row and migration note.",
   "dartExportedSurface": {
-    "count": 2345,
-    "hash": "37b6fc707b26225f14397e73e0c5c86a548ea2dcaa7d12fc094d7f29e64001d3",
+    "count": 2428,
+    "hash": "c512c5ec4d3635d11fba110ab366b9d99d7203ce7849879cd11dab1b482d867c",
     "files": [
       "lib/rgb_sdk_flutter.dart",
       "lib/rgb_sdk_flutter_advanced.dart",
@@ -54,8 +54,10 @@
       "lib/src/wallet/recoverable_onchain_send.dart",
       "lib/src/wallet/rgb_lib/config.dart",
       "lib/src/wallet/rgb_lib/operation_inputs.dart",
+      "lib/src/wallet/rgb_lib/recoverable_operations.dart",
       "lib/src/wallet/rgb_lib/rgb_lib_wallet.dart",
       "lib/src/wallet/rgb_lib/wire.dart",
+      "lib/src/wallet/rgb_lib_recoverable_codec.dart",
       "lib/src/wallet/rln_manager.dart",
       "lib/src/wallet/rln_signers.dart",
       "lib/src/wallet/utexo_unlock_config_resolver.dart",
@@ -269,8 +271,8 @@
     ]
   },
   "nativeBridgeSurface": {
-    "count": 644,
-    "hash": "00cf16a7511591b8d6faed5d18b9e42dbae5eb6c7abff7c8284fdae8d52e8c83",
+    "count": 675,
+    "hash": "f2a3ab8aaa58f41047ccec16324beb1b7ab68b2e308866b0ee91a531a423b042",
     "files": [
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbSdkFlutterPlugin.kt",
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnAssetMapper.kt",

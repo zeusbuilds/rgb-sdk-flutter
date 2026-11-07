@@ -30,9 +30,11 @@
     "rpcUrl": "https://arb1.arbitrum.io/rpc"
   },
   "bundledRgbL1": {
-    "generation": "BFA.5",
-    "sourceRevision": "0a9d352f2690902df2b6fae9bca1a6c13c3354d4",
-    "standaloneContractRegistration": false,
+    "generation": "BFA.7",
+    "sourceRevision": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
+    "nativeOverlay": "flutter-bfa7-durable-v1",
+    "standaloneContractRegistration": true,
+    "durablePaymentRecoveryImplemented": true,
     "durablePaymentRecoveryQualified": false
   },
   "historicalEvidence": {
@@ -46,9 +48,9 @@
     "sourceE2eRun": "41698713237"
   },
   "unresolvedRequirements": [
-    "Matching independently verified iOS and Android native artifacts with compatible schema",
-    "Standalone contract registration with exact ID, network, schema and metadata validation",
-    "Qualified durable payment identity and recovery on the selected native generation",
+    "Funded mobile qualification of the exact matching BFA.7 iOS and Android artifacts",
+    "Hosted Dev qualification of exact-ID/schema/metadata standalone contract registration",
+    "Interruption, reorg and backup-freshness qualification of durable payment recovery",
     "Issuer-approved current contract export, digest and exact native metadata",
     "Matched gateway, signer, proxy and backing-contract deployment qualification",
     "Funded wallet and bridge acceptance against the exact deployment"

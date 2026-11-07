@@ -6,6 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/native_ios_privacy_policy.dart';
 
 void main() {
+  test('the exact BFA.7 candidate retains its independent privacy fence', () {
+    final review = rgbLibIosPrivacyDisposition();
+    expect(review['sourceCommit'], '9ec49c08be2e68f08521281e3efbd760ec989cb9');
+    expect(review['status'], 'blocked-known-unresolved');
+    expect(review['productionReady'], false);
+    expect('${review['blockers']}', contains('statfs/fstatfs'));
+    expect('${review['blockers']}', contains('signed-app'));
+  });
   test(
     'exact audited source and archive retain the known DiskSpace blocker',
     () {

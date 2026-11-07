@@ -1,0 +1,4225 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index f0e9451..3a7db25 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -178,9 +178,9 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
+ 
+ [[package]]
+ name = "arrow"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "234ce58e76c04e8162c2e4bc3fe53fa7c2418ef5fba7bb2838b8531b7d4fbf14"
++checksum = "d965156f2220e94dcf676e04322b7b0b41c97e85cb3e1c365b8e56d0f70be999"
+ dependencies = [
+  "arrow-arith",
+  "arrow-array",
+@@ -196,9 +196,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-arith"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "2303ebedb1071f4f72d71171e383859a9a285c94d99e4892685a96fca9890720"
++checksum = "ca16fdd1daeb1eccefb42df52ec65448ef33eec72488598675d46dfa9ce58923"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -210,9 +210,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-array"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "51dff6e4b9f158864a0aeb6a131ad53858ecbae7a2fc8989307b9b3c6b2f122e"
++checksum = "0f3d22a41d3df78b71df0b685af219ae3a94188ab98d6fb29c958eb55c3247f4"
+ dependencies = [
+  "ahash",
+  "arrow-buffer",
+@@ -228,9 +228,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-buffer"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c7235b863533e9db3ab86905b4521251de11226275b436ff3cb2d0010558d1c5"
++checksum = "7bd46a530bc1a8e763102fc36c1dc0f51f3ffa150c78e7f5658ccb54b1458ade"
+ dependencies = [
+  "bytes",
+  "half",
+@@ -240,9 +240,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-cast"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "d52cf840f0c34aeeb7e8b05aba72d66878e6c001827f423331f0b260209e7b7e"
++checksum = "baa83a0752814a1922d5ee75032524ca9bbfb7f60ee35a67ed4ab8b275260aaf"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -261,9 +261,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-cmp"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "73a0e9adb28d95739fabcdae637261a2c14e618caf58ba1b88857120f9ee2687"
++checksum = "1913e57a64fbf2c4502fa6d54b547d6a1ae59e3146cbc15321d47468c937abd1"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -272,9 +272,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-data"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5aa06d5e22786c4966ffc4d2f171d0cb65d95f6bdea108a14e8c335e9faa437f"
++checksum = "415b7fbc4cf56b080bb5677a4ae74211b5c79e571ed37a1d547633ec07f3b43b"
+ dependencies = [
+  "arrow-buffer",
+  "arrow-schema",
+@@ -285,9 +285,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-ord"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5a7ac2c6a9cdc782fa9548d3763461eaec8c93347e297fddbaa44807e70a3698"
++checksum = "4c58f2ae6dd1480fc413f7320a547e39dcc499c23d4f36ca19572b685811e6e4"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -299,9 +299,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-row"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "758b87e9648d80001e0916c083334ed93074c677a81a96144d5c84bd2d8eab2a"
++checksum = "68f9db8345b0638416d3b56d117d262d13070fdef788c6d75b53a180215c477e"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -312,15 +312,15 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-schema"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f85a9a58cd03560526b0066487574aacb9008e413504fa0ee23d61141e96c338"
++checksum = "de2c8e714b466404cdc1189e89f892426efea614d938e16c15518c340cd43ba3"
+ 
+ [[package]]
+ name = "arrow-select"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ba3482b7d03bf4a3bf0b195f08a7f2b071595ccd54897e35b975ac63d3104977"
++checksum = "a5af3f6656c5f2c6944f93d9a357a7f204c93d5f349385a44cf46c4a26fbcf30"
+ dependencies = [
+  "ahash",
+  "arrow-array",
+@@ -333,9 +333,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-string"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f300b4400b1e7cd58f7cbbd5dd2a0072cc59e73bfaee2a152b3ac660e46d9dd1"
++checksum = "ab1be9306b9a413b5b004e2a5a19caac728870d76e8891b351f040d554c93862"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -1239,9 +1239,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "ctutils"
+-version = "0.4.3"
++version = "0.4.8"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "03bb0e1cc970d482d121d9a1744999169b69a07470b3d644a7894e53fcaf4574"
++checksum = "261af4dc7a06ea8a527a8717d8cbba3417530d6ea14e1edb3de6b67806be474f"
+ dependencies = [
+  "cmov",
+ ]
+@@ -1542,10 +1542,10 @@ dependencies = [
+  "byteorder",
+  "libc",
+  "log",
+- "rustls 0.23.46",
++ "rustls",
+  "serde",
+  "serde_json",
+- "webpki-roots 1.0.10",
++ "webpki-roots",
+  "winapi",
+ ]
+ 
+@@ -1606,19 +1606,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
+ dependencies = [
+  "libc",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+ name = "esplora-client"
+ version = "0.12.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f19e3ea99dbfbef0c1ec26d83e69de0c579f6aa6aaac4f44597805fcc27e97af"
+ dependencies = [
+  "bitcoin",
+  "hex-conservative 0.2.3",
+  "log",
+- "minreq",
++ "reqwest",
+  "serde",
+  "serde_json",
+ ]
+@@ -2160,7 +2158,7 @@ dependencies = [
+  "http",
+  "hyper",
+  "hyper-util",
+- "rustls 0.23.46",
++ "rustls",
+  "tokio",
+  "tokio-rustls",
+  "tower-service",
+@@ -2386,7 +2384,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
+ dependencies = [
+  "hermit-abi",
+  "libc",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -2704,12 +2702,8 @@ version = "2.14.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "05015102dad0f7d61691ca347e9d9d9006685a64aefb3d79eecf62665de2153d"
+ dependencies = [
+- "base64 0.22.1",
+- "rustls 0.21.12",
+- "rustls-webpki 0.101.7",
+  "serde",
+  "serde_json",
+- "webpki-roots 0.25.4",
+ ]
+ 
+ [[package]]
+@@ -3247,7 +3241,7 @@ dependencies = [
+  "quinn-proto",
+  "quinn-udp",
+  "rustc-hash",
+- "rustls 0.23.46",
++ "rustls",
+  "socket2",
+  "thiserror 2.0.21",
+  "tokio",
+@@ -3269,7 +3263,7 @@ dependencies = [
+  "rand_pcg",
+  "ring",
+  "rustc-hash",
+- "rustls 0.23.46",
++ "rustls",
+  "rustls-pki-types",
+  "slab",
+  "thiserror 2.0.21",
+@@ -3289,7 +3283,7 @@ dependencies = [
+  "once_cell",
+  "socket2",
+  "tracing",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -3484,11 +3478,12 @@ dependencies = [
+  "percent-encoding",
+  "pin-project-lite",
+  "quinn",
+- "rustls 0.23.46",
++ "rustls",
+  "rustls-pki-types",
+  "rustls-platform-verifier",
+  "serde",
+  "serde_json",
++ "serde_urlencoded",
+  "sync_wrapper",
+  "tokio",
+  "tokio-native-tls",
+@@ -3606,6 +3601,7 @@ dependencies = [
+  "hex",
+  "hkdf",
+  "hmac 0.13.0",
++ "libc",
+  "mockito",
+  "once_cell",
+  "rand 0.10.3",
+@@ -3618,7 +3614,7 @@ dependencies = [
+  "rgb-schemas",
+  "rgb-strict-encoding",
+  "rgb-strict-types",
+- "rustls 0.23.46",
++ "rustls",
+  "scrypt",
+  "sea-orm",
+  "sea-query",
+@@ -3636,6 +3632,7 @@ dependencies = [
+  "url",
+  "walkdir",
+  "x25519-dalek",
++ "zeroize",
+  "zip",
+ ]
+ 
+@@ -3801,19 +3798,7 @@ dependencies = [
+  "errno",
+  "libc",
+  "linux-raw-sys",
+- "windows-sys 0.61.2",
+-]
+-
+-[[package]]
+-name = "rustls"
+-version = "0.21.12"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
+-dependencies = [
+- "log",
+- "ring",
+- "rustls-webpki 0.101.7",
+- "sct",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -3827,7 +3812,7 @@ dependencies = [
+  "once_cell",
+  "ring",
+  "rustls-pki-types",
+- "rustls-webpki 0.103.16",
++ "rustls-webpki",
+  "subtle",
+  "zeroize",
+ ]
+@@ -3865,14 +3850,14 @@ dependencies = [
+  "jni",
+  "log",
+  "once_cell",
+- "rustls 0.23.46",
++ "rustls",
+  "rustls-native-certs",
+  "rustls-platform-verifier-android",
+- "rustls-webpki 0.103.16",
++ "rustls-webpki",
+  "security-framework",
+  "security-framework-sys",
+  "webpki-root-certs",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -3881,16 +3866,6 @@ version = "0.2.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "eec689c0bc40ff2458a5977b6619cb718087084a18e02a131c599b62d05e1a5f"
+ 
+-[[package]]
+-name = "rustls-webpki"
+-version = "0.101.7"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
+-dependencies = [
+- "ring",
+- "untrusted",
+-]
+-
+ [[package]]
+ name = "rustls-webpki"
+ version = "0.103.16"
+@@ -3962,16 +3937,6 @@ dependencies = [
+  "sha2 0.11.1",
+ ]
+ 
+-[[package]]
+-name = "sct"
+-version = "0.7.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
+-dependencies = [
+- "ring",
+- "untrusted",
+-]
+-
+ [[package]]
+ name = "sea-bae"
+ version = "0.2.2"
+@@ -4582,7 +4547,7 @@ dependencies = [
+  "memchr",
+  "percent-encoding",
+  "rust_decimal",
+- "rustls 0.23.46",
++ "rustls",
+  "serde",
+  "serde_json",
+  "sha2 0.10.9",
+@@ -4594,7 +4559,7 @@ dependencies = [
+  "tracing",
+  "url",
+  "uuid",
+- "webpki-roots 1.0.10",
++ "webpki-roots",
+ ]
+ 
+ [[package]]
+@@ -4862,7 +4827,7 @@ dependencies = [
+  "getrandom 0.4.3",
+  "once_cell",
+  "rustix",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -4871,7 +4836,7 @@ version = "1.2.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
+ dependencies = [
+- "windows-sys 0.61.2",
++ "windows-sys 0.59.0",
+ ]
+ 
+ [[package]]
+@@ -4980,9 +4945,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+ 
+ [[package]]
+ name = "tokio"
+-version = "1.54.0"
++version = "1.54.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a0c168a474b95bfecfe908a65d4bdffc523144b649a74c09c286afb35d53e0bc"
++checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
+ dependencies = [
+  "bytes",
+  "libc",
+@@ -5020,7 +4985,7 @@ version = "0.26.6"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db"
+ dependencies = [
+- "rustls 0.23.46",
++ "rustls",
+  "tokio",
+ ]
+ 
+@@ -5488,12 +5453,6 @@ dependencies = [
+  "rustls-pki-types",
+ ]
+ 
+-[[package]]
+-name = "webpki-roots"
+-version = "0.25.4"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
+-
+ [[package]]
+ name = "webpki-roots"
+ version = "1.0.10"
+@@ -5531,7 +5490,7 @@ version = "0.1.11"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+ dependencies = [
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+diff --git a/Cargo.toml b/Cargo.toml
+index f767634..bb8f98e 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -17,6 +17,8 @@ exclude = ["migration"]
+ members = [".", "migration"]
+ 
+ [dependencies]
++libc = "0.2"
++zeroize = "=1.9.1"
+ base64 = { version = "0.23.1", optional = true, default-features = false, features = [
+     "std",
+ ] }
+@@ -218,6 +220,7 @@ inherits = "release"
+ debug = 1
+ 
+ [patch.crates-io]
++esplora-client = { path = "../esplora-client" }
+ rgb-aluvm = { git = "https://github.com/rgb-protocol/rgb-aluvm", rev = "eb956ccaadf64930990e2ed08f6c4232caee24f9" }
+ rgb-ascii-armor = { git = "https://github.com/rgb-protocol/rgb-ascii-armor", rev = "40cdea632fd6d0527494893e83b99cea60ace310" }
+ rgb-consensus = { git = "https://github.com/rgb-protocol/rgb-consensus", rev = "d4bbbce212e4d9967e10cc3c6a7db2f664d52bd2" }
+diff --git a/bindings/uniffi/Cargo.lock b/bindings/uniffi/Cargo.lock
+index e6e84c7..6ddd7ff 100644
+--- a/bindings/uniffi/Cargo.lock
++++ b/bindings/uniffi/Cargo.lock
+@@ -178,9 +178,9 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
+ 
+ [[package]]
+ name = "arrow"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "234ce58e76c04e8162c2e4bc3fe53fa7c2418ef5fba7bb2838b8531b7d4fbf14"
++checksum = "d965156f2220e94dcf676e04322b7b0b41c97e85cb3e1c365b8e56d0f70be999"
+ dependencies = [
+  "arrow-arith",
+  "arrow-array",
+@@ -196,9 +196,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-arith"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "2303ebedb1071f4f72d71171e383859a9a285c94d99e4892685a96fca9890720"
++checksum = "ca16fdd1daeb1eccefb42df52ec65448ef33eec72488598675d46dfa9ce58923"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -210,9 +210,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-array"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "51dff6e4b9f158864a0aeb6a131ad53858ecbae7a2fc8989307b9b3c6b2f122e"
++checksum = "0f3d22a41d3df78b71df0b685af219ae3a94188ab98d6fb29c958eb55c3247f4"
+ dependencies = [
+  "ahash",
+  "arrow-buffer",
+@@ -228,9 +228,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-buffer"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c7235b863533e9db3ab86905b4521251de11226275b436ff3cb2d0010558d1c5"
++checksum = "7bd46a530bc1a8e763102fc36c1dc0f51f3ffa150c78e7f5658ccb54b1458ade"
+ dependencies = [
+  "bytes",
+  "half",
+@@ -240,9 +240,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-cast"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "d52cf840f0c34aeeb7e8b05aba72d66878e6c001827f423331f0b260209e7b7e"
++checksum = "baa83a0752814a1922d5ee75032524ca9bbfb7f60ee35a67ed4ab8b275260aaf"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -261,9 +261,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-cmp"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "73a0e9adb28d95739fabcdae637261a2c14e618caf58ba1b88857120f9ee2687"
++checksum = "1913e57a64fbf2c4502fa6d54b547d6a1ae59e3146cbc15321d47468c937abd1"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -272,9 +272,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-data"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5aa06d5e22786c4966ffc4d2f171d0cb65d95f6bdea108a14e8c335e9faa437f"
++checksum = "415b7fbc4cf56b080bb5677a4ae74211b5c79e571ed37a1d547633ec07f3b43b"
+ dependencies = [
+  "arrow-buffer",
+  "arrow-schema",
+@@ -285,9 +285,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-ord"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5a7ac2c6a9cdc782fa9548d3763461eaec8c93347e297fddbaa44807e70a3698"
++checksum = "4c58f2ae6dd1480fc413f7320a547e39dcc499c23d4f36ca19572b685811e6e4"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -299,9 +299,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-row"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "758b87e9648d80001e0916c083334ed93074c677a81a96144d5c84bd2d8eab2a"
++checksum = "68f9db8345b0638416d3b56d117d262d13070fdef788c6d75b53a180215c477e"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -312,15 +312,15 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-schema"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f85a9a58cd03560526b0066487574aacb9008e413504fa0ee23d61141e96c338"
++checksum = "de2c8e714b466404cdc1189e89f892426efea614d938e16c15518c340cd43ba3"
+ 
+ [[package]]
+ name = "arrow-select"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ba3482b7d03bf4a3bf0b195f08a7f2b071595ccd54897e35b975ac63d3104977"
++checksum = "a5af3f6656c5f2c6944f93d9a357a7f204c93d5f349385a44cf46c4a26fbcf30"
+ dependencies = [
+  "ahash",
+  "arrow-array",
+@@ -333,9 +333,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "arrow-string"
+-version = "60.0.0"
++version = "60.1.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f300b4400b1e7cd58f7cbbd5dd2a0072cc59e73bfaee2a152b3ac660e46d9dd1"
++checksum = "ab1be9306b9a413b5b004e2a5a19caac728870d76e8891b351f040d554c93862"
+ dependencies = [
+  "arrow-array",
+  "arrow-buffer",
+@@ -1242,9 +1242,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "ctutils"
+-version = "0.4.3"
++version = "0.4.8"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "03bb0e1cc970d482d121d9a1744999169b69a07470b3d644a7894e53fcaf4574"
++checksum = "261af4dc7a06ea8a527a8717d8cbba3417530d6ea14e1edb3de6b67806be474f"
+ dependencies = [
+  "cmov",
+ ]
+@@ -1446,10 +1446,10 @@ dependencies = [
+  "byteorder",
+  "libc",
+  "log",
+- "rustls 0.23.46",
++ "rustls",
+  "serde",
+  "serde_json",
+- "webpki-roots 1.0.10",
++ "webpki-roots",
+  "winapi",
+ ]
+ 
+@@ -1489,19 +1489,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
+ dependencies = [
+  "libc",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+ name = "esplora-client"
+ version = "0.12.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f19e3ea99dbfbef0c1ec26d83e69de0c579f6aa6aaac4f44597805fcc27e97af"
+ dependencies = [
+  "bitcoin",
+  "hex-conservative 0.2.3",
+  "log",
+- "minreq",
++ "reqwest",
+  "serde",
+  "serde_json",
+ ]
+@@ -1999,7 +1997,7 @@ dependencies = [
+  "http",
+  "hyper",
+  "hyper-util",
+- "rustls 0.23.46",
++ "rustls",
+  "tokio",
+  "tokio-rustls",
+  "tower-service",
+@@ -2225,7 +2223,7 @@ checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
+ dependencies = [
+  "hermit-abi",
+  "libc",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -2544,12 +2542,8 @@ version = "2.14.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "05015102dad0f7d61691ca347e9d9d9006685a64aefb3d79eecf62665de2153d"
+ dependencies = [
+- "base64 0.22.1",
+- "rustls 0.21.12",
+- "rustls-webpki 0.101.7",
+  "serde",
+  "serde_json",
+- "webpki-roots 0.25.4",
+ ]
+ 
+ [[package]]
+@@ -2968,7 +2962,7 @@ dependencies = [
+  "quinn-proto",
+  "quinn-udp",
+  "rustc-hash",
+- "rustls 0.23.46",
++ "rustls",
+  "socket2",
+  "thiserror 2.0.21",
+  "tokio",
+@@ -2990,7 +2984,7 @@ dependencies = [
+  "rand_pcg",
+  "ring",
+  "rustc-hash",
+- "rustls 0.23.46",
++ "rustls",
+  "rustls-pki-types",
+  "slab",
+  "thiserror 2.0.21",
+@@ -3010,7 +3004,7 @@ dependencies = [
+  "once_cell",
+  "socket2",
+  "tracing",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -3205,11 +3199,12 @@ dependencies = [
+  "percent-encoding",
+  "pin-project-lite",
+  "quinn",
+- "rustls 0.23.46",
++ "rustls",
+  "rustls-pki-types",
+  "rustls-platform-verifier",
+  "serde",
+  "serde_json",
++ "serde_urlencoded",
+  "sync_wrapper",
+  "tokio",
+  "tokio-native-tls",
+@@ -3312,6 +3307,7 @@ dependencies = [
+  "hex",
+  "hkdf",
+  "hmac",
++ "libc",
+  "rand 0.10.3",
+  "reqwest",
+  "rgb-invoicing",
+@@ -3321,7 +3317,7 @@ dependencies = [
+  "rgb-schemas",
+  "rgb-strict-encoding",
+  "rgb-strict-types",
+- "rustls 0.23.46",
++ "rustls",
+  "scrypt",
+  "sea-orm",
+  "sea-query",
+@@ -3338,6 +3334,7 @@ dependencies = [
+  "url",
+  "walkdir",
+  "x25519-dalek",
++ "zeroize",
+  "zip",
+ ]
+ 
+@@ -3512,19 +3509,7 @@ dependencies = [
+  "errno",
+  "libc",
+  "linux-raw-sys",
+- "windows-sys 0.61.2",
+-]
+-
+-[[package]]
+-name = "rustls"
+-version = "0.21.12"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
+-dependencies = [
+- "log",
+- "ring",
+- "rustls-webpki 0.101.7",
+- "sct",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -3538,7 +3523,7 @@ dependencies = [
+  "once_cell",
+  "ring",
+  "rustls-pki-types",
+- "rustls-webpki 0.103.16",
++ "rustls-webpki",
+  "subtle",
+  "zeroize",
+ ]
+@@ -3576,14 +3561,14 @@ dependencies = [
+  "jni",
+  "log",
+  "once_cell",
+- "rustls 0.23.46",
++ "rustls",
+  "rustls-native-certs",
+  "rustls-platform-verifier-android",
+- "rustls-webpki 0.103.16",
++ "rustls-webpki",
+  "security-framework",
+  "security-framework-sys",
+  "webpki-root-certs",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -3592,16 +3577,6 @@ version = "0.2.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "eec689c0bc40ff2458a5977b6619cb718087084a18e02a131c599b62d05e1a5f"
+ 
+-[[package]]
+-name = "rustls-webpki"
+-version = "0.101.7"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
+-dependencies = [
+- "ring",
+- "untrusted",
+-]
+-
+ [[package]]
+ name = "rustls-webpki"
+ version = "0.103.16"
+@@ -3693,16 +3668,6 @@ dependencies = [
+  "sha2 0.11.1",
+ ]
+ 
+-[[package]]
+-name = "sct"
+-version = "0.7.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
+-dependencies = [
+- "ring",
+- "untrusted",
+-]
+-
+ [[package]]
+ name = "sea-bae"
+ version = "0.2.2"
+@@ -4013,6 +3978,18 @@ dependencies = [
+  "serde_core",
+ ]
+ 
++[[package]]
++name = "serde_urlencoded"
++version = "0.7.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
++dependencies = [
++ "form_urlencoded",
++ "itoa",
++ "ryu",
++ "serde",
++]
++
+ [[package]]
+ name = "serde_yaml"
+ version = "0.9.34+deprecated"
+@@ -4218,7 +4195,7 @@ dependencies = [
+  "memchr",
+  "percent-encoding",
+  "rust_decimal",
+- "rustls 0.23.46",
++ "rustls",
+  "serde",
+  "serde_json",
+  "sha2 0.10.9",
+@@ -4230,7 +4207,7 @@ dependencies = [
+  "tracing",
+  "url",
+  "uuid",
+- "webpki-roots 1.0.10",
++ "webpki-roots",
+ ]
+ 
+ [[package]]
+@@ -4498,7 +4475,7 @@ dependencies = [
+  "getrandom 0.4.3",
+  "once_cell",
+  "rustix",
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+@@ -4626,9 +4603,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+ 
+ [[package]]
+ name = "tokio"
+-version = "1.54.0"
++version = "1.54.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a0c168a474b95bfecfe908a65d4bdffc523144b649a74c09c286afb35d53e0bc"
++checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
+ dependencies = [
+  "bytes",
+  "libc",
+@@ -4666,7 +4643,7 @@ version = "0.26.6"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db"
+ dependencies = [
+- "rustls 0.23.46",
++ "rustls",
+  "tokio",
+ ]
+ 
+@@ -5262,12 +5239,6 @@ dependencies = [
+  "rustls-pki-types",
+ ]
+ 
+-[[package]]
+-name = "webpki-roots"
+-version = "0.25.4"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
+-
+ [[package]]
+ name = "webpki-roots"
+ version = "1.0.10"
+@@ -5314,7 +5285,7 @@ version = "0.1.11"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+ dependencies = [
+- "windows-sys 0.61.2",
++ "windows-sys 0.52.0",
+ ]
+ 
+ [[package]]
+diff --git a/bindings/uniffi/Cargo.toml b/bindings/uniffi/Cargo.toml
+index e7d02b9..c87d6fe 100644
+--- a/bindings/uniffi/Cargo.toml
++++ b/bindings/uniffi/Cargo.toml
+@@ -44,6 +44,7 @@ overflow-checks = true
+ [workspace]
+ 
+ [patch.crates-io]
++esplora-client = { path = "../../../esplora-client" }
+ rgb-aluvm = { git = "https://github.com/rgb-protocol/rgb-aluvm", rev = "eb956ccaadf64930990e2ed08f6c4232caee24f9" }
+ rgb-ascii-armor = { git = "https://github.com/rgb-protocol/rgb-ascii-armor", rev = "40cdea632fd6d0527494893e83b99cea60ace310" }
+ rgb-consensus = { git = "https://github.com/rgb-protocol/rgb-consensus", rev = "d4bbbce212e4d9967e10cc3c6a7db2f664d52bd2" }
+diff --git a/bindings/uniffi/src/lib.rs b/bindings/uniffi/src/lib.rs
+index c8712c9..e338004 100644
+--- a/bindings/uniffi/src/lib.rs
++++ b/bindings/uniffi/src/lib.rs
+@@ -158,6 +158,8 @@ pub enum IndexerConfig {
+     Bitcoind { url: String, auth: BitcoindAuth },
+     Electrum { url: String },
+     Esplora { url: String },
++    DevSignetElectrum { url: String },
++    DevSignetEsplora { url: String },
+ }
+ impl From<IndexerConfig> for RgbLibIndexerConfig {
+     fn from(orig: IndexerConfig) -> Self {
+@@ -168,6 +170,12 @@ impl From<IndexerConfig> for RgbLibIndexerConfig {
+             },
+             IndexerConfig::Electrum { url } => RgbLibIndexerConfig::Electrum { url },
+             IndexerConfig::Esplora { url } => RgbLibIndexerConfig::Esplora { url },
++            IndexerConfig::DevSignetElectrum { url } => {
++                RgbLibIndexerConfig::DevSignetElectrum { url }
++            }
++            IndexerConfig::DevSignetEsplora { url } => {
++                RgbLibIndexerConfig::DevSignetEsplora { url }
++            }
+         }
+     }
+ }
+@@ -1287,6 +1295,13 @@ fn check_indexer_url(
+     rgb_lib::wallet::check_indexer_url(&indexer_url, bitcoind_auth.as_ref(), bitcoin_network)
+ }
+ 
++fn check_indexer_config(
++    indexer_config: IndexerConfig,
++    bitcoin_network: BitcoinNetwork,
++) -> Result<IndexerProtocol, RgbLibError> {
++    rgb_lib::wallet::check_indexer_config(&indexer_config.into(), bitcoin_network)
++}
++
+ fn generate_keys(bitcoin_network: BitcoinNetwork, witness_version: WitnessVersion) -> Keys {
+     rgb_lib::keys::generate_keys(bitcoin_network, witness_version)
+ }
+@@ -1447,6 +1462,61 @@ struct Wallet {
+ }
+ 
+ impl Wallet {
++    fn initialize_onchain_recovery(
++        &self,
++        identity_json: String,
++        allow_create: bool,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet()
++            .initialize_onchain_recovery(identity_json, allow_create)
++    }
++    fn list_onchain_send_receipts(&self, offset: u32, limit: u16) -> Result<String, RgbLibError> {
++        self._get_wallet().list_onchain_send_receipts(offset, limit)
++    }
++    fn onchain_recovery_state(&self) -> Result<String, RgbLibError> {
++        self._get_wallet().onchain_recovery_state()
++    }
++    fn assert_no_pending_onchain_send(&self) -> Result<(), RgbLibError> {
++        self._get_wallet().assert_no_pending_onchain_send()
++    }
++    fn import_contract(
++        &self,
++        contract_base64: String,
++        expected_asset_id: String,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet()
++            .import_contract_base64(contract_base64, expected_asset_id)
++    }
++    fn prepare_onchain_send(
++        &self,
++        online: Online,
++        request_json: String,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet()
++            .prepare_onchain_send(online, request_json)
++    }
++    fn commit_onchain_send(
++        &self,
++        online: Online,
++        request_json: String,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet().commit_onchain_send(online, request_json)
++    }
++    fn onchain_send_status(
++        &self,
++        online: Option<Online>,
++        request_json: String,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet().onchain_send_status(online, request_json)
++    }
++    fn cancel_onchain_send(
++        &self,
++        online: Option<Online>,
++        request_json: String,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet().cancel_onchain_send(online, request_json)
++    }
++
+     fn new(wallet_data: WalletData, keys: SinglesigKeys) -> Result<Self, RgbLibError> {
+         Ok(Wallet {
+             wallet_mutex: Mutex::new(RgbLibWallet::new(wallet_data, keys)?),
+@@ -2627,3 +2697,42 @@ impl MultisigWallet {
+ }
+ 
+ uniffi::deps::static_assertions::assert_impl_all!(MultisigWallet: Sync, Send);
++
++#[cfg(test)]
++mod flutter_indexer_profile_tests {
++    use super::{IndexerConfig, RgbLibIndexerConfig};
++
++    #[test]
++    fn explicit_dev_profiles_preserve_the_checkpoint_selected_by_the_caller() {
++        let electrum: RgbLibIndexerConfig = IndexerConfig::DevSignetElectrum {
++            url: "ssl://dev-signet.example.test:50002".into(),
++        }
++        .into();
++        assert!(
++            matches!(electrum, RgbLibIndexerConfig::DevSignetElectrum { url }
++            if url == "ssl://dev-signet.example.test:50002")
++        );
++        let esplora: RgbLibIndexerConfig = IndexerConfig::DevSignetEsplora {
++            url: "https://dev-signet.example.test/api".into(),
++        }
++        .into();
++        assert!(
++            matches!(esplora, RgbLibIndexerConfig::DevSignetEsplora { url }
++            if url == "https://dev-signet.example.test/api")
++        );
++    }
++
++    #[test]
++    fn ordinary_profiles_do_not_become_dev_signet_implicitly() {
++        let electrum: RgbLibIndexerConfig = IndexerConfig::Electrum {
++            url: "ssl://example.test:50002".into(),
++        }
++        .into();
++        assert!(matches!(electrum, RgbLibIndexerConfig::Electrum { .. }));
++        let esplora: RgbLibIndexerConfig = IndexerConfig::Esplora {
++            url: "https://example.test/api".into(),
++        }
++        .into();
++        assert!(matches!(esplora, RgbLibIndexerConfig::Esplora { .. }));
++    }
++}
+diff --git a/bindings/uniffi/src/rgb-lib.udl b/bindings/uniffi/src/rgb-lib.udl
+index 95cd909..d0acb41 100644
+--- a/bindings/uniffi/src/rgb-lib.udl
++++ b/bindings/uniffi/src/rgb-lib.udl
+@@ -3,6 +3,9 @@ namespace rgb_lib {
+   IndexerProtocol check_indexer_url(string indexer_url, BitcoindAuth? bitcoind_auth,
+     BitcoinNetwork bitcoin_network);
+ 
++  [Throws=RgbLibError]
++  IndexerProtocol check_indexer_config(IndexerConfig indexer_config, BitcoinNetwork bitcoin_network);
++
+   Keys generate_keys(BitcoinNetwork bitcoin_network, WitnessVersion witness_version);
+ 
+   [Throws=RgbLibError]
+@@ -22,6 +25,9 @@ namespace rgb_lib {
+ 
+ [Error, Remote]
+ interface RgbLibError {
++    Recovery(string code);
++    ContractIdMismatch(string expected, string actual);
++
+   AllocationsAlreadyAvailable();
+   AssetNotFound(string asset_id);
+   BatchTransferNotFound(i32 idx);
+@@ -550,6 +556,8 @@ interface IndexerConfig {
+   Bitcoind(string url, BitcoindAuth auth);
+   Electrum(string url);
+   Esplora(string url);
++  DevSignetElectrum(string url);
++  DevSignetEsplora(string url);
+ };
+ 
+ [Remote]
+@@ -1112,6 +1120,16 @@ dictionary WalletDescriptors {
+ };
+ 
+ interface Wallet {
++    [Throws=RgbLibError] string initialize_onchain_recovery(string identity_json, boolean allow_create);
++    [Throws=RgbLibError] string list_onchain_send_receipts(u32 offset, u16 limit);
++    [Throws=RgbLibError] string onchain_recovery_state();
++    [Throws=RgbLibError] void assert_no_pending_onchain_send();
++    [Throws=RgbLibError] string import_contract(string contract_base64, string expected_asset_id);
++    [Throws=RgbLibError] string prepare_onchain_send(Online online, string request_json);
++    [Throws=RgbLibError] string commit_onchain_send(Online online, string request_json);
++    [Throws=RgbLibError] string onchain_send_status(Online? online, string request_json);
++    [Throws=RgbLibError] string cancel_onchain_send(Online? online, string request_json);
++
+   [Throws=RgbLibError]
+   constructor(WalletData wallet_data, SinglesigKeys keys);
+ 
+diff --git a/src/database/mod.rs b/src/database/mod.rs
+index cc61177..28754aa 100644
+--- a/src/database/mod.rs
++++ b/src/database/mod.rs
+@@ -365,7 +365,7 @@ impl Drop for DbTxn {
+ }
+ 
+ impl DbTxn {
+-    fn inner(&self) -> &DatabaseTransaction {
++    pub(crate) fn inner(&self) -> &DatabaseTransaction {
+         self.txn.as_ref().expect("txn already consumed")
+     }
+ 
+diff --git a/src/error.rs b/src/error.rs
+index 60e090b..ba1052f 100644
+--- a/src/error.rs
++++ b/src/error.rs
+@@ -8,6 +8,13 @@ use super::*;
+ /// The error variants returned by functions.
+ #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Deserialize, Serialize)]
+ pub enum Error {
++    /// Sanitized failure in the native durable payment contract.
++    #[error("Durable payment recovery: {code}")]
++    Recovery {
++        /// Stable payload-free failure code.
++        code: String,
++    },
++
+     /// No need to create more allocations
+     #[error("Allocations already available")]
+     AllocationsAlreadyAvailable,
+diff --git a/src/wallet/backup.rs b/src/wallet/backup.rs
+index 4026786..18da61b 100644
+--- a/src/wallet/backup.rs
++++ b/src/wallet/backup.rs
+@@ -5,6 +5,7 @@ const BACKUP_BUFFER_LEN_DECRYPT: usize = BACKUP_BUFFER_LEN_ENCRYPT + 16;
+ const BACKUP_KEY_LENGTH: usize = 32;
+ const BACKUP_NONCE_LENGTH: usize = 19;
+ const BACKUP_VERSION: u8 = 1;
++pub(crate) const RESTORED_SNAPSHOT_FILE: &str = ".flutter-restored-snapshot";
+ 
+ pub(crate) struct BackupPaths {
+     encrypted: PathBuf,
+@@ -272,8 +273,8 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
+ 
+     // check the target wallet directory doesn't already exist
+     let fingerprint = get_fingerprint_from_zip(&files.zip)?;
+-    let wallet_dir = target_dir_path.join(fingerprint);
+-    if wallet_dir.exists() {
++    let wallet_dir = target_dir_path.join(&fingerprint);
++    if fs::symlink_metadata(&wallet_dir).is_ok() {
+         return Err(Error::WalletDirAlreadyExists {
+             path: wallet_dir.to_string_lossy().to_string(),
+         });
+@@ -284,12 +285,42 @@ pub fn restore_backup(backup_path: &str, password: &str, target_dir: &str) -> Re
+         logger.clone(),
+         "unzipping {:?} to {:?}", &files.zip, &target_dir_path
+     );
+-    unzip(&files.zip, &target_dir_path, &logger)?;
++    // Extract into a private owned staging directory. No partly extracted wallet
++    // becomes activatable and no archive entry can overwrite another wallet.
++    let staging = tempfile::tempdir_in(&target_dir_path)?;
++    unzip(&files.zip, staging.path(), &logger)?;
++    let staged_wallet = staging.path().join(&fingerprint);
++    stamp_restored_snapshot(&staged_wallet, &backup_file)?;
++    fs::rename(&staged_wallet, &wallet_dir)?;
++    fs::File::open(&target_dir_path)?.sync_all()?;
+ 
+     info!(logger, "restore completed");
+     Ok(())
+ }
+ 
++fn stamp_restored_snapshot(wallet_dir: &Path, backup_file: &Path) -> Result<(), Error> {
++    use std::io::Write;
++    #[cfg(unix)]
++    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
++    let invalid = || Error::Recovery { code: "RECOVERY_RESTORE_UNCERTAIN".into() };
++    if !fs::symlink_metadata(wallet_dir)?.is_dir() { return Err(invalid()); }
++    #[cfg(unix)]
++    fs::set_permissions(wallet_dir, fs::Permissions::from_mode(0o700))?;
++    let restore_id: [u8;32] = rand::rng().random();
++    let record = serde_json::json!({
++        "version":1,"restoreId":hex::encode(restore_id),"backupSha256":hash_file(backup_file)?,
++    });
++    let mut options = fs::OpenOptions::new();
++    options.write(true).create_new(true);
++    #[cfg(unix)]
++    options.mode(0o600).custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
++    let mut marker = options.open(wallet_dir.join(RESTORED_SNAPSHOT_FILE))?;
++    marker.write_all(&serde_json::to_vec(&record).map_err(InternalError::from)?)?;
++    marker.sync_all()?;
++    fs::File::open(wallet_dir)?.sync_all()?;
++    Ok(())
++}
++
+ pub(crate) fn get_backup_paths(tmp_base_path: &Path) -> Result<BackupPaths, Error> {
+     fs::create_dir_all(tmp_base_path)?;
+     let tempdir = tempfile::tempdir_in(tmp_base_path)?;
+@@ -348,12 +379,13 @@ pub(crate) fn zip_dir(
+         let path = entry.path();
+         let name = path.strip_prefix(prefix).map_err(InternalError::from)?;
+         let name_str = name.to_str().ok_or_else(|| InternalError::Unexpected)?;
++        if entry.file_type().is_symlink() { return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() }); }
+         if path.is_file() {
+-            if path.ends_with(LOG_FILE) {
++            if path.ends_with(LOG_FILE) || path.file_name().is_some_and(|name| name == RESTORED_SNAPSHOT_FILE) {
+                 continue;
+-            }; // skip log file
++            }; // Logs and restore stamps are not reusable backup authority.
+             debug!(logger, "adding file {path:?} as {name:?}");
+-            zip.start_file(name_str, options)
++            zip.start_file(name_str, options.unix_permissions(0o600))
+                 .map_err(InternalError::from)?;
+             let mut f = fs::File::open(path)?;
+             loop {
+@@ -366,7 +398,7 @@ pub(crate) fn zip_dir(
+             }
+         } else if !name.as_os_str().is_empty() {
+             debug!(logger, "adding directory {path:?} as {name:?}");
+-            zip.add_directory(name_str, options)
++            zip.add_directory(name_str, options.unix_permissions(0o700))
+                 .map_err(InternalError::from)?;
+         }
+     }
+@@ -389,13 +421,32 @@ fn get_zip_archive(zip_path: &PathBuf) -> Result<ZipArchive<fs::File>, Error> {
+ }
+ 
+ fn get_fingerprint_from_zip(zip_path: &PathBuf) -> Result<String, Error> {
+-    let archive = get_zip_archive(zip_path)?;
++    let mut archive = get_zip_archive(zip_path)?;
+     let fingerprint = archive
+         .name_for_index(0)
+         .transpose()
+         .map_err(InternalError::from)?
+         .unwrap_or_default();
+-    Ok(fingerprint.to_string().replace("/", ""))
++    let fingerprint = fingerprint.trim_end_matches('/').to_string();
++    if fingerprint.len() != 8 || !fingerprint.bytes().all(|byte| byte.is_ascii_hexdigit()) {
++        return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() });
++    }
++    let mut names = HashSet::new();
++    for index in 0..archive.len() {
++        let entry = archive.by_index(index).map_err(InternalError::from)?;
++        let entry_name = entry.name().map_err(InternalError::from)?;
++        let Some(path) = entry.enclosed_name() else {
++            return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() });
++        };
++        let mut components = path.components();
++        if components.next().and_then(|part| part.as_os_str().to_str()) != Some(fingerprint.as_str())
++            || components.any(|part| !matches!(part,std::path::Component::Normal(_)))
++            || entry_name.contains('\\') || !names.insert(entry_name.to_string())
++        {
++            return Err(Error::Recovery { code: "RECOVERY_STORAGE_INVALID".into() });
++        }
++    }
++    Ok(fingerprint)
+ }
+ 
+ pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Result<(), Error> {
+@@ -404,11 +455,21 @@ pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Res
+         let mut file = archive.by_index(i).map_err(InternalError::from)?;
+         let outpath = match file.enclosed_name() {
+             Some(path) => path_out.join(path),
+-            None => continue,
++            None => return Err(Error::Recovery { code:"RECOVERY_STORAGE_INVALID".into() }),
+         };
++        if outpath.file_name().is_some_and(|name| name == RESTORED_SNAPSHOT_FILE) { continue; }
++        let kind = file.unix_mode().unwrap_or_default() & 0o170000;
++        if !matches!(kind,0 | 0o100000 | 0o040000) {
++            return Err(Error::Recovery { code:"RECOVERY_STORAGE_INVALID".into() });
++        }
+         if file.is_dir() {
+             debug!(logger, "creating directory {i} as {}", outpath.display());
+             fs::create_dir_all(&outpath)?;
++            #[cfg(unix)]
++            {
++                use std::os::unix::fs::PermissionsExt;
++                fs::set_permissions(&outpath,fs::Permissions::from_mode(0o700))?;
++            }
+         } else {
+             debug!(
+                 logger,
+@@ -421,9 +482,20 @@ pub(crate) fn unzip(zip_path: &PathBuf, path_out: &Path, logger: &Logger) -> Res
+             {
+                 debug!(logger, "creating parent dir {}", p.display());
+                 fs::create_dir_all(p)?;
++                #[cfg(unix)]
++                {
++                    use std::os::unix::fs::PermissionsExt;
++                    fs::set_permissions(p,fs::Permissions::from_mode(0o700))?;
++                }
+             }
+             let mut outfile = fs::File::create(&outpath)?;
+             io::copy(&mut file, &mut outfile)?;
++            #[cfg(unix)]
++            {
++                use std::os::unix::fs::PermissionsExt;
++                fs::set_permissions(&outpath,fs::Permissions::from_mode(0o600))?;
++            }
++            outfile.sync_all()?;
+         }
+     }
+ 
+@@ -559,6 +631,55 @@ mod tests {
+     #[cfg(unix)]
+     use std::os::unix::fs::PermissionsExt;
+ 
++    #[cfg(feature = "_online")]
++    #[test]
++    fn encrypted_wallet_restore_stamps_fresh_quarantine_and_preserves_outbox() {
++        let source = tempfile::tempdir().unwrap();
++        let target = tempfile::tempdir().unwrap();
++        let second_target = tempfile::tempdir().unwrap();
++        let files = tempfile::tempdir().unwrap();
++        let keys = crate::keys::restore_keys(BitcoinNetwork::Regtest,
++            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".into(),
++            WitnessVersion::Taproot).unwrap();
++        let wallet = Wallet::new(WalletData {
++            data_dir:source.path().to_str().unwrap().into(),bitcoin_network:BitcoinNetwork::Regtest,
++            database_type:DatabaseType::Sqlite,max_allocations_per_utxo:5,supported_schemas:vec![AssetSchema::Nia],
++        },SinglesigKeys::from_keys(&keys,None)).unwrap();
++        let binding = hex::encode(sha256_digest(format!("regtest:taproot:{}:{}",
++            keys.account_xpub_vanilla,keys.account_xpub_colored).as_bytes()));
++        wallet.initialize_onchain_recovery(serde_json::json!({
++            "version":1,"walletBinding":binding,"cohort":"11".repeat(16),
++            "network":"regtest","witnessVersion":"taproot",
++        }).to_string(),true).unwrap();
++        wallet.assert_no_pending_onchain_send().unwrap();
++        fs::write(wallet.wallet_dir().join(RESTORED_SNAPSHOT_FILE),b"stale inherited marker").unwrap();
++        let archive = files.path().join("wallet.backup");
++        wallet.backup_customize(archive.to_str().unwrap(),"fixture-password",
++            Some(ScryptParams::new(Some(10),Some(8),Some(1)))).unwrap();
++        restore_backup(archive.to_str().unwrap(),"fixture-password",target.path().to_str().unwrap()).unwrap();
++        restore_backup(archive.to_str().unwrap(),"fixture-password",second_target.path().to_str().unwrap()).unwrap();
++        let restored_dir = target.path().join(&keys.master_fingerprint);
++        let first:serde_json::Value=serde_json::from_slice(&fs::read(restored_dir.join(RESTORED_SNAPSHOT_FILE)).unwrap()).unwrap();
++        let second:serde_json::Value=serde_json::from_slice(&fs::read(second_target.path().join(&keys.master_fingerprint).join(RESTORED_SNAPSHOT_FILE)).unwrap()).unwrap();
++        assert_eq!(first["version"],1);
++        assert_eq!(first["restoreId"].as_str().unwrap().len(),64);
++        assert_ne!(first["restoreId"],second["restoreId"]);
++        assert_eq!(first["backupSha256"].as_str(),Some(hash_file(&archive).unwrap().as_str()));
++        #[cfg(unix)]
++        {
++            assert_eq!(fs::metadata(restored_dir.join(RESTORED_SNAPSHOT_FILE)).unwrap().permissions().mode()&0o777,0o600);
++            assert_eq!(fs::metadata(restored_dir.join(".flutter-onchain-v1")).unwrap().permissions().mode()&0o777,0o700);
++        }
++        let restored = Wallet::load(target.path().to_str().unwrap(),&keys.master_fingerprint,Some(keys.mnemonic.clone())).unwrap();
++        let state:serde_json::Value=serde_json::from_str(&restored.onchain_recovery_state().unwrap()).unwrap();
++        assert_eq!(state["restoredSnapshot"],true);
++        assert!(matches!(restored.assert_no_pending_onchain_send(),Err(Error::Recovery{code}) if code=="RECOVERY_RESTORE_UNCERTAIN"));
++        assert!(matches!(restore_backup(archive.to_str().unwrap(),"fixture-password",target.path().to_str().unwrap()),Err(Error::WalletDirAlreadyExists{..})));
++        let wrong_target=tempfile::tempdir().unwrap();
++        assert!(matches!(restore_backup(archive.to_str().unwrap(),"wrong-password",wrong_target.path().to_str().unwrap()),Err(Error::WrongPassword)));
++        assert!(!wrong_target.path().join(&keys.master_fingerprint).exists());
++    }
++
+     #[test]
+     fn zip_dir_missing_source() {
+         let tempdir = tempfile::tempdir().unwrap();
+diff --git a/src/wallet/bfa7-regtest-contract.base64 b/src/wallet/bfa7-regtest-contract.base64
+new file mode 100644
+index 0000000..9ed50f0
+--- /dev/null
++++ b/src/wallet/bfa7-regtest-contract.base64
+@@ -0,0 +1 @@
++UkdCAENPTgEAAADcjTFlURCdDFhWTu8OeHm421DJR+yZOHDp1f2f4a9vmoK57WoAAAAADQBzc2k6YW5vbnltb3VzBAAABdEHAQADAAAAALkLAQAZABhXREsgTDEgUXVhbGlmaWNhdGlvbiBCRkG9CwEAAQAGwAsBAB0AAGl6AAAAAAAA5/FyXnc0ziiPg2fhuxQ+kLs/BRLDCwEABQAEUUJGQQEArQ8AAwAAN3BHTJGEedUa9IDHHRom7pcFiRFoEoCulxHtFcMycv8CAAAAd8m7/eIfqKMAN3BHTJGEedUa9IDHHRom7pcFiRFoEoCulxHtFcMycv8EAAAAmWAg2dwzxCoAN3BHTJGEedUa9IDHHRom7pcFiRFoEoCulxHtFcMycv8HAAAAfA2jNftJDR4AAAAA
+diff --git a/src/wallet/bfa7-regtest-contract.id b/src/wallet/bfa7-regtest-contract.id
+new file mode 100644
+index 0000000..1ff43ea
+--- /dev/null
++++ b/src/wallet/bfa7-regtest-contract.id
+@@ -0,0 +1 @@
++rgb:seHWHNYA-~Fy85Df-sLB28o5-EcqC9F8-HW3mUaM-b7kRJgM
+diff --git a/src/wallet/bfa7_recovery_vectors.json b/src/wallet/bfa7_recovery_vectors.json
+new file mode 100644
+index 0000000..9ea6ff4
+--- /dev/null
++++ b/src/wallet/bfa7_recovery_vectors.json
+@@ -0,0 +1,16 @@
++{
++  "schemaVersion": 1,
++  "purpose": "Cross-language canonical envelope and hash vectors. RGB asset identity is an opaque syntax fixture, not deployment approval. No payment is dispatched.",
++  "vectors": [
++    {
++      "name": "bitcoin",
++      "requestJson": "{\"version\":3,\"backend\":\"RGB_L1\",\"network\":\"regtest\",\"walletBinding\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"recoveryCohort\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"nativeSourceRevision\":\"9ec49c08be2e68f08521281e3efbd760ec989cb9\",\"nativeOverlay\":\"flutter-bfa7-durable-v1\",\"request\":{\"version\":2,\"operationId\":\"cccccccccccccccccccccccccccccccc\",\"kind\":\"bitcoin\",\"amount\":\"1500\",\"feeRate\":\"2\",\"address\":\"mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn\",\"assetId\":null,\"recipientId\":null,\"transportEndpoints\":[],\"senderTransportEndpoint\":null,\"witnessAmountSat\":null,\"witnessBlinding\":null,\"minConfirmations\":1,\"donation\":false,\"expirationTimestamp\":null,\"invoicePublicKey\":null,\"invoiceEncryption\":null,\"fingerprint\":\"30b58ec1795f6958f3642f85ec43759c9b31d0cc39cb2d41a4062ff17fd9f7bb\"}}",
++      "fingerprint": "30b58ec1795f6958f3642f85ec43759c9b31d0cc39cb2d41a4062ff17fd9f7bb"
++    },
++    {
++      "name": "rgb",
++      "requestJson": "{\"version\":3,\"backend\":\"RGB_L1\",\"network\":\"regtest\",\"walletBinding\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"recoveryCohort\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"nativeSourceRevision\":\"9ec49c08be2e68f08521281e3efbd760ec989cb9\",\"nativeOverlay\":\"flutter-bfa7-durable-v1\",\"request\":{\"version\":2,\"operationId\":\"dddddddddddddddddddddddddddddddd\",\"kind\":\"rgb\",\"amount\":\"18446744073709551615\",\"feeRate\":\"2\",\"address\":null,\"assetId\":\"rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE\",\"recipientId\":\"rgb-witness-vector\",\"transportEndpoints\":[\"rpc://127.0.0.1:29300/json-rpc\"],\"senderTransportEndpoint\":\"rpc://127.0.0.1:29300/json-rpc\",\"witnessAmountSat\":\"1000\",\"witnessBlinding\":\"18446744073709551615\",\"minConfirmations\":1,\"donation\":false,\"expirationTimestamp\":\"2000000000\",\"invoicePublicKey\":\"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a\",\"invoiceEncryption\":\"Required\",\"fingerprint\":\"adcde71585fb5167bb163c246487655445969b369658d5a9a9bbbd84921d3ee0\"}}",
++      "fingerprint": "adcde71585fb5167bb163c246487655445969b369658d5a9a9bbbd84921d3ee0"
++    }
++  ]
++}
+diff --git a/src/wallet/durable_observation.rs b/src/wallet/durable_observation.rs
+new file mode 100644
+index 0000000..6f09fd6
+--- /dev/null
++++ b/src/wallet/durable_observation.rs
+@@ -0,0 +1,350 @@
++//! Read-only remote observation for an End whose local transaction did not commit.
++//! No method in this module calls Begin, End, refresh, broadcast or mutating proxy RPCs.
++use super::*;
++use serde::Deserialize;
++use std::{collections::BTreeMap, fs, path::Path, str::FromStr};
++#[cfg(unix)]
++use std::os::unix::fs::{MetadataExt, PermissionsExt};
++
++const MAX_SNAPSHOT: u64 = 64 * 1024 * 1024;
++
++fn invalid() -> Error {
++    Error::Recovery { code: "RECOVERY_OBSERVATION_INVALID".into() }
++}
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct SnapshotManifest {
++    version: u32,
++    txid: String,
++    assets: BTreeMap<String, SnapshotAsset>,
++}
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct SnapshotAsset {
++    digest: String,
++    size: u64,
++}
++
++fn read_private(path: &Path, maximum: u64) -> Result<Vec<u8>, Error> {
++    let meta = fs::symlink_metadata(path).map_err(|_| invalid())?;
++    if !meta.is_file() || meta.len() == 0 || meta.len() > maximum {
++        return Err(invalid());
++    }
++    #[cfg(unix)]
++    if meta.nlink() != 1 || meta.uid() != unsafe { libc::geteuid() }
++        || meta.permissions().mode() & 0o777 != 0o600
++    {
++        return Err(invalid());
++    }
++    let bytes = fs::read(path).map_err(|_| invalid())?;
++    if bytes.len() as u64 != meta.len() {
++        return Err(invalid());
++    }
++    Ok(bytes)
++}
++
++fn snapshot(transfer_dir: &Path, txid: &str, asset: &str) -> Result<(SnapshotAsset, Vec<u8>), Error> {
++    let directory = transfer_dir.join(".durable-send-v1");
++    let metadata = fs::symlink_metadata(&directory).map_err(|_| invalid())?;
++    if !metadata.is_dir() || directory.canonicalize().map_err(|_| invalid())? != directory {
++        return Err(invalid());
++    }
++    #[cfg(unix)]
++    if metadata.uid() != unsafe { libc::geteuid() } || metadata.permissions().mode() & 0o777 != 0o700 {
++        return Err(invalid());
++    }
++    let manifest: SnapshotManifest = serde_json::from_slice(
++        &read_private(&directory.join("manifest.json"), 32 * 1024)?,
++    ).map_err(|_| invalid())?;
++    if manifest.version != 1 || manifest.txid != txid || manifest.assets.len() != 1 {
++        return Err(invalid());
++    }
++    let mut assets = manifest.assets;
++    let pin = assets.remove(asset).ok_or_else(invalid)?;
++    if pin.size == 0 || pin.size > MAX_SNAPSHOT || pin.digest.len() != 64
++        || !pin.digest.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
++    {
++        return Err(invalid());
++    }
++    let component = asset.strip_prefix("rgb:").ok_or_else(invalid)?;
++    if component.is_empty() || !component.bytes().all(|b| b.is_ascii_alphanumeric() || b"_~-".contains(&b)) {
++        return Err(invalid());
++    }
++    let bytes = read_private(&directory.join(format!("{component}.rgb")), pin.size)?;
++    if bytes.len() as u64 != pin.size || hex::encode(sha256_digest(&bytes)) != pin.digest {
++        return Err(invalid());
++    }
++    Ok((pin, bytes))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn private(path: &Path, bytes: &[u8]) {
++        fs::write(path, bytes).unwrap();
++        #[cfg(unix)]
++        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
++    }
++
++    #[test]
++    fn snapshots_bind_asset_transaction_content_and_private_inode() {
++        let temp = tempfile::tempdir().unwrap();
++        let directory = temp.path().canonicalize().unwrap();
++        let store = directory.join(".durable-send-v1");
++        fs::create_dir(&store).unwrap();
++        #[cfg(unix)]
++        fs::set_permissions(&store, fs::Permissions::from_mode(0o700)).unwrap();
++        let hash = hex::encode(sha256_digest(b"proof"));
++        let manifest = serde_json::json!({"version":1,"txid":"exact-tx","assets":{"rgb:fixture":{"digest":hash,"size":5}}});
++        private(&store.join("manifest.json"), &serde_json::to_vec(&manifest).unwrap());
++        let proof = store.join("fixture.rgb");
++        private(&proof, b"proof");
++        assert_eq!(snapshot(&directory, "exact-tx", "rgb:fixture").unwrap().1, b"proof");
++        assert!(snapshot(&directory, "other-tx", "rgb:fixture").is_err());
++        assert!(snapshot(&directory, "exact-tx", "rgb:other").is_err());
++        private(&proof, b"other");
++        assert!(snapshot(&directory, "exact-tx", "rgb:fixture").is_err());
++        #[cfg(unix)]
++        {
++            private(&proof, b"proof");
++            fs::set_permissions(&proof, fs::Permissions::from_mode(0o644)).unwrap();
++            assert!(snapshot(&directory, "exact-tx", "rgb:fixture").is_err());
++            fs::remove_file(&proof).unwrap();
++            let external = directory.join("external");
++            private(&external, b"proof");
++            std::os::unix::fs::symlink(&external, &proof).unwrap();
++            assert!(snapshot(&directory, "exact-tx", "rgb:fixture").is_err());
++        }
++    }
++
++    #[test]
++    fn recipient_ack_proof_is_bound_to_positive_response_exact_transfer_and_hash() {
++        let key = ed25519_from_seed(&[7u8;32]);
++        let recipient = LocalRecipient {
++            recipient_id: "invoice".into(), local_recipient_data: LocalRecipientData::Witness(
++                LocalWitnessData { amount_sat:1000, blinding:None, vout:0 }),
++            assignment: Assignment::Fungible(1), transport_endpoints:vec![],
++            public_key:key.verifying_key().to_bytes().to_vec(), encryption:Encryption::Required,
++            invoice_expiration:None,
++        };
++        let hash = "ab".repeat(32);
++        let signature = hex::encode(sign_ed25519(&key, &sha256_digest(format!("transfertrue{hash}").as_bytes())));
++        let mut proof = GetAckResponse { acks:HashMap::from([("transfer".into(),true)]),
++            signatures:HashMap::from([("transfer".into(),signature)]) };
++        assert!(verified_ack(&proof, &recipient, "transfer", &hash).is_some());
++        assert!(verified_ack(&proof, &recipient, "other", &hash).is_none());
++        assert!(verified_ack(&proof, &recipient, "transfer", &"cd".repeat(32)).is_none());
++        proof.acks.insert("transfer".into(),false);
++        assert!(verified_ack(&proof, &recipient, "transfer", &hash).is_none());
++        proof.acks.insert("transfer".into(),true);
++        proof.signatures.insert("transfer".into(),"00".repeat(64));
++        assert!(verified_ack(&proof, &recipient, "transfer", &hash).is_none());
++    }
++}
++
++fn endpoint_identity(endpoint: &str) -> Result<String, Error> {
++    let endpoint = endpoint.replacen("rpcs://", "https://", 1).replacen("rpc://", "http://", 1);
++    let uri = reqwest::Url::parse(&endpoint).map_err(|_| invalid())?;
++    if !matches!(uri.scheme(), "http" | "https") || !uri.username().is_empty()
++        || uri.password().is_some() || uri.fragment().is_some()
++    {
++        return Err(invalid());
++    }
++    Ok(uri.to_string())
++}
++
++fn verified_ack(ack: &GetAckResponse, recipient: &LocalRecipient, transfer_id: &str, hash: &str) -> Option<Vec<u8>> {
++    if ack.acks.get(transfer_id) != Some(&true) {
++        return None;
++    }
++    let signature = hex::decode(ack.signatures.get(transfer_id)?).ok()?;
++    let key = verifying_key_from_bytes(&recipient.public_key).ok()?;
++    let message = sha256_digest(format!("{transfer_id}true{hash}").as_bytes());
++    verify_ed25519(&key, &message, &signature).then_some(signature)
++}
++
++fn exact_chain_transaction(indexer: &Indexer, expected: &BdkTransaction) -> Result<bool, Error> {
++    let txid = expected.compute_txid();
++    // Absence and unavailable reads are never treated as a rejection or release of authority.
++    if !matches!(indexer.get_tx_confirmations(&txid.to_string()), Ok(Some(_))) {
++        return Ok(false);
++    }
++    let observed: Option<BdkTransaction> = match indexer {
++        #[cfg(feature = "bitcoind")]
++        Indexer::Bitcoind(client) => client.get_raw_transaction(&txid, None).ok(),
++        #[cfg(feature = "electrum")]
++        Indexer::Electrum(client) => client.inner.transaction_get(&txid).ok(),
++        #[cfg(feature = "esplora")]
++        Indexer::Esplora(client) => client.get_tx(&txid).ok().flatten(),
++    };
++    match observed {
++        Some(actual) if actual == *expected => Ok(true),
++        Some(_) => Err(invalid()),
++        None => Ok(false),
++    }
++}
++
++impl Wallet {
++    /// Repair local acceptance only from the exact native plan and authoritative external proof.
++    /// `false` means no sufficient proof was obtained, never that a payment did not happen.
++    pub(crate) fn recover_submitted_onchain(
++        &mut self, online: Online, signed_psbt: &str,
++        expected_asset: Option<&str>, expected_batch: Option<i32>,
++    ) -> Result<bool, Error> {
++        let read_deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
++        self.check_online(online)?;
++        if self.bitcoin_network() == BitcoinNetwork::Signet {
++            use crate::no_wallet::validation::{SignetCheckpoint, check_signet_indexer};
++            let profile = match self.online_data().as_ref().ok_or(Error::Offline)?.indexer_config {
++                IndexerConfig::DevSignetElectrum { .. } | IndexerConfig::DevSignetEsplora { .. } => SignetCheckpoint::Dev,
++                _ => SignetCheckpoint::Public,
++            };
++            let genesis = self.indexer().block_hash(0)?;
++            check_signet_indexer(Some(profile), &genesis, || Ok(self.indexer().block_hash(1)?))?;
++        }
++        let psbt = Psbt::from_str(signed_psbt)?;
++        let signed = psbt.clone().extract_tx().map_err(InternalError::from)?;
++        let txid = signed.compute_txid().to_string();
++        let on_chain = exact_chain_transaction(self.indexer(), &signed)?;
++        let txn = self.database().begin_transaction()?;
++
++        let Some(asset) = expected_asset else {
++            if expected_batch.is_some() { return Err(invalid()); }
++            if !on_chain { return Ok(false); }
++            self.check_vanilla_end(&txn, &psbt, WalletTransactionType::SendBtc)?;
++            self.finalize_vanilla_wallet_transaction(&txn, &psbt, WalletTransactionType::SendBtc)?;
++            self.update_backup_info(&txn, false)?;
++            self.persist_and_commit(txn)?;
++            return Ok(true);
++        };
++        let expected_batch = expected_batch.filter(|idx| *idx > 0).ok_or_else(invalid)?;
++        let mut batches: Vec<_> = txn.get_batch_transfers_by_txid(&txid)?.into_iter().filter(|b| !b.incoming).collect();
++        if batches.len() != 1 || batches[0].idx != expected_batch { return Err(invalid()); }
++        let existing = batches.remove(0);
++        let (_, transfer_dir, mut info, fascia) = self.get_transfer_end_data(&psbt)?;
++        if info.donation || !info.is_operation(&TypeOfTransition::Transfer)
++            || info.transfers.len() != 1 || !info.transfers.contains_key(asset)
++            || fascia.witness_id().to_string() != txid
++            || info.operation_secret_key != existing.operation_secret_key
++        { return Err(invalid()); }
++        // Independently bind the immutable fascia to this Bitcoin transaction commitment.
++        let mut messages = BTreeMap::new();
++        for (contract, bundle) in fascia.bundles() {
++            bundle.check_opid_commitments().map_err(|_| invalid())?;
++            messages.insert(ProtocolId::from(*contract), Message::from(bundle.bundle_id()));
++        }
++        let mut source = MultiSource::with_static_entropy(info.entropy);
++        source.messages = MediumOrdMap::from_checked(messages);
++        let commitment = MerkleTree::try_commit(&source).map_err(|_| invalid())?.commit_id();
++        crate::no_wallet::inspection::verify_witness_commitment(
++            &fascia.seal_witness().dbc_proof, &commitment, &psbt.unsigned_tx,
++        )?;
++        let (pin, local_consignment) = snapshot(&transfer_dir, &txid, asset)?;
++        let native_hashes = self.consignment_hashes(&transfer_dir, &info)?;
++        if native_hashes.get(asset) != Some(&pin.digest) { return Err(invalid()); }
++        let recipients = &info.transfers[asset].recipients;
++        if recipients.is_empty() || recipients.len() > 16 { return Err(invalid()); }
++        let db_recipients = txn.get_transfers_for_asset(expected_batch, asset)?;
++        if db_recipients.len() != recipients.len() { return Err(invalid()); }
++        for recipient in recipients {
++            if !db_recipients.iter().any(|row| row.recipient_id.as_deref() == Some(&recipient.recipient_id)
++                && row.recipient_pubkey.as_ref() == Some(&recipient.public_key)
++                && row.requested_assignment.as_ref() == Some(&recipient.assignment)
++                && row.consignment_hash.as_ref().is_none_or(|hash| hash == &pin.digest))
++            { return Err(invalid()); }
++        }
++        // A committed native receipt is authoritative; never regress its status on a later read.
++        if matches!(existing.status, TransferStatus::WaitingCounterparty | TransferStatus::WaitingConfirmations | TransferStatus::Settled) {
++            if db_recipients.iter().any(|row| row.consignment_hash.as_deref() != Some(pin.digest.as_str())) {
++                return Err(invalid());
++            }
++            return Ok(true);
++        }
++        if on_chain {
++            let mut stock = self.rgb_stock(&txn)?;
++            stock.consume_fascia(fascia, None)?;
++            drop(stock);
++            self.update_or_save_transfers(&txn, txid, &info, TransferStatus::WaitingConfirmations,
++                                          &native_hashes, false, &psbt)?;
++            self.update_backup_info(&txn, false)?;
++            self.persist_and_commit(txn)?;
++            return Ok(true);
++        }
++        if existing.status != TransferStatus::Initiated { return Ok(false); }
++        let seed: [u8; 32] = info.operation_secret_key.clone().and_then(|s| s.try_into().ok()).ok_or_else(invalid)?;
++        let sender = ed25519_from_seed(&seed);
++        let sender_hex = hex::encode(sender.verifying_key().to_bytes());
++        let sender_endpoint = info.sender_transport_endpoint.as_deref().ok_or_else(invalid)?;
++        let sender_url = self.convert_transport_endpoint_url(sender_endpoint)?;
++        let sender_proxy = ProxyClient::new(&sender_url, self.bitcoin_network())?;
++        if std::time::Instant::now() >= read_deadline { return Ok(false); }
++        let ids: Vec<_> = recipients.iter().map(|r| r.proxy_ids(&sender_hex).1).collect();
++        let timestamp = now().unix_timestamp().to_string();
++        let signature = hex::encode(sign_ed25519(&sender, &sha256_digest(get_ack_message(&ids, &timestamp).as_bytes())));
++        let ack = match sender_proxy.get_ack(&ids, &signature, &timestamp) {
++            Ok(response) if response.error.is_none() => match response.result { Some(result) => result, None => return Ok(false) },
++            _ => return Ok(false),
++        };
++        if std::time::Instant::now() >= read_deadline { return Ok(false); }
++        let retention = match sender_proxy.get_info() {
++            Ok(response) if response.error.is_none() => response.result,
++            _ => None,
++        };
++        let Some(retention) = retention.filter(|info| info.protocol_version == "1.0") else { return Ok(false); };
++        let Some(grace) = retention.retention_grace_secs.and_then(|s| s.parse::<u32>().ok()) else { return Ok(false); };
++        let grace = std::cmp::max(grace, MIN_SENDER_RETENTION_GRACE_SECS);
++        let deadline = info.expiration_timestamp.and_then(|expiration| expiration.checked_add(i64::from(grace))).ok_or_else(invalid)?;
++        let mut ack_proofs = Vec::new();
++        for recipient in &mut info.transfers.get_mut(asset).ok_or_else(invalid)?.recipients {
++            let transfer_id = recipient.proxy_ids(&sender_hex).1;
++            let signed_ack = verified_ack(&ack, recipient, &transfer_id, &pin.digest);
++            let mut posted = false;
++            for endpoint in &mut recipient.transport_endpoints {
++                if std::time::Instant::now() >= read_deadline { break; }
++                if endpoint.transport_type != TransportType::JsonRpc || !endpoint.usable { continue; }
++                let response = match ProxyClient::new(&endpoint.endpoint, self.bitcoin_network())
++                    .and_then(|proxy| proxy.get_consignment(&transfer_id)) {
++                    Ok(response) if response.error.is_none() => response.result,
++                    _ => None,
++                };
++                let Some(response) = response else { continue; };
++                if response.sender_pk != sender_hex || response.consignment_hash != pin.digest
++                    || endpoint_identity(&response.sender_transport_endpoint)? != endpoint_identity(sender_endpoint)?
++                    || response.batch != (ids.len() > 1)
++                    || response.consignment.len() > ((pin.size as usize + 258) / 3) * 4
++                { continue; }
++                let raw = match general_purpose::STANDARD.decode(&response.consignment) { Ok(raw) => raw, Err(_) => continue };
++                let plaintext = match self.decrypt_blob_with_shared_key(raw, recipient.encryption, &seed,
++                    &hex::encode(&recipient.public_key), &pin.digest) { Ok(plaintext) => plaintext, Err(_) => continue };
++                if plaintext != local_consignment { continue; }
++                endpoint.used = true;
++                posted = true;
++                break;
++            }
++            // A valid recipient signature remains proof after a retrieved consignment is deleted.
++            // Do not invent which recipient endpoint was used when only the ACK remains.
++            if !posted && signed_ack.is_none() { return Ok(false); }
++            if let Some(signature) = signed_ack { ack_proofs.push((recipient.recipient_id.clone(), signature)); }
++        }
++        self.update_or_save_transfers(&txn, txid.clone(), &info, TransferStatus::WaitingCounterparty,
++                                      &native_hashes, true, &psbt)?;
++        let mut updated: DbBatchTransferActMod = existing.into();
++        updated.status = ActiveValue::Set(TransferStatus::WaitingCounterparty);
++        updated.broadcast_deadline = ActiveValue::Set(Some(deadline));
++        txn.update_batch_transfer(&mut updated)?;
++        for transfer in txn.get_transfers_for_asset(expected_batch, asset)? {
++            if let Some((_, signature)) = ack_proofs.iter().find(|(id, _)| transfer.recipient_id.as_ref() == Some(id)) {
++                let mut updated: DbTransferActMod = transfer.into();
++                updated.ack = ActiveValue::Set(Some(true));
++                updated.ack_signature = ActiveValue::Set(Some(signature.clone()));
++                txn.update_transfer(&mut updated)?;
++            }
++        }
++        self.update_backup_info(&txn, false)?;
++        self.persist_and_commit(txn)?;
++        Ok(true)
++    }
++}
+diff --git a/src/wallet/durable_onchain.rs b/src/wallet/durable_onchain.rs
+new file mode 100644
+index 0000000..763f962
+--- /dev/null
++++ b/src/wallet/durable_onchain.rs
+@@ -0,0 +1,2240 @@
++//! Flutter's native outbox. No status, cancellation or restart path invokes End.
++//! Its complete cohort is included in the wallet's encrypted native backup.
++use super::*;
++use bitcoin::{
++    hashes::{Hash, sha256},
++    psbt::Psbt,
++};
++use sea_orm::{ConnectionTrait, DbBackend, Statement};
++use serde::{Deserialize, Serialize};
++use serde_json::{Value, json};
++#[cfg(unix)]
++use std::os::fd::AsRawFd;
++#[cfg(unix)]
++use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
++use std::sync::Arc;
++use std::{
++    fs::{self, File, OpenOptions},
++    io::{Read, Write},
++    path::{Path, PathBuf},
++    str::FromStr,
++};
++use zeroize::Zeroizing;
++
++const SOURCE: &str = "9ec49c08be2e68f08521281e3efbd760ec989cb9";
++const OVERLAY: &str = "flutter-bfa7-durable-v1";
++const DIRECTORY: &str = ".flutter-onchain-v1";
++const MAX_BYTES: u64 = 32 * 1024 * 1024;
++const MAX_RECORDS: usize = 10000;
++const MAX_COMMAND: usize = 200000;
++
++fn fail(code: &str) -> Error {
++    Error::Recovery { code: code.into() }
++}
++fn storage(_: impl std::fmt::Display) -> Error {
++    fail("RECOVERY_STORAGE_INVALID")
++}
++
++// Rust 1.94's File::try_lock is Unsupported on Android. Use the supported
++// platform flock directly on every admitted Unix target, with no blocking or
++// lock bypass. Only genuine contention is retryable BUSY; other errors retain
++// the stronger storage fence instead of masquerading as another writer.
++fn lock_outbox_descriptor(fd: libc::c_int) -> Result<(), Error> {
++    if unsafe { libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB) } == 0 {
++        return Ok(());
++    }
++    let error = std::io::Error::last_os_error();
++    if error.kind() == std::io::ErrorKind::WouldBlock {
++        Err(fail("RECOVERY_BUSY"))
++    } else {
++        Err(storage(error))
++    }
++}
++fn hex(value: &str, n: usize) -> bool {
++    value.len() == n
++        && value
++            .bytes()
++            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
++}
++fn decimal(value: &str, positive: bool) -> Result<u64, Error> {
++    let parsed = value
++        .parse::<u64>()
++        .map_err(|_| fail("RECOVERY_REQUEST_INVALID"))?;
++    if parsed.to_string() != value || (positive && parsed == 0) {
++        return Err(fail("RECOVERY_REQUEST_INVALID"));
++    }
++    Ok(parsed)
++}
++
++// Proxy-v1 witnesses use a deterministic seal blinding derived by the native
++// protocol. The approval intentionally omits it; omission must not be compared
++// with the populated native plan or treated as permission for an arbitrary value.
++fn validate_proxy_witness_blinding(
++    requested: Option<&str>,
++    actual: Option<u64>,
++    operation_seed: Option<&[u8]>,
++    recipient_public_key: &[u8],
++) -> Result<(), Error> {
++    if requested.is_some() {
++        return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++    }
++    let seed: &[u8; 32] = operation_seed
++        .ok_or_else(|| storage("missing operation key"))?
++        .try_into()
++        .map_err(storage)?;
++    let recipient =
++        ed25519_dalek::VerifyingKey::from_bytes(recipient_public_key.try_into().map_err(storage)?)
++            .map_err(storage)?;
++    let sender = ed25519_from_seed(seed);
++    let expected = derive_shared(&sender, &recipient)
++        .map_err(storage)?
++        .seal_blinding;
++    if actual != Some(expected) {
++        return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++    }
++    Ok(())
++}
++
++// Public and Dev Signet share Bitcoin's network encoding, but never its
++// deployment identity. Only the explicit indexer variants select Dev's
++// checkpoint and resolver; an ordinary endpoint cannot stand in for them.
++fn validate_recovery_indexer_profile(network: &str, indexer: &IndexerConfig) -> Result<(), Error> {
++    let dev = matches!(
++        indexer,
++        IndexerConfig::DevSignetElectrum { .. } | IndexerConfig::DevSignetEsplora { .. }
++    );
++    if (network == "utexo") != dev {
++        return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++    }
++    Ok(())
++}
++
++#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
++#[serde(rename_all = "lowercase")]
++enum Kind {
++    Bitcoin,
++    Rgb,
++}
++#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
++#[serde(rename_all = "lowercase")]
++enum Phase {
++    Preparing,
++    Prepared,
++    Committing,
++    Accepted,
++    Rejected,
++}
++#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct Request {
++    version: u32,
++    operation_id: String,
++    kind: Kind,
++    amount: String,
++    fee_rate: String,
++    address: Option<String>,
++    asset_id: Option<String>,
++    recipient_id: Option<String>,
++    transport_endpoints: Vec<String>,
++    sender_transport_endpoint: Option<String>,
++    witness_amount_sat: Option<String>,
++    witness_blinding: Option<String>,
++    min_confirmations: u8,
++    donation: bool,
++    expiration_timestamp: Option<String>,
++    invoice_public_key: Option<String>,
++    invoice_encryption: Option<String>,
++    #[serde(skip_serializing_if = "String::is_empty")]
++    fingerprint: String,
++}
++#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct Envelope {
++    version: u32,
++    backend: String,
++    network: String,
++    wallet_binding: String,
++    recovery_cohort: String,
++    native_source_revision: String,
++    native_overlay: String,
++    request: Request,
++}
++impl Envelope {
++    fn parse(raw: &str) -> Result<Self, Error> {
++        if raw.len() > MAX_COMMAND {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        let envelope: Self =
++            serde_json::from_str(raw).map_err(|_| fail("RECOVERY_REQUEST_INVALID"))?;
++        envelope.validate()?;
++        Ok(envelope)
++    }
++    fn validate(&self) -> Result<(), Error> {
++        let r = &self.request;
++        if self.version != 3
++            || self.backend != "RGB_L1"
++            || self.native_source_revision != SOURCE
++            || self.native_overlay != OVERLAY
++            || !hex(&self.wallet_binding, 64)
++            || !hex(&self.recovery_cohort, 32)
++            || r.version != 2
++            || !hex(&r.operation_id, 32)
++            || !hex(&r.fingerprint, 64)
++            || r.donation
++            || r.min_confirmations == 0
++        {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        decimal(&r.amount, true)?;
++        decimal(&r.fee_rate, true)?;
++        let mut unsigned = self.clone();
++        unsigned.request.fingerprint.clear();
++        if sha256::Hash::hash(&serde_json::to_vec(&unsigned).map_err(storage)?).to_string()
++            != r.fingerprint
++        {
++            return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++        }
++        let text = |s: &str, max: usize| {
++            !s.is_empty() && s.len() <= max && s.bytes().all(|b| b >= 0x21 && b <= 0x7e)
++        };
++        match r.kind {
++            Kind::Bitcoin => {
++                if !r.address.as_deref().is_some_and(|s| text(s, 1000))
++                    || r.asset_id.is_some()
++                    || r.recipient_id.is_some()
++                    || !r.transport_endpoints.is_empty()
++                    || r.sender_transport_endpoint.is_some()
++                    || r.witness_amount_sat.is_some()
++                    || r.witness_blinding.is_some()
++                    || r.expiration_timestamp.is_some()
++                    || r.invoice_public_key.is_some()
++                    || r.invoice_encryption.is_some()
++                {
++                    return Err(fail("RECOVERY_REQUEST_INVALID"));
++                }
++            }
++            Kind::Rgb => {
++                if r.address.is_some()
++                    || !r.asset_id.as_deref().is_some_and(|s| text(s, 512))
++                    || !r.recipient_id.as_deref().is_some_and(|s| text(s, 4000))
++                    || r.transport_endpoints.is_empty()
++                    || r.transport_endpoints.len() > 16
++                    || r.transport_endpoints.iter().any(|s| !text(s, 2048))
++                    || !r
++                        .sender_transport_endpoint
++                        .as_deref()
++                        .is_some_and(|s| text(s, 2048))
++                    || !r.invoice_public_key.as_deref().is_some_and(|s| hex(s, 64))
++                    || !matches!(
++                        r.invoice_encryption.as_deref(),
++                        Some("Required" | "Optional" | "Unsupported")
++                    )
++                {
++                    return Err(fail("RECOVERY_REQUEST_INVALID"));
++                }
++                ContractId::from_str(r.asset_id.as_deref().unwrap())
++                    .map_err(|_| fail("RECOVERY_REQUEST_INVALID"))?;
++                decimal(
++                    r.expiration_timestamp
++                        .as_deref()
++                        .ok_or_else(|| fail("RECOVERY_REQUEST_INVALID"))?,
++                    true,
++                )?;
++                if let Some(n) = &r.witness_amount_sat {
++                    decimal(n, true)?;
++                }
++                if let Some(n) = &r.witness_blinding {
++                    decimal(n, false)?;
++                    if r.witness_amount_sat.is_none() {
++                        return Err(fail("RECOVERY_REQUEST_INVALID"));
++                    }
++                }
++            }
++        }
++        Ok(())
++    }
++}
++#[derive(Clone, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct Record {
++    operation_id: String,
++    fingerprint: String,
++    kind: Kind,
++    phase: Phase,
++    command: Option<Envelope>,
++    txid: Option<String>,
++    batch_transfer_index: Option<i32>,
++    unsigned_psbt: Option<String>,
++    signed_psbt: Option<String>,
++    failure_code: Option<String>,
++    cancel_requested: bool,
++    dispatch_started: bool,
++    amount: String,
++    fee_rate: String,
++    asset_id: Option<String>,
++    address: Option<String>,
++    recipient_id: Option<String>,
++}
++impl Record {
++    fn new(command: Envelope) -> Self {
++        Self {
++            operation_id: command.request.operation_id.clone(),
++            fingerprint: command.request.fingerprint.clone(),
++            kind: command.request.kind,
++            amount: command.request.amount.clone(),
++            fee_rate: command.request.fee_rate.clone(),
++            asset_id: command.request.asset_id.clone(),
++            address: command.request.address.clone(),
++            recipient_id: command.request.recipient_id.clone(),
++            phase: Phase::Preparing,
++            command: Some(command),
++            txid: None,
++            batch_transfer_index: None,
++            unsigned_psbt: None,
++            signed_psbt: None,
++            failure_code: None,
++            cancel_requested: false,
++            dispatch_started: false,
++        }
++    }
++    fn terminal(&self) -> bool {
++        matches!(self.phase, Phase::Accepted | Phase::Rejected)
++    }
++    fn validate(&self, outbox: &Outbox) -> Result<(), Error> {
++        if (self.dispatch_started && !matches!(self.phase, Phase::Committing | Phase::Accepted))
++            || !hex(&self.operation_id, 32)
++            || !hex(&self.fingerprint, 64)
++            || (self.cancel_requested && matches!(self.phase, Phase::Committing | Phase::Accepted))
++        {
++            return Err(storage("record identity"));
++        }
++        decimal(&self.amount, true).map_err(storage)?;
++        decimal(&self.fee_rate, true).map_err(storage)?;
++        if (self.kind == Kind::Bitcoin) != self.asset_id.is_none()
++            || (self.kind == Kind::Bitcoin) != self.address.is_some()
++            || (self.kind == Kind::Rgb) != self.recipient_id.is_some()
++        {
++            return Err(storage("receipt summary"));
++        }
++        if let Some(command) = &self.command {
++            command.validate().map_err(storage)?;
++            if self.amount != command.request.amount
++                || self.fee_rate != command.request.fee_rate
++                || self.asset_id != command.request.asset_id
++                || self.address != command.request.address
++                || self.recipient_id != command.request.recipient_id
++            {
++                return Err(storage("receipt approval mismatch"));
++            }
++            outbox.matches(command)?;
++            if command.request.operation_id != self.operation_id
++                || command.request.fingerprint != self.fingerprint
++                || command.request.kind != self.kind
++            {
++                return Err(storage("command identity"));
++            }
++        } else if !self.terminal() {
++            return Err(storage("missing command"));
++        }
++        if self.phase == Phase::Accepted {
++            if !self.txid.as_deref().is_some_and(|s| hex(s, 64))
++                || (self.kind == Kind::Bitcoin) != self.batch_transfer_index.is_none()
++                || self.batch_transfer_index.is_some_and(|n| n <= 0)
++            {
++                return Err(storage("accepted identity"));
++            }
++        }
++        match &self.unsigned_psbt {
++            Some(raw) => {
++                if raw.len() > 4 * 1024 * 1024 {
++                    return Err(storage("PSBT size"));
++                }
++                let unsigned = Psbt::from_str(raw).map_err(storage)?;
++                if self.txid.as_deref()
++                    != Some(unsigned.unsigned_tx.compute_txid().to_string().as_str())
++                    || (self.kind == Kind::Bitcoin) != self.batch_transfer_index.is_none()
++                    || self.batch_transfer_index.is_some_and(|n| n <= 0)
++                {
++                    return Err(storage("plan identity"));
++                }
++                if let Some(signed) = &self.signed_psbt {
++                    if signed.len() > 4 * 1024 * 1024 {
++                        return Err(storage("PSBT size"));
++                    }
++                    let signed = Psbt::from_str(signed).map_err(storage)?;
++                    if signed.unsigned_tx != unsigned.unsigned_tx
++                        || signed.clone().extract_tx().map_err(storage)?.compute_txid()
++                            != unsigned.unsigned_tx.compute_txid()
++                        || signed.inputs.iter().any(|i| {
++                            i.final_script_witness.is_none() && i.final_script_sig.is_none()
++                        })
++                    {
++                        return Err(storage("signed identity"));
++                    }
++                } else if matches!(self.phase, Phase::Prepared | Phase::Committing) {
++                    return Err(storage("missing signature"));
++                }
++            }
++            None => {
++                if matches!(self.phase, Phase::Prepared | Phase::Committing)
++                    || self.signed_psbt.is_some()
++                    || (self.phase != Phase::Accepted
++                        && (self.txid.is_some() || self.batch_transfer_index.is_some()))
++                {
++                    return Err(storage("missing plan"));
++                }
++            }
++        }
++        if self.terminal()
++            && (self.command.is_some()
++                || self.unsigned_psbt.is_some()
++                || self.signed_psbt.is_some())
++        {
++            return Err(storage("uncompacted terminal receipt"));
++        }
++        Ok(())
++    }
++    fn response(&self) -> Value {
++        json!({"version":1,"operationId":self.operation_id,"fingerprint":self.fingerprint,"kind":self.kind,"phase":self.phase,"txid":self.txid,"batchTransferIndex":self.batch_transfer_index,"failureCode":self.failure_code,"endAuthorized":matches!(self.phase,Phase::Committing|Phase::Accepted)})
++    }
++    fn finish(&mut self, accepted: bool, code: Option<&str>) {
++        self.phase = if accepted {
++            Phase::Accepted
++        } else {
++            Phase::Rejected
++        };
++        self.failure_code = code.map(str::to_owned);
++        self.command = None;
++        self.unsigned_psbt = None;
++        self.signed_psbt = None;
++        if !accepted {
++            self.dispatch_started = false;
++            self.txid = None;
++            self.batch_transfer_index = None;
++        }
++    }
++}
++#[derive(Clone, Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct Outbox {
++    version: u32,
++    wallet_binding: String,
++    cohort: String,
++    network: String,
++    source_revision: String,
++    overlay: String,
++    records: Vec<Record>,
++    restored_snapshot: bool,
++    revision: u64,
++    previous_digest: String,
++    #[serde(skip_serializing_if = "String::is_empty")]
++    authentication: String,
++}
++impl Outbox {
++    fn matches(&self, command: &Envelope) -> Result<(), Error> {
++        if self.wallet_binding != command.wallet_binding
++            || self.cohort != command.recovery_cohort
++            || self.network != command.network
++            || self.source_revision != command.native_source_revision
++            || self.overlay != command.native_overlay
++        {
++            return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++        }
++        Ok(())
++    }
++    fn validate(&self, wallet: &Wallet) -> Result<(), Error> {
++        if self.wallet_binding != wallet.recovery_binding(&self.network)? {
++            return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++        }
++        self.validate_records()?;
++        for record in &self.records {
++            if record.unsigned_psbt.is_some() {
++                wallet.validate_durable_plan(record)?;
++            }
++        }
++        Ok(())
++    }
++    fn validate_records(&self) -> Result<(), Error> {
++        if self.version != 1
++            || !hex(&self.wallet_binding, 64)
++            || !hex(&self.cohort, 32)
++            || self.source_revision != SOURCE
++            || self.overlay != OVERLAY
++            || self.records.len() > MAX_RECORDS
++            || self.revision == 0
++            || (!self.previous_digest.is_empty() && !hex(&self.previous_digest, 64))
++        {
++            return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++        }
++        let mut seen = std::collections::HashSet::new();
++        for record in &self.records {
++            if !seen.insert(&record.operation_id) {
++                return Err(storage("duplicate operation"));
++            }
++            record.validate(self)?;
++        }
++        if self.records.iter().filter(|r| !r.terminal()).count() > 1 {
++            return Err(storage("competing operations"));
++        }
++        Ok(())
++    }
++    fn index(&self, e: &Envelope) -> Result<Option<usize>, Error> {
++        self.matches(e)?;
++        let index = self
++            .records
++            .iter()
++            .position(|r| r.operation_id == e.request.operation_id);
++        if let Some(i) = index {
++            let r = &self.records[i];
++            if r.fingerprint != e.request.fingerprint
++                || r.kind != e.request.kind
++                || r.command.as_ref().is_some_and(|c| c != e)
++            {
++                return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++            }
++        }
++        Ok(index)
++    }
++}
++#[cfg(test)]
++thread_local! {static WRITE_FAULT: std::cell::Cell<Option<u8>>=const{std::cell::Cell::new(None)};}
++#[cfg(test)]
++fn write_fault(point: u8) -> Result<(), Error> {
++    WRITE_FAULT.with(|f| {
++        if f.get() == Some(point) {
++            f.set(None);
++            Err(storage("injected write boundary"))
++        } else {
++            Ok(())
++        }
++    })
++}
++struct Store {
++    directory: PathBuf,
++    _lock: File,
++    database: Arc<RgbLibDatabase>,
++    key: Zeroizing<[u8; 32]>,
++}
++impl Store {
++    fn open(wallet: &Wallet, create: bool) -> Result<Self, Error> {
++        let directory = wallet.get_wallet_dir().join(DIRECTORY);
++        if create {
++            match fs::DirBuilder::new().mode(0o700).create(&directory) {
++                Ok(()) => File::open(wallet.get_wallet_dir())
++                    .and_then(|f| f.sync_all())
++                    .map_err(storage)?,
++                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
++                Err(e) => return Err(storage(e)),
++            }
++        }
++        let meta = fs::symlink_metadata(&directory).map_err(storage)?;
++        if !meta.is_dir()
++            || meta.permissions().mode() & 0o777 != 0o700
++            || meta.uid() != unsafe { libc::geteuid() }
++            || directory.canonicalize().map_err(storage)? != directory
++        {
++            return Err(storage("directory"));
++        }
++        let mut options = OpenOptions::new();
++        options
++            .read(true)
++            .write(true)
++            .create(true)
++            .mode(0o600)
++            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
++        let lock = options.open(directory.join(".lock")).map_err(storage)?;
++        Self::file(&lock, 0)?;
++        lock_outbox_descriptor(lock.as_raw_fd())?;
++        let mut material = Zeroizing::new(b"flutter-rgb-l1-outbox-key-v1:".to_vec());
++        if let Some(secret) = &wallet.keys.mnemonic {
++            material.extend_from_slice(secret.as_bytes());
++        } else {
++            material.extend_from_slice(b"watch-only:");
++            material.extend_from_slice(wallet.keys.account_xpub_vanilla.as_bytes());
++        }
++        let key = Zeroizing::new(sha256::Hash::hash(&material).to_byte_array());
++        Ok(Self {
++            directory,
++            _lock: lock,
++            database: Arc::clone(&wallet.internals.database),
++            key,
++        })
++    }
++    fn file(file: &File, max: u64) -> Result<(), Error> {
++        let m = file.metadata().map_err(storage)?;
++        if !m.is_file()
++            || m.permissions().mode() & 0o777 != 0o600
++            || m.uid() != unsafe { libc::geteuid() }
++            || m.nlink() != 1
++            || m.len() > max
++        {
++            return Err(storage("file"));
++        }
++        Ok(())
++    }
++    fn bytes(&self) -> Result<Vec<u8>, Error> {
++        let file = OpenOptions::new()
++            .read(true)
++            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
++            .open(self.directory.join("outbox.json"))
++            .map_err(storage)?;
++        Self::file(&file, MAX_BYTES)?;
++        let mut bytes = Vec::new();
++        file.take(MAX_BYTES + 1)
++            .read_to_end(&mut bytes)
++            .map_err(storage)?;
++        if bytes.len() as u64 > MAX_BYTES {
++            return Err(storage("size"));
++        }
++        Ok(bytes)
++    }
++    fn authenticate(&self, outbox: &Outbox) -> Result<(), Error> {
++        let mut data = outbox.clone();
++        let expected = std::mem::take(&mut data.authentication);
++        let tag = hex::decode(expected).map_err(storage)?;
++        let mut mac = <SimpleHmac<Sha256> as hmac::digest::KeyInit>::new_from_slice(&*self.key)
++            .map_err(storage)?;
++        mac.update(&serde_json::to_vec(&data).map_err(storage)?);
++        mac.verify_slice(&tag).map_err(storage)
++    }
++    fn anchor(txn: &DbTxn) -> Result<Option<(String, String, String)>, Error> {
++        let row = block_on(txn.inner().query_one_raw(Statement::from_string(
++            DbBackend::Sqlite,
++            "SELECT cohort, binding, digest FROM flutter_onchain_anchor WHERE id = 1".to_owned(),
++        )))
++        .map_err(storage)?;
++        row.map(|r| {
++            Ok((
++                r.try_get("", "cohort").map_err(storage)?,
++                r.try_get("", "binding").map_err(storage)?,
++                r.try_get("", "digest").map_err(storage)?,
++            ))
++        })
++        .transpose()
++    }
++    fn put_anchor(txn: &DbTxn, cohort: &str, binding: &str, digest: &str) -> Result<(), Error> {
++        block_on(txn.inner().execute_raw(Statement::from_sql_and_values(DbBackend::Sqlite,"INSERT INTO flutter_onchain_anchor (id,cohort,binding,digest) VALUES (1,?,?,?) ON CONFLICT(id) DO UPDATE SET cohort=excluded.cohort,binding=excluded.binding,digest=excluded.digest",vec![cohort.to_owned().into(),binding.to_owned().into(),digest.to_owned().into()]))).map_err(storage)?;
++        Ok(())
++    }
++    fn check_anchor(
++        &self,
++        outbox: &Outbox,
++        digest: &str,
++        repair: bool,
++        txn: &DbTxn,
++    ) -> Result<(), Error> {
++        let (cohort, binding, anchor) =
++            Self::anchor(txn)?.ok_or_else(|| storage("missing database cohort"))?;
++        if cohort != outbox.cohort || binding != outbox.wallet_binding {
++            return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++        }
++        if anchor == digest {
++            return Ok(());
++        }
++        // Exactly one write-ahead file can survive an interrupted SQLite commit. A stale
++        // outbox, foreign cohort, selective rollback, or a larger gap is never reinitialized.
++        if repair && !anchor.is_empty() && anchor == outbox.previous_digest {
++            Self::put_anchor(txn, &cohort, &binding, digest)?;
++            return Ok(());
++        }
++        Err(storage("database/outbox continuity"))
++    }
++    fn read(&self, wallet: &Wallet) -> Result<Outbox, Error> {
++        let bytes = self.bytes()?;
++        let mut outbox: Outbox = serde_json::from_slice(&bytes).map_err(storage)?;
++        self.authenticate(&outbox)?;
++        outbox.validate(wallet)?;
++        let digest = sha256::Hash::hash(&bytes).to_string();
++        let txn = self.database.begin_transaction()?;
++        self.check_anchor(&outbox, &digest, true, &txn)?;
++        txn.commit()?;
++        let stamp = wallet.get_wallet_dir().join(".flutter-restored-snapshot");
++        match fs::symlink_metadata(&stamp) {
++            Ok(_) => {
++                let file = OpenOptions::new()
++                    .read(true)
++                    .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
++                    .open(&stamp)
++                    .map_err(storage)?;
++                Self::file(&file, 4096)?;
++                if !outbox.restored_snapshot {
++                    outbox.restored_snapshot = true;
++                    self.write(&outbox)?;
++                    return self.read(wallet);
++                }
++            }
++            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
++            Err(e) => return Err(storage(e)),
++        }
++        Ok(outbox)
++    }
++    fn write(&self, outbox: &Outbox) -> Result<(), Error> {
++        self.write_in(outbox, None)
++    }
++    fn write_in(&self, outbox: &Outbox, active: Option<&DbTxn>) -> Result<(), Error> {
++        let previous = match fs::symlink_metadata(self.directory.join("outbox.json")) {
++            Ok(_) => {
++                let bytes = self.bytes()?;
++                let old: Outbox = serde_json::from_slice(&bytes).map_err(storage)?;
++                self.authenticate(&old)?;
++                old.validate_records()?;
++                if old.cohort != outbox.cohort || old.wallet_binding != outbox.wallet_binding {
++                    return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++                }
++                Some((old, sha256::Hash::hash(&bytes).to_string()))
++            }
++            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
++            Err(e) => return Err(storage(e)),
++        };
++        if let Some((old, digest)) = &previous {
++            if let Some(txn) = active {
++                self.check_anchor(old, digest, false, txn)?;
++            } else {
++                let txn = self.database.begin_transaction()?;
++                self.check_anchor(old, digest, true, &txn)?;
++                txn.commit()?;
++            }
++        }
++        let owned = if active.is_none() {
++            Some(self.database.begin_transaction()?)
++        } else {
++            None
++        };
++        let txn = active.or(owned.as_ref()).unwrap();
++        if previous.is_none() {
++            let (cohort, binding, digest) =
++                Self::anchor(txn)?.ok_or_else(|| storage("missing fresh cohort"))?;
++            if cohort != outbox.cohort || binding != outbox.wallet_binding || !digest.is_empty() {
++                return Err(storage("fresh cohort already used"));
++            }
++        }
++        let mut data = outbox.clone();
++        data.revision = previous
++            .as_ref()
++            .map(|(old, _)| {
++                old.revision
++                    .checked_add(1)
++                    .ok_or_else(|| storage("revision overflow"))
++            })
++            .transpose()?
++            .unwrap_or(1);
++        data.previous_digest = previous.map(|(_, digest)| digest).unwrap_or_default();
++        data.authentication.clear();
++        data.validate_records()?;
++        let mut mac = <SimpleHmac<Sha256> as hmac::digest::KeyInit>::new_from_slice(&*self.key)
++            .map_err(storage)?;
++        mac.update(&serde_json::to_vec(&data).map_err(storage)?);
++        data.authentication = hex::encode(mac.finalize().into_bytes());
++        let bytes = serde_json::to_vec(&data).map_err(storage)?;
++        if bytes.len() as u64 > MAX_BYTES {
++            return Err(fail("RECOVERY_CAPACITY"));
++        }
++        let mut temp = tempfile::NamedTempFile::new_in(&self.directory).map_err(storage)?;
++        temp.write_all(&bytes).map_err(storage)?;
++        temp.as_file().sync_all().map_err(storage)?;
++        #[cfg(test)]
++        write_fault(1)?;
++        temp.persist(self.directory.join("outbox.json"))
++            .map_err(|e| storage(e.error))?;
++        #[cfg(test)]
++        write_fault(2)?;
++        File::open(&self.directory)
++            .and_then(|f| f.sync_all())
++            .map_err(storage)?;
++        #[cfg(test)]
++        write_fault(3)?;
++        Self::put_anchor(
++            txn,
++            &data.cohort,
++            &data.wallet_binding,
++            &sha256::Hash::hash(&bytes).to_string(),
++        )?;
++        #[cfg(test)]
++        write_fault(4)?;
++        if let Some(txn) = owned {
++            txn.commit()?;
++        }
++        Ok(())
++    }
++    fn initialize(&self, outbox: &Outbox) -> Result<(), Error> {
++        let txn = self.database.begin_transaction()?;
++        block_on(txn.inner().execute_unprepared("CREATE TABLE IF NOT EXISTS flutter_onchain_anchor (id INTEGER PRIMARY KEY CHECK(id=1),cohort TEXT NOT NULL,binding TEXT NOT NULL,digest TEXT NOT NULL)")).map_err(storage)?;
++        if Self::anchor(&txn)?.is_some() || !txn.iter_batch_transfers()?.is_empty() {
++            return Err(storage("existing native history"));
++        }
++        Self::put_anchor(&txn, &outbox.cohort, &outbox.wallet_binding, "")?;
++        self.write_in(outbox, Some(&txn))?;
++        txn.commit()?;
++        Ok(())
++    }
++}
++#[derive(Deserialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct Identity {
++    version: u32,
++    wallet_binding: String,
++    cohort: String,
++    network: String,
++    witness_version: String,
++}
++impl Wallet {
++    fn recovery_binding(&self, network: &str) -> Result<String, Error> {
++        let compatible = match self.bitcoin_network() {
++            BitcoinNetwork::Mainnet => network == "mainnet",
++            BitcoinNetwork::Testnet => network == "testnet",
++            BitcoinNetwork::Testnet4 => network == "testnet4",
++            BitcoinNetwork::Signet => matches!(network, "signet" | "utexo"),
++            BitcoinNetwork::SignetCustom => false,
++            BitcoinNetwork::Regtest => network == "regtest",
++        };
++        if !compatible {
++            return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++        }
++        let witness = match self.keys.witness_version {
++            WitnessVersion::Taproot => "taproot",
++            WitnessVersion::SegWitV0 => "segwit-v0",
++        };
++        Ok(sha256::Hash::hash(
++            format!(
++                "{network}:{witness}:{}:{}",
++                self.keys.account_xpub_vanilla, self.keys.account_xpub_colored
++            )
++            .as_bytes(),
++        )
++        .to_string())
++    }
++    fn require_recovery_online_profile(&self, network: &str) -> Result<(), Error> {
++        validate_recovery_indexer_profile(
++            network,
++            &self
++                .online_data()
++                .as_ref()
++                .ok_or(Error::Offline)?
++                .indexer_config,
++        )
++    }
++    /// Bind the fresh outbox once; ordinary reopens must never recreate missing recovery data.
++    pub fn initialize_onchain_recovery(
++        &self,
++        raw: String,
++        allow_create: bool,
++    ) -> Result<String, Error> {
++        if raw.len() > 2000 {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        let id: Identity =
++            serde_json::from_str(&raw).map_err(|_| fail("RECOVERY_REQUEST_INVALID"))?;
++        let witness = match self.keys.witness_version {
++            WitnessVersion::Taproot => "taproot",
++            WitnessVersion::SegWitV0 => "segwit-v0",
++        };
++        if id.version != 1
++            || !hex(&id.cohort, 32)
++            || id.wallet_binding != self.recovery_binding(&id.network)?
++            || id.witness_version != witness
++        {
++            return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++        }
++        let store = Store::open(self, allow_create)?;
++        match fs::symlink_metadata(store.directory.join("outbox.json")) {
++            Ok(_) => {
++                let current = store.read(self)?;
++                if current.wallet_binding != id.wallet_binding
++                    || current.cohort != id.cohort
++                    || current.network != id.network
++                {
++                    return Err(fail("RECOVERY_IDENTITY_MISMATCH"));
++                }
++            }
++            Err(e) if e.kind() == std::io::ErrorKind::NotFound && allow_create => {
++                let outbox = Outbox {
++                    version: 1,
++                    wallet_binding: id.wallet_binding.clone(),
++                    cohort: id.cohort.clone(),
++                    network: id.network,
++                    source_revision: SOURCE.into(),
++                    overlay: OVERLAY.into(),
++                    records: vec![],
++                    restored_snapshot: false,
++                    revision: 1,
++                    previous_digest: String::new(),
++                    authentication: String::new(),
++                };
++                store.initialize(&outbox)?;
++            }
++            Err(e) => return Err(storage(e)),
++        }
++        Ok(json!({"walletBinding":id.wallet_binding,"cohort":id.cohort}).to_string())
++    }
++    /// Audit pending records without opening, submitting, or replaying a payment.
++    pub fn onchain_recovery_state(&self) -> Result<String, Error> {
++        let store = Store::open(self, false)?;
++        let outbox = store.read(self)?;
++        let mut pending = Vec::new();
++        for record in outbox.records.iter().filter(|r| !r.terminal()) {
++            let command = record
++                .command
++                .as_ref()
++                .ok_or_else(|| storage("missing command"))?;
++            let mut value = record.response();
++            value["commandJson"] = Value::String(serde_json::to_string(command).map_err(storage)?);
++            pending.push(value);
++        }
++        Ok(json!({"version":1,"walletBinding":outbox.wallet_binding,"cohort":outbox.cohort,"restoredSnapshot":outbox.restored_snapshot,"pending":pending,"retainedReceipts":outbox.records.iter().filter(|r|r.terminal()).count()}).to_string())
++    }
++    /// Paginated, authenticated submission receipts. These do not imply confirmations.
++    pub fn list_onchain_send_receipts(&self, offset: u32, limit: u16) -> Result<String, Error> {
++        if limit == 0 || limit > 500 {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        let store = Store::open(self, false)?;
++        let outbox = store.read(self)?;
++        let accepted: Vec<_> = outbox
++            .records
++            .iter()
++            .rev()
++            .filter(|r| r.phase == Phase::Accepted)
++            .collect();
++        let receipts = accepted
++            .iter()
++            .skip(offset as usize)
++            .take(limit as usize)
++            .map(|r| {
++                let mut value = r.response();
++                value["amount"] = Value::String(r.amount.clone());
++                value["feeRate"] = Value::String(r.fee_rate.clone());
++                value["assetId"] = r.asset_id.clone().map(Value::String).unwrap_or(Value::Null);
++                value["address"] = r.address.clone().map(Value::String).unwrap_or(Value::Null);
++                value["recipientId"] = r
++                    .recipient_id
++                    .clone()
++                    .map(Value::String)
++                    .unwrap_or(Value::Null);
++                value
++            })
++            .collect::<Vec<_>>();
++        Ok(json!({"version":1,"walletBinding":outbox.wallet_binding,"cohort":outbox.cohort,"revision":outbox.revision.to_string(),"restoredSnapshot":outbox.restored_snapshot,"total":accepted.len(),"receipts":receipts}).to_string())
++    }
++    /// Ordinary mutations cannot overtake an uncertain authorized payment.
++    pub fn assert_no_pending_onchain_send(&self) -> Result<(), Error> {
++        let store = Store::open(self, false)?;
++        let outbox = store.read(self)?;
++        if outbox.restored_snapshot {
++            return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
++        }
++        if outbox.records.iter().any(|r| !r.terminal()) {
++            return Err(fail("RECOVERY_PENDING"));
++        }
++        Ok(())
++    }
++    /// Validate and import genesis-only public metadata; never credits allocations.
++    pub fn import_contract_base64(
++        &mut self,
++        encoded: String,
++        expected: String,
++    ) -> Result<String, Error> {
++        use base64::{Engine, engine::general_purpose::STANDARD};
++        self.assert_no_pending_onchain_send()?;
++        if encoded.is_empty() || encoded.len() > 16 * 1024 * 1024 {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        let bytes = STANDARD
++            .decode(&encoded)
++            .map_err(|_| fail("RECOVERY_REQUEST_INVALID"))?;
++        if bytes.is_empty() || STANDARD.encode(&bytes) != encoded {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        ContractId::from_str(&expected).map_err(|_| fail("RECOVERY_REQUEST_INVALID"))?;
++        let known = match self.get_asset_metadata(expected.clone()) {
++            Ok(_) => true,
++            Err(Error::AssetNotFound { .. }) => false,
++            Err(e) => return Err(e),
++        };
++        let mut file = tempfile::NamedTempFile::new_in(self.get_wallet_dir()).map_err(storage)?;
++        file.write_all(&bytes).map_err(storage)?;
++        file.as_file().sync_all().map_err(storage)?;
++        let asset = self.import_contract(
++            file.path().to_str().ok_or_else(|| storage("path"))?.into(),
++            Some(expected.clone()),
++        )?;
++        let metadata = self.get_asset_metadata(asset.clone())?;
++        // Explicit decimal strings avoid bridge floating-point conversion of u64 supplies.
++        Ok(json!({"assetId":asset,"alreadyImported":known,"metadata":{"assetSchema":format!("{:?}",metadata.asset_schema),"name":metadata.name,"ticker":metadata.ticker,"details":metadata.details,"precision":metadata.precision,"initialSupply":metadata.initial_supply.to_string(),"maxSupply":metadata.max_supply.to_string(),"knownCirculatingSupply":metadata.known_circulating_supply.to_string()}}).to_string())
++    }
++    fn validate_durable_plan(&self, record: &Record) -> Result<(), Error> {
++        let e = record
++            .command
++            .as_ref()
++            .ok_or_else(|| storage("missing approval"))?;
++        let r = &e.request;
++        let raw = record
++            .unsigned_psbt
++            .as_ref()
++            .ok_or_else(|| storage("missing plan"))?;
++        let psbt = Psbt::from_str(raw).map_err(storage)?;
++        if psbt.unsigned_tx.input.is_empty() || psbt.unsigned_tx.output.is_empty() {
++            return Err(storage("empty plan"));
++        }
++        let mut expected_external = None;
++        match r.kind {
++            Kind::Bitcoin => {
++                let script = self.get_script_pubkey(r.address.as_deref().unwrap())?;
++                let amount = decimal(&r.amount, true)?;
++                let count = psbt
++                    .unsigned_tx
++                    .output
++                    .iter()
++                    .filter(|o| o.script_pubkey == script && o.value.to_sat() == amount)
++                    .count();
++                if count != 1 {
++                    return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++                }
++                expected_external = Some((script, amount));
++            }
++            Kind::Rgb => {
++                let (_, _, info, _) = self.get_transfer_end_data(&psbt)?;
++                let asset = r.asset_id.as_ref().unwrap();
++                if info.donation
++                    || info.min_confirmations != r.min_confirmations
++                    || info.sender_transport_endpoint != r.sender_transport_endpoint
++                    || info.transfers.len() != 1
++                    || info.expiration_timestamp
++                        != Some(
++                            decimal(r.expiration_timestamp.as_deref().unwrap(), true)? as i64 - 600,
++                        )
++                {
++                    return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++                }
++                let transfer = info
++                    .transfers
++                    .get(asset)
++                    .ok_or_else(|| fail("RECOVERY_REQUEST_MISMATCH"))?;
++                if !matches!(transfer.main_transition, MainTransition::Transfer)
++                    || transfer.asset_info.contract_id.to_string() != *asset
++                    || transfer.recipients.len() != 1
++                {
++                    return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++                }
++                let recipient = &transfer.recipients[0];
++                let endpoints = recipient
++                    .transport_endpoints
++                    .iter()
++                    .map(|e| e.endpoint.clone())
++                    .collect::<Vec<_>>();
++                let expected_endpoints = r
++                    .transport_endpoints
++                    .iter()
++                    .map(|e| self.convert_transport_endpoint_url(e))
++                    .collect::<Result<Vec<_>, _>>()?;
++                if recipient.recipient_id.as_str() != r.recipient_id.as_deref().unwrap()
++                    || recipient.assignment != Assignment::Fungible(decimal(&r.amount, true)?)
++                    || hex::encode(&recipient.public_key)
++                        != r.invoice_public_key.as_deref().unwrap()
++                    || format!("{:?}", recipient.encryption)
++                        != r.invoice_encryption.as_deref().unwrap()
++                    || recipient.invoice_expiration
++                        != Some(decimal(r.expiration_timestamp.as_deref().unwrap(), true)? as i64)
++                    || endpoints != expected_endpoints
++                {
++                    return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++                }
++                match (&recipient.local_recipient_data, &r.witness_amount_sat) {
++                    (LocalRecipientData::Blind(_), None) => {}
++                    (LocalRecipientData::Witness(w), Some(amount)) => {
++                        if w.amount_sat != decimal(amount, true)? {
++                            return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++                        }
++                        validate_proxy_witness_blinding(
++                            r.witness_blinding.as_deref(),
++                            w.blinding,
++                            info.operation_secret_key.as_deref(),
++                            &recipient.public_key,
++                        )?;
++                        let script = script_buf_from_recipient_id(recipient.recipient_id.clone())?
++                            .ok_or_else(|| fail("RECOVERY_REQUEST_MISMATCH"))?;
++                        let output = psbt
++                            .unsigned_tx
++                            .output
++                            .get(w.vout as usize)
++                            .ok_or_else(|| fail("RECOVERY_REQUEST_MISMATCH"))?;
++                        if output.script_pubkey != script || output.value.to_sat() != w.amount_sat {
++                            return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++                        }
++                        expected_external = Some((script, w.amount_sat));
++                    }
++                    _ => return Err(fail("RECOVERY_REQUEST_MISMATCH")),
++                }
++            }
++        }
++        let mut external_count = 0;
++        for output in &psbt.unsigned_tx.output {
++            if expected_external
++                .as_ref()
++                .is_some_and(|(s, n)| &output.script_pubkey == s && output.value.to_sat() == *n)
++            {
++                external_count += 1;
++                continue;
++            }
++            if output.script_pubkey.is_op_return() && r.kind == Kind::Rgb {
++                continue;
++            }
++            if !self.bdk_wallet().is_mine(output.script_pubkey.clone()) {
++                return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++            }
++        }
++        if expected_external.is_some() && external_count != 1 {
++            return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++        }
++        Ok(())
++    }
++    fn reconcile_record(&self, r: &mut Record) -> Result<bool, Error> {
++        if r.phase == Phase::Accepted {
++            return Ok(true);
++        }
++        if r.phase != Phase::Committing {
++            return Ok(false);
++        }
++        let txid = r.txid.as_deref().ok_or_else(|| storage("missing txid"))?;
++        let txn = self.database().begin_transaction()?;
++        let accepted = match r.kind {
++            Kind::Bitcoin => {
++                txn.get_wallet_transaction_with_reserved_txos_by_txid(txid)?
++                    .is_none_or(|(_, rows)| rows.is_empty())
++                    && self
++                        .bdk_wallet()
++                        .transactions()
++                        .any(|t| t.tx_node.txid.to_string() == txid)
++            }
++            Kind::Rgb => {
++                let rows = txn.get_batch_transfers_by_txid(txid)?;
++                let rows: Vec<_> = rows
++                    .into_iter()
++                    .filter(|t| {
++                        !t.incoming
++                            && Some(t.idx) == r.batch_transfer_index
++                            && !matches!(
++                                t.status,
++                                TransferStatus::Initiated | TransferStatus::Failed
++                            )
++                    })
++                    .collect();
++                rows.len() == 1
++            }
++        };
++        txn.commit()?;
++        if accepted {
++            r.finish(true, None);
++        }
++        Ok(accepted)
++    }
++    /// Read-only outcome recovery. Never calls Begin or End, including after a lost reply.
++    pub fn onchain_send_status(
++        &mut self,
++        online: Option<Online>,
++        raw: String,
++    ) -> Result<String, Error> {
++        let e = Envelope::parse(&raw)?;
++        let store = Store::open(self, false)?;
++        let mut outbox = store.read(self)?;
++        let Some(i) = outbox.index(&e)? else {
++            if outbox.restored_snapshot {
++                return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
++            }
++            return Ok(json!({"version":1,"operationId":e.request.operation_id,"fingerprint":null,"kind":null,"phase":"absent","txid":null,"batchTransferIndex":null,"failureCode":null,"endAuthorized":false}).to_string());
++        };
++        if outbox.records[i].unsigned_psbt.is_some() {
++            self.validate_durable_plan(&outbox.records[i])?;
++        }
++        let was_accepted = outbox.records[i].phase == Phase::Accepted;
++        let mut accepted = self.reconcile_record(&mut outbox.records[i])?;
++        if outbox.restored_snapshot && !accepted && outbox.records[i].signed_psbt.is_some() {
++            if let Some(online) = online {
++                self.require_recovery_online_profile(&outbox.network)?;
++                let record = &outbox.records[i];
++                let asset = record
++                    .command
++                    .as_ref()
++                    .and_then(|e| e.request.asset_id.as_deref());
++                if self.recover_submitted_onchain(
++                    online,
++                    record.signed_psbt.as_deref().unwrap(),
++                    asset,
++                    record.batch_transfer_index,
++                )? {
++                    outbox.records[i].finish(true, None);
++                    accepted = true;
++                }
++            }
++        }
++        if !accepted && outbox.records[i].phase == Phase::Committing {
++            if !outbox.restored_snapshot && !outbox.records[i].dispatch_started {
++                // End's callback is durable before its first mutating RPC. With the native
++                // session serialized, an absent callback proves no submission was dispatched.
++                outbox.records[i].phase = Phase::Prepared;
++                outbox.records[i].failure_code = Some("submission_not_started".into());
++                store.write(&outbox)?;
++            } else if let Some(online) = online {
++                self.require_recovery_online_profile(&outbox.network)?;
++                let record = &outbox.records[i];
++                let asset = record
++                    .command
++                    .as_ref()
++                    .and_then(|e| e.request.asset_id.as_deref());
++                if self.recover_submitted_onchain(
++                    online,
++                    record
++                        .signed_psbt
++                        .as_deref()
++                        .ok_or_else(|| storage("signed plan"))?,
++                    asset,
++                    record.batch_transfer_index,
++                )? {
++                    outbox.records[i].finish(true, None);
++                    accepted = true;
++                }
++            }
++        }
++        if accepted && !was_accepted {
++            store.write(&outbox)?;
++        }
++        if outbox.restored_snapshot && !outbox.records[i].terminal() {
++            return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
++        }
++        Ok(outbox.records[i].response().to_string())
++    }
++    /// Prepare exactly one durable transaction, before any commit authorization exists.
++    pub fn prepare_onchain_send(&mut self, online: Online, raw: String) -> Result<String, Error> {
++        self.check_xprv()?;
++        let e = Envelope::parse(&raw)?;
++        let store = Store::open(self, false)?;
++        let mut outbox = store.read(self)?;
++        if outbox.restored_snapshot {
++            return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
++        }
++        if let Some(i) = outbox.index(&e)? {
++            if outbox.records[i].phase != Phase::Preparing || outbox.records[i].cancel_requested {
++                return Ok(outbox.records[i].response().to_string());
++            }
++        }
++        self.require_recovery_online_profile(&outbox.network)?;
++        let i = match outbox.index(&e)? {
++            Some(i) => {
++                if outbox.records[i].phase != Phase::Preparing || outbox.records[i].cancel_requested
++                {
++                    return Ok(outbox.records[i].response().to_string());
++                }
++                i
++            }
++            None => {
++                if outbox.records.len() >= MAX_RECORDS {
++                    return Err(fail("RECOVERY_CAPACITY"));
++                }
++                if outbox.records.iter().any(|r| !r.terminal()) {
++                    return Err(fail("RECOVERY_PENDING"));
++                }
++                outbox.records.push(Record::new(e.clone()));
++                let i = outbox.records.len() - 1;
++                store.write(&outbox)?;
++                i
++            }
++        };
++        let request = e.request.clone();
++        if outbox.records[i].unsigned_psbt.is_none() {
++            let amount = decimal(&request.amount, true)?;
++            let fee = decimal(&request.fee_rate, true)?;
++            let prepared = match request.kind {
++                Kind::Bitcoin => self
++                    .send_btc_begin_with_durable_callback(
++                        online,
++                        request.address.clone().unwrap(),
++                        amount,
++                        fee,
++                        false,
++                        false,
++                        |psbt, txn| persist_plan(&store, &mut outbox, i, psbt, None, txn),
++                    )
++                    .map(|_| ()),
++                Kind::Rgb => {
++                    let expiration =
++                        decimal(request.expiration_timestamp.as_deref().unwrap(), true)?;
++                    let now =
++                        std::cmp::max(time::OffsetDateTime::now_utc().unix_timestamp(), 0) as u64;
++                    if expiration > i64::MAX as u64 || expiration <= now.saturating_add(900) {
++                        outbox.records[i].finish(false, Some("invoice_expired"));
++                        store.write(&outbox)?;
++                        return Ok(outbox.records[i].response().to_string());
++                    }
++                    let recipient = Recipient {
++                        recipient_id: request.recipient_id.clone().unwrap(),
++                        witness_data: request
++                            .witness_amount_sat
++                            .as_ref()
++                            .map(|n| {
++                                Ok::<_, Error>(WitnessData {
++                                    amount_sat: decimal(n, true)?,
++                                    blinding: request
++                                        .witness_blinding
++                                        .as_ref()
++                                        .map(|n| decimal(n, false))
++                                        .transpose()?,
++                                })
++                            })
++                            .transpose()?,
++                        assignment: Assignment::Fungible(amount),
++                        transport_endpoints: request.transport_endpoints.clone(),
++                        public_key: request.invoice_public_key.clone(),
++                        encryption: match request.invoice_encryption.as_deref().unwrap() {
++                            "Required" => Encryption::Required,
++                            "Optional" => Encryption::Optional,
++                            _ => Encryption::Unsupported,
++                        },
++                        expiration_timestamp: Some(expiration),
++                    };
++                    let map = HashMap::from([(request.asset_id.clone().unwrap(), vec![recipient])]);
++                    self.send_begin_with_durable_callback(
++                        online,
++                        map,
++                        false,
++                        fee,
++                        request.min_confirmations,
++                        expiration - 600,
++                        request.sender_transport_endpoint.clone(),
++                        false,
++                        |result, txn| {
++                            sync_tree(
++                                Path::new(&result.details.fascia_path)
++                                    .parent()
++                                    .ok_or_else(|| storage("transfer path"))?,
++                                0,
++                            )?;
++                            persist_plan(
++                                &store,
++                                &mut outbox,
++                                i,
++                                &result.psbt,
++                                result.batch_transfer_idx,
++                                txn,
++                            )
++                        },
++                    )
++                    .map(|_| ())
++                }
++            };
++            if let Err(error) = prepared {
++                let r = &mut outbox.records[i];
++                if r.unsigned_psbt.is_none() {
++                    r.finish(false, Some(prepare_error(&error)));
++                } else {
++                    r.failure_code = Some("native_prepare_interrupted".into());
++                }
++                store.write(&outbox)?;
++                return Ok(outbox.records[i].response().to_string());
++            }
++        }
++        let unsigned = outbox.records[i]
++            .unsigned_psbt
++            .clone()
++            .ok_or_else(|| storage("plan"))?;
++        self.validate_durable_plan(&outbox.records[i])?;
++        match self.sign_psbt(unsigned.clone(), None) {
++            Ok(signed) => {
++                let a = Psbt::from_str(&unsigned).map_err(storage)?;
++                let b = Psbt::from_str(&signed).map_err(storage)?;
++                if a.unsigned_tx != b.unsigned_tx {
++                    return Err(storage("signer changed plan"));
++                }
++                outbox.records[i].signed_psbt = Some(signed);
++                outbox.records[i].phase = Phase::Prepared;
++                outbox.records[i].failure_code = None;
++            }
++            Err(_) => {
++                outbox.records[i].failure_code = Some("native_sign_failed".into());
++            }
++        }
++        store.write(&outbox)?;
++        Ok(outbox.records[i].response().to_string())
++    }
++    /// Authorize End once and persist its exact identity before any external submission.
++    pub fn commit_onchain_send(&mut self, online: Online, raw: String) -> Result<String, Error> {
++        self.check_xprv()?;
++        let e = Envelope::parse(&raw)?;
++        let store = Store::open(self, false)?;
++        let mut outbox = store.read(self)?;
++        if outbox.restored_snapshot {
++            return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
++        }
++        let i = outbox
++            .index(&e)?
++            .ok_or_else(|| fail("RECOVERY_REQUEST_MISMATCH"))?;
++        if outbox.records[i].phase != Phase::Prepared {
++            if self.reconcile_record(&mut outbox.records[i])? {
++                store.write(&outbox)?;
++            }
++            return Ok(outbox.records[i].response().to_string());
++        }
++        self.require_recovery_online_profile(&outbox.network)?;
++        self.validate_durable_plan(&outbox.records[i])?;
++        if let Some(expiration) = outbox.records[i]
++            .command
++            .as_ref()
++            .and_then(|c| c.request.expiration_timestamp.as_ref())
++        {
++            let now = std::cmp::max(time::OffsetDateTime::now_utc().unix_timestamp(), 0) as u64;
++            if decimal(expiration, true)? <= now.saturating_add(900) {
++                outbox.records[i].failure_code = Some("invoice_expired".into());
++                store.write(&outbox)?;
++                return Ok(outbox.records[i].response().to_string());
++            }
++        }
++        outbox.records[i].phase = Phase::Committing;
++        store.write(&outbox)?;
++        let signed = outbox.records[i]
++            .signed_psbt
++            .clone()
++            .ok_or_else(|| storage("signed plan"))?;
++        self.check_online(online)?;
++        let psbt = Psbt::from_str(&signed).map_err(storage)?;
++        let result = (|| {
++            let txn = self.database().begin_transaction()?;
++            let kind = outbox.records[i].kind;
++            let mut before_submit = |txn: &DbTxn| {
++                outbox.records[i].dispatch_started = true;
++                store.write_in(&outbox, Some(txn))
++            };
++            let result = match kind {
++                Kind::Bitcoin => self
++                    .send_btc_end_impl_with_durable_callback(&txn, &psbt, &mut before_submit)
++                    .map(|id| (id, None)),
++                Kind::Rgb => self
++                    .send_end_impl_with_durable_callback(&txn, &psbt, &mut before_submit)
++                    .map(|r| (r.txid, Some(r.batch_transfer_idx))),
++            }?;
++            self.update_backup_info(&txn, false)?;
++            self.persist_and_commit(txn)?;
++            Ok::<_, Error>(result)
++        })();
++        match result {
++            Ok((id, batch)) => {
++                if Some(id) != outbox.records[i].txid
++                    || (outbox.records[i].kind == Kind::Rgb
++                        && batch != outbox.records[i].batch_transfer_index)
++                {
++                    return Err(storage("accepted plan mismatch"));
++                }
++                outbox.records[i].finish(true, None);
++                store.write(&outbox)?;
++            }
++            Err(_) => {
++                outbox = store.read(self)?;
++                if self.reconcile_record(&mut outbox.records[i])? {
++                    store.write(&outbox)?;
++                } else if !outbox.records[i].dispatch_started {
++                    outbox.records[i].phase = Phase::Prepared;
++                    outbox.records[i].failure_code = Some("submission_not_started".into());
++                    store.write(&outbox)?;
++                } else {
++                    outbox.records[i].failure_code = Some("native_commit_interrupted".into());
++                    store.write(&outbox)?;
++                }
++            }
++        }
++        Ok(outbox.records[i].response().to_string())
++    }
++    /// Revoke only an operation that has never authorized End. A tombstone survives delayed calls.
++    pub fn cancel_onchain_send(
++        &mut self,
++        _online: Option<Online>,
++        raw: String,
++    ) -> Result<String, Error> {
++        let e = Envelope::parse(&raw)?;
++        let store = Store::open(self, false)?;
++        let mut outbox = store.read(self)?;
++        if outbox.restored_snapshot {
++            return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
++        }
++        let i = match outbox.index(&e)? {
++            Some(i) => i,
++            None => {
++                if outbox.records.len() >= MAX_RECORDS {
++                    return Err(fail("RECOVERY_CAPACITY"));
++                }
++                let mut r = Record::new(e);
++                r.cancel_requested = true;
++                r.finish(false, Some("cancelled"));
++                outbox.records.push(r);
++                store.write(&outbox)?;
++                return Ok(outbox.records.last().unwrap().response().to_string());
++            }
++        };
++        if outbox.records[i].phase == Phase::Committing && !outbox.records[i].dispatch_started {
++            outbox.records[i].phase = Phase::Prepared;
++        }
++        if matches!(
++            outbox.records[i].phase,
++            Phase::Committing | Phase::Accepted | Phase::Rejected
++        ) {
++            if self.reconcile_record(&mut outbox.records[i])? {
++                store.write(&outbox)?;
++            }
++            return Ok(outbox.records[i].response().to_string());
++        }
++        outbox.records[i].cancel_requested = true;
++        outbox.records[i].phase = Phase::Preparing;
++        outbox.records[i].signed_psbt = None;
++        store.write(&outbox)?;
++        let r = &outbox.records[i];
++        if let Some(txid) = &r.txid {
++            match r.kind {
++                Kind::Bitcoin => {
++                    if self
++                        .list_pending_vanilla_txs()?
++                        .iter()
++                        .any(|r| &r.txid == txid)
++                    {
++                        self.abort_pending_vanilla_tx(txid.clone())?;
++                    }
++                }
++                Kind::Rgb => {
++                    // No End was authorized, so this exact Initiated reservation can be failed
++                    // locally. Never revoke a different batch or a progressed transfer.
++                    let txn = self.database().begin_transaction()?;
++                    let rows = txn.get_batch_transfers_by_txid(txid)?;
++                    if rows.iter().any(|b| {
++                        Some(b.idx) != r.batch_transfer_index
++                            || b.incoming
++                            || !matches!(
++                                b.status,
++                                TransferStatus::Initiated | TransferStatus::Failed
++                            )
++                    }) {
++                        return Err(fail("RECOVERY_PENDING"));
++                    }
++                    for batch in rows {
++                        if batch.status == TransferStatus::Initiated {
++                            txn.del_reserved_txos_for_batch_transfer(batch.idx)?;
++                            let mut active: DbBatchTransferActMod = batch.into();
++                            active.status = ActiveValue::Set(TransferStatus::Failed);
++                            txn.update_batch_transfer(&mut active)?;
++                        }
++                    }
++                    self.update_backup_info(&txn, false)?;
++                    txn.commit()?;
++                }
++            }
++        }
++        outbox.records[i].finish(false, Some("cancelled"));
++        store.write(&outbox)?;
++        Ok(outbox.records[i].response().to_string())
++    }
++}
++fn persist_plan(
++    store: &Store,
++    outbox: &mut Outbox,
++    i: usize,
++    raw: &str,
++    batch: Option<i32>,
++    txn: &DbTxn,
++) -> Result<(), Error> {
++    let psbt = Psbt::from_str(raw).map_err(storage)?;
++    let r = &mut outbox.records[i];
++    if (r.kind == Kind::Bitcoin) != batch.is_none() || batch.is_some_and(|n| n <= 0) {
++        return Err(storage("batch"));
++    }
++    if let Some(old) = &r.unsigned_psbt {
++        if old != raw {
++            return Err(storage("replacement plan"));
++        }
++    }
++    r.txid = Some(psbt.unsigned_tx.compute_txid().to_string());
++    r.batch_transfer_index = batch;
++    r.unsigned_psbt = Some(raw.into());
++    store.write_in(outbox, Some(txn))
++}
++fn sync_tree(dir: &Path, depth: u8) -> Result<(), Error> {
++    if depth > 16 {
++        return Err(storage("tree depth"));
++    }
++    for entry in fs::read_dir(dir).map_err(storage)? {
++        let entry = entry.map_err(storage)?;
++        let kind = entry.file_type().map_err(storage)?;
++        if kind.is_dir() {
++            sync_tree(&entry.path(), depth + 1)?;
++        } else if kind.is_file() {
++            File::open(entry.path())
++                .and_then(|f| f.sync_all())
++                .map_err(storage)?;
++        } else {
++            return Err(storage("transfer file"));
++        }
++    }
++    File::open(dir).and_then(|f| f.sync_all()).map_err(storage)
++}
++fn prepare_error(error: &Error) -> &'static str {
++    match error {
++        Error::InsufficientBitcoins { .. } => "insufficient_bitcoins",
++        Error::InsufficientAssignments { .. } => "insufficient_asset_balance",
++        Error::InsufficientAllocationSlots => "insufficient_allocations",
++        Error::InvalidFeeRate { .. }
++        | Error::MaxFeeExceeded { .. }
++        | Error::MinFeeNotMet { .. } => "invalid_fee",
++        Error::InvalidAddress { .. }
++        | Error::InvalidRecipientData { .. }
++        | Error::InvalidRecipientID
++        | Error::InvalidRecipientNetwork
++        | Error::InvalidInvoice { .. } => "invalid_recipient",
++        _ => "preparation_failed",
++    }
++}
++
++/// Persist immutable first-submission bytes before any mutating proxy call.
++pub(super) fn immutable_consignments<W: WalletOnline + ?Sized>(
++    wallet: &W,
++    txn: &DbTxn,
++    fascia: &Fascia,
++    transfers: &BTreeMap<String, InfoAssetTransfer>,
++    dir: &PathBuf,
++    txid: &str,
++) -> Result<(), Error> {
++    #[derive(Deserialize, Serialize)]
++    #[serde(deny_unknown_fields)]
++    struct Entry {
++        digest: String,
++        size: u64,
++    }
++    #[derive(Deserialize, Serialize)]
++    #[serde(deny_unknown_fields)]
++    struct Manifest {
++        version: u32,
++        txid: String,
++        assets: BTreeMap<String, Entry>,
++    }
++    let snapshots = dir.join(".durable-send-v1");
++    match fs::DirBuilder::new().mode(0o700).create(&snapshots) {
++        Ok(()) => File::open(dir)
++            .and_then(|f| f.sync_all())
++            .map_err(storage)?,
++        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
++        Err(e) => return Err(storage(e)),
++    }
++    let meta = fs::symlink_metadata(&snapshots).map_err(storage)?;
++    if !meta.is_dir()
++        || meta.permissions().mode() & 0o777 != 0o700
++        || meta.uid() != unsafe { libc::geteuid() }
++        || snapshots.canonicalize().map_err(storage)? != snapshots
++    {
++        return Err(storage("snapshot directory"));
++    }
++    let manifest_path = snapshots.join("manifest.json");
++    let manifest: Manifest = match fs::symlink_metadata(&manifest_path) {
++        Ok(_) => {
++            let file = OpenOptions::new()
++                .read(true)
++                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
++                .open(&manifest_path)
++                .map_err(storage)?;
++            Store::file(&file, 1024 * 1024)?;
++            let mut raw = Vec::new();
++            file.take(1024 * 1024 + 1)
++                .read_to_end(&mut raw)
++                .map_err(storage)?;
++            serde_json::from_slice(&raw).map_err(storage)?
++        }
++        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
++            // A crash before the complete manifest cannot have reached a proxy. Its partial
++            // unsigned snapshots can be rebuilt; after the manifest is durable, never regenerate.
++            wallet.gen_consignments(txn, fascia, transfers, dir)?;
++            let mut assets = BTreeMap::new();
++            for (id, info) in transfers {
++                if id != &info.asset_info.contract_id.to_string() {
++                    return Err(storage("contract identity"));
++                }
++                let source = wallet
++                    .get_asset_transfer_dir(dir, id)
++                    .join(CONSIGNMENT_FILE);
++                let file = OpenOptions::new()
++                    .read(true)
++                    .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
++                    .open(&source)
++                    .map_err(storage)?;
++                let m = file.metadata().map_err(storage)?;
++                if !m.is_file() || m.len() > 64 * 1024 * 1024 {
++                    return Err(storage("consignment size"));
++                }
++                let mut raw = Vec::new();
++                file.take(64 * 1024 * 1024 + 1)
++                    .read_to_end(&mut raw)
++                    .map_err(storage)?;
++                if raw.len() > 64 * 1024 * 1024 {
++                    return Err(storage("consignment size"));
++                }
++                let digest = sha256::Hash::hash(&raw).to_string();
++                let mut stage = tempfile::NamedTempFile::new_in(&snapshots).map_err(storage)?;
++                stage.write_all(&raw).map_err(storage)?;
++                stage.as_file().sync_all().map_err(storage)?;
++                stage
++                    .persist(snapshots.join(format!(
++                        "{}.rgb",
++                        id.strip_prefix("rgb:").ok_or_else(|| storage("contract"))?
++                    )))
++                    .map_err(|e| storage(e.error))?;
++                assets.insert(
++                    id.clone(),
++                    Entry {
++                        digest,
++                        size: raw.len() as u64,
++                    },
++                );
++            }
++            let manifest = Manifest {
++                version: 1,
++                txid: txid.into(),
++                assets,
++            };
++            let mut stage = tempfile::NamedTempFile::new_in(&snapshots).map_err(storage)?;
++            stage
++                .write_all(&serde_json::to_vec(&manifest).map_err(storage)?)
++                .map_err(storage)?;
++            stage.as_file().sync_all().map_err(storage)?;
++            stage
++                .persist(&manifest_path)
++                .map_err(|e| storage(e.error))?;
++            File::open(&snapshots)
++                .and_then(|f| f.sync_all())
++                .map_err(storage)?;
++            manifest
++        }
++        Err(e) => return Err(storage(e)),
++    };
++    if manifest.version != 1
++        || manifest.txid != txid
++        || manifest.assets.keys().collect::<Vec<_>>() != transfers.keys().collect::<Vec<_>>()
++    {
++        return Err(storage("snapshot manifest identity"));
++    }
++    for (id, entry) in manifest.assets {
++        if entry.size > 64 * 1024 * 1024 || !hex(&entry.digest, 64) {
++            return Err(storage("snapshot metadata"));
++        }
++        let snapshot = snapshots.join(format!(
++            "{}.rgb",
++            id.strip_prefix("rgb:").ok_or_else(|| storage("contract"))?
++        ));
++        let file = OpenOptions::new()
++            .read(true)
++            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
++            .open(&snapshot)
++            .map_err(storage)?;
++        Store::file(&file, 64 * 1024 * 1024)?;
++        let mut raw = Vec::new();
++        file.take(64 * 1024 * 1024 + 1)
++            .read_to_end(&mut raw)
++            .map_err(storage)?;
++        if raw.len() as u64 != entry.size || sha256::Hash::hash(&raw).to_string() != entry.digest {
++            return Err(storage("snapshot digest"));
++        }
++        let destination = wallet.get_asset_transfer_dir(dir, &id);
++        let mut stage = tempfile::NamedTempFile::new_in(&destination).map_err(storage)?;
++        stage.write_all(&raw).map_err(storage)?;
++        stage.as_file().sync_all().map_err(storage)?;
++        stage
++            .persist(destination.join(CONSIGNMENT_FILE))
++            .map_err(|e| storage(e.error))?;
++        File::open(&destination)
++            .and_then(|f| f.sync_all())
++            .map_err(storage)?;
++    }
++    sync_tree(dir, 0)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn native_flock_excludes_other_handles_and_distinguishes_storage_failure() {
++        let root = tempfile::tempdir().unwrap();
++        let path = root.path().join("lock");
++        let first = OpenOptions::new()
++            .create_new(true)
++            .read(true)
++            .write(true)
++            .open(&path)
++            .unwrap();
++        let second = OpenOptions::new()
++            .read(true)
++            .write(true)
++            .open(&path)
++            .unwrap();
++        lock_outbox_descriptor(first.as_raw_fd()).unwrap();
++        code(lock_outbox_descriptor(second.as_raw_fd()), "RECOVERY_BUSY");
++        drop(first);
++        lock_outbox_descriptor(second.as_raw_fd()).unwrap();
++        code(lock_outbox_descriptor(-1), "RECOVERY_STORAGE_INVALID");
++    }
++    #[test]
++    fn recovery_deployment_uses_explicit_dev_indexers_and_distinct_signet_binding() {
++        let public = IndexerConfig::Esplora {
++            url: "https://indexer.example.test".into(),
++        };
++        let dev = IndexerConfig::DevSignetEsplora {
++            url: "https://dev.example.test".into(),
++        };
++        validate_recovery_indexer_profile("signet", &public).unwrap();
++        validate_recovery_indexer_profile("utexo", &dev).unwrap();
++        for (network, indexer) in [
++            ("utexo", &public),
++            ("signet", &dev),
++            ("regtest", &dev),
++            ("mainnet", &dev),
++        ] {
++            code(
++                validate_recovery_indexer_profile(network, indexer),
++                "RECOVERY_IDENTITY_MISMATCH",
++            );
++        }
++        let root = tempfile::tempdir().unwrap();
++        let keys = crate::keys::generate_keys(BitcoinNetwork::Signet, WitnessVersion::Taproot);
++        let wallet = Wallet::new(
++            WalletData {
++                data_dir: root.path().to_str().unwrap().into(),
++                bitcoin_network: BitcoinNetwork::Signet,
++                database_type: DatabaseType::Sqlite,
++                max_allocations_per_utxo: 5,
++                supported_schemas: vec![AssetSchema::Bfa],
++            },
++            SinglesigKeys::from_keys(&keys, None),
++        )
++        .unwrap();
++        assert_ne!(
++            wallet.recovery_binding("signet").unwrap(),
++            wallet.recovery_binding("utexo").unwrap()
++        );
++        code(
++            wallet.recovery_binding("mainnet"),
++            "RECOVERY_IDENTITY_MISMATCH",
++        );
++        code(
++            wallet.recovery_binding("regtest"),
++            "RECOVERY_IDENTITY_MISMATCH",
++        );
++    }
++    #[test]
++    fn proxy_witness_blinding_is_exactly_native_derived_not_caller_supplied() {
++        let sender_seed = [17u8; 32];
++        let sender = ed25519_from_seed(&sender_seed);
++        let recipient = ed25519_from_seed(&[29u8; 32]);
++        let key = recipient.verifying_key().to_bytes();
++        let actual = derive_shared(&sender, &recipient.verifying_key())
++            .unwrap()
++            .seal_blinding;
++        assert_eq!(
++            derive_shared(&recipient, &sender.verifying_key())
++                .unwrap()
++                .seal_blinding,
++            actual
++        );
++        validate_proxy_witness_blinding(None, Some(actual), Some(&sender_seed), &key).unwrap();
++        for value in [None, Some(actual.wrapping_add(1))] {
++            code(
++                validate_proxy_witness_blinding(None, value, Some(&sender_seed), &key),
++                "RECOVERY_REQUEST_MISMATCH",
++            );
++        }
++        let requested = actual.to_string();
++        code(
++            validate_proxy_witness_blinding(
++                Some(&requested),
++                Some(actual),
++                Some(&sender_seed),
++                &key,
++            ),
++            "RECOVERY_REQUEST_MISMATCH",
++        );
++        let other_recipient = ed25519_from_seed(&[31u8; 32]).verifying_key().to_bytes();
++        code(
++            validate_proxy_witness_blinding(
++                None,
++                Some(actual),
++                Some(&sender_seed),
++                &other_recipient,
++            ),
++            "RECOVERY_REQUEST_MISMATCH",
++        );
++        code(
++            validate_proxy_witness_blinding(None, Some(actual), Some(&[19u8; 32]), &key),
++            "RECOVERY_REQUEST_MISMATCH",
++        );
++        for seed in [None, Some(&sender_seed[..31])] {
++            code(
++                validate_proxy_witness_blinding(None, Some(actual), seed, &key),
++                "RECOVERY_STORAGE_INVALID",
++            );
++        }
++    }
++    fn setup() -> (tempfile::TempDir, Wallet, String) {
++        let root = tempfile::tempdir().unwrap();
++        let keys = crate::keys::generate_keys(BitcoinNetwork::Regtest, WitnessVersion::Taproot);
++        let wallet = Wallet::new(
++            WalletData {
++                data_dir: root.path().to_str().unwrap().into(),
++                bitcoin_network: BitcoinNetwork::Regtest,
++                database_type: DatabaseType::Sqlite,
++                max_allocations_per_utxo: 5,
++                supported_schemas: vec![AssetSchema::Nia, AssetSchema::Bfa],
++            },
++            SinglesigKeys::from_keys(&keys, None),
++        )
++        .unwrap();
++        let binding = wallet.recovery_binding("regtest").unwrap();
++        let identity=json!({"version":1,"walletBinding":binding,"cohort":"bb".repeat(16),"network":"regtest","witnessVersion":"taproot"}).to_string();
++        wallet
++            .initialize_onchain_recovery(identity.clone(), true)
++            .unwrap();
++        (root, wallet, identity)
++    }
++    fn command(wallet: &Wallet, id: &str) -> Envelope {
++        let mut e = Envelope {
++            version: 3,
++            backend: "RGB_L1".into(),
++            network: "regtest".into(),
++            wallet_binding: wallet.recovery_binding("regtest").unwrap(),
++            recovery_cohort: "bb".repeat(16),
++            native_source_revision: SOURCE.into(),
++            native_overlay: OVERLAY.into(),
++            request: Request {
++                version: 2,
++                operation_id: id.into(),
++                kind: Kind::Bitcoin,
++                amount: "1500".into(),
++                fee_rate: "2".into(),
++                address: Some("mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn".into()),
++                asset_id: None,
++                recipient_id: None,
++                transport_endpoints: vec![],
++                sender_transport_endpoint: None,
++                witness_amount_sat: None,
++                witness_blinding: None,
++                min_confirmations: 1,
++                donation: false,
++                expiration_timestamp: None,
++                invoice_public_key: None,
++                invoice_encryption: None,
++                fingerprint: String::new(),
++            },
++        };
++        e.request.fingerprint = sha256::Hash::hash(&serde_json::to_vec(&e).unwrap()).to_string();
++        e.validate().unwrap();
++        e
++    }
++    fn code<T>(result: Result<T, Error>, expected: &str) {
++        assert!(
++            matches!(result,Err(Error::Recovery{ref code}) if code==expected),
++            "unexpected native recovery result"
++        );
++    }
++    fn current_file(wallet: &Wallet) -> PathBuf {
++        wallet.get_wallet_dir().join(DIRECTORY).join("outbox.json")
++    }
++    fn write_private(path: &Path, bytes: &[u8]) {
++        fs::write(path, bytes).unwrap();
++        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
++    }
++
++    #[test]
++    fn canonical_managed_language_vectors_verify_natively_without_rounding() {
++        let vectors: Value =
++            serde_json::from_str(include_str!("bfa7_recovery_vectors.json")).unwrap();
++        for vector in vectors["vectors"].as_array().unwrap() {
++            let raw = vector["requestJson"].as_str().unwrap();
++            let e = Envelope::parse(raw).unwrap();
++            assert_eq!(
++                e.request.fingerprint,
++                vector["fingerprint"].as_str().unwrap()
++            );
++            assert_eq!(serde_json::to_string(&e).unwrap(), raw);
++            let mut altered = e.clone();
++            altered.request.amount = "1".into();
++            code(altered.validate(), "RECOVERY_REQUEST_MISMATCH");
++        }
++        assert_eq!(decimal("18446744073709551615", true).unwrap(), u64::MAX);
++        for invalid in ["18446744073709551616", "01", "-1", "1.0", "1e3", " 1"] {
++            code(decimal(invalid, true), "RECOVERY_REQUEST_INVALID");
++        }
++    }
++    #[test]
++    fn canceled_absence_is_a_durable_tombstone_and_never_dispatches_late_prepare() {
++        let (root, mut wallet, identity) = setup();
++        let e = command(&wallet, &"cc".repeat(16));
++        let raw = serde_json::to_string(&e).unwrap();
++        let absent: Value =
++            serde_json::from_str(&wallet.onchain_send_status(None, raw.clone()).unwrap()).unwrap();
++        assert_eq!(absent["phase"], "absent");
++        let cancelled: Value =
++            serde_json::from_str(&wallet.cancel_onchain_send(None, raw.clone()).unwrap()).unwrap();
++        assert_eq!(cancelled["phase"], "rejected");
++        let delayed: Value = serde_json::from_str(
++            &wallet
++                .prepare_onchain_send(Online { id: 0 }, raw.clone())
++                .unwrap(),
++        )
++        .unwrap();
++        assert_eq!(delayed["phase"], "rejected");
++        let keys = wallet.get_keys();
++        drop(wallet);
++        let mut wallet = Wallet::load(
++            root.path().to_str().unwrap(),
++            &keys.master_fingerprint,
++            keys.mnemonic,
++        )
++        .unwrap();
++        wallet.initialize_onchain_recovery(identity, false).unwrap();
++        let status: Value =
++            serde_json::from_str(&wallet.onchain_send_status(None, raw).unwrap()).unwrap();
++        assert_eq!(status["phase"], "rejected");
++        assert_eq!(status["endAuthorized"], false);
++        let mut conflicting = e;
++        conflicting.request.amount = "1700".into();
++        conflicting.request.fingerprint.clear();
++        conflicting.request.fingerprint =
++            sha256::Hash::hash(&serde_json::to_vec(&conflicting).unwrap()).to_string();
++        code(
++            wallet.cancel_onchain_send(None, serde_json::to_string(&conflicting).unwrap()),
++            "RECOVERY_REQUEST_MISMATCH",
++        );
++    }
++    #[test]
++    fn wrong_wallet_cohort_and_native_generation_fail_before_mutation() {
++        let (_r, mut wallet, _) = setup();
++        let e = command(&wallet, &"cc".repeat(16));
++        for (field, value) in [
++            ("walletBinding", Value::String("dd".repeat(32))),
++            ("recoveryCohort", Value::String("dd".repeat(16))),
++        ] {
++            let mut value_e = serde_json::to_value(&e).unwrap();
++            value_e[field] = value;
++            value_e["request"]
++                .as_object_mut()
++                .unwrap()
++                .remove("fingerprint");
++            let digest = sha256::Hash::hash(&serde_json::to_vec(&value_e).unwrap()).to_string();
++            value_e["request"]["fingerprint"] = Value::String(digest);
++            code(
++                wallet.cancel_onchain_send(None, value_e.to_string()),
++                "RECOVERY_IDENTITY_MISMATCH",
++            );
++        }
++        let mut value_e = serde_json::to_value(&e).unwrap();
++        value_e["nativeSourceRevision"] = Value::String("00".repeat(20));
++        code(
++            wallet.cancel_onchain_send(None, value_e.to_string()),
++            "RECOVERY_REQUEST_INVALID",
++        );
++        assert_eq!(
++            serde_json::from_str::<Value>(&wallet.onchain_recovery_state().unwrap()).unwrap()["retainedReceipts"],
++            0
++        );
++    }
++    #[test]
++    fn missing_truncated_and_valid_json_tampering_never_become_absence() {
++        let (_r, mut wallet, identity) = setup();
++        let raw = serde_json::to_string(&command(&wallet, &"cc".repeat(16))).unwrap();
++        let path = current_file(&wallet);
++        let saved = fs::read(&path).unwrap();
++        fs::remove_file(&path).unwrap();
++        code(
++            wallet.onchain_send_status(None, raw.clone()),
++            "RECOVERY_STORAGE_INVALID",
++        );
++        code(
++            wallet.initialize_onchain_recovery(identity.clone(), true),
++            "RECOVERY_STORAGE_INVALID",
++        );
++        write_private(&path, &saved[..saved.len() / 2]);
++        code(
++            wallet.onchain_send_status(None, raw.clone()),
++            "RECOVERY_STORAGE_INVALID",
++        );
++        let mut value: Value = serde_json::from_slice(&saved).unwrap();
++        value["records"] = json!([]);
++        value["revision"] = json!(123);
++        write_private(&path, &serde_json::to_vec(&value).unwrap());
++        code(
++            wallet.onchain_send_status(None, raw.clone()),
++            "RECOVERY_STORAGE_INVALID",
++        );
++        write_private(&path, &saved);
++        wallet.initialize_onchain_recovery(identity, false).unwrap();
++        assert!(
++            wallet
++                .onchain_send_status(None, raw)
++                .unwrap()
++                .contains("absent")
++        );
++    }
++    #[test]
++    fn same_account_stale_native_outbox_cannot_erase_a_cancellation_certificate() {
++        let (_r, mut wallet, _) = setup();
++        let path = current_file(&wallet);
++        let before = fs::read(&path).unwrap();
++        let raw = serde_json::to_string(&command(&wallet, &"cc".repeat(16))).unwrap();
++        wallet.cancel_onchain_send(None, raw.clone()).unwrap();
++        write_private(&path, &before);
++        code(
++            wallet.onchain_send_status(None, raw),
++            "RECOVERY_STORAGE_INVALID",
++        );
++    }
++    #[test]
++    fn file_permissions_links_and_simultaneous_writers_are_enforced() {
++        let (_r, wallet, _) = setup();
++        let path = current_file(&wallet);
++        let store = Store::open(&wallet, false).unwrap();
++        code(Store::open(&wallet, false), "RECOVERY_BUSY");
++        drop(store);
++        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
++        code(wallet.onchain_recovery_state(), "RECOVERY_STORAGE_INVALID");
++        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
++        let saved = fs::read(&path).unwrap();
++        fs::remove_file(&path).unwrap();
++        let other = path.with_extension("elsewhere");
++        write_private(&other, &saved);
++        std::os::unix::fs::symlink(&other, &path).unwrap();
++        code(wallet.onchain_recovery_state(), "RECOVERY_STORAGE_INVALID");
++        fs::remove_file(&path).unwrap();
++        fs::hard_link(&other, &path).unwrap();
++        code(wallet.onchain_recovery_state(), "RECOVERY_STORAGE_INVALID");
++    }
++    #[test]
++    fn atomic_writer_faults_recover_exactly_the_old_or_new_authenticated_state() {
++        for point in 1..=4 {
++            let (_r, wallet, _) = setup();
++            let store = Store::open(&wallet, false).unwrap();
++            let mut outbox = store.read(&wallet).unwrap();
++            let e = command(&wallet, &"cc".repeat(16));
++            outbox.records.push(Record::new(e));
++            store.write(&outbox).unwrap();
++            let mut accepted = outbox.clone();
++            accepted.records[0].txid = Some("ee".repeat(32));
++            accepted.records[0].finish(true, None);
++            WRITE_FAULT.with(|f| f.set(Some(point)));
++            assert!(store.write(&accepted).is_err());
++            let restored = store.read(&wallet).unwrap();
++            assert_eq!(
++                restored.records[0].phase,
++                if point == 1 {
++                    Phase::Preparing
++                } else {
++                    Phase::Accepted
++                }
++            );
++            let digest = sha256::Hash::hash(&fs::read(current_file(&wallet)).unwrap()).to_string();
++            let txn = wallet.database().begin_transaction().unwrap();
++            assert_eq!(Store::anchor(&txn).unwrap().unwrap().2, digest);
++            txn.commit().unwrap();
++        }
++    }
++    #[test]
++    fn rollback_at_native_reservation_commit_repairs_one_write_ahead_cohort_only() {
++        let (_r, wallet, _) = setup();
++        let store = Store::open(&wallet, false).unwrap();
++        let mut outbox = store.read(&wallet).unwrap();
++        let e = command(&wallet, &"cc".repeat(16));
++        outbox.records.push(Record::new(e));
++        let txn = wallet.database().begin_transaction().unwrap();
++        store.write_in(&outbox, Some(&txn)).unwrap();
++        drop(txn);
++        let recovered = store.read(&wallet).unwrap();
++        assert_eq!(recovered.records.len(), 1);
++        assert_eq!(recovered.records[0].phase, Phase::Preparing);
++        assert!(!recovered.records[0].dispatch_started);
++    }
++    #[test]
++    fn terminal_receipts_retain_authorized_gross_amount_without_signed_psbt() {
++        let (_r, wallet, _) = setup();
++        let store = Store::open(&wallet, false).unwrap();
++        let mut outbox = store.read(&wallet).unwrap();
++        let e = command(&wallet, &"cc".repeat(16));
++        let mut r = Record::new(e);
++        r.txid = Some("ee".repeat(32));
++        r.finish(true, None);
++        outbox.records.push(r);
++        store.write(&outbox).unwrap();
++        drop(store);
++        let page: Value =
++            serde_json::from_str(&wallet.list_onchain_send_receipts(0, 1).unwrap()).unwrap();
++        assert_eq!(page["total"], 1);
++        assert_eq!(page["receipts"][0]["amount"], "1500");
++        assert_eq!(page["receipts"][0]["endAuthorized"], true);
++        assert!(page["revision"].is_string());
++        let saved = String::from_utf8(fs::read(current_file(&wallet)).unwrap()).unwrap();
++        assert!(!saved.contains("\"signedPsbt\":\""));
++        assert!(!saved.contains("\"command\":{\""));
++        code(
++            wallet.list_onchain_send_receipts(0, 0),
++            "RECOVERY_REQUEST_INVALID",
++        );
++        code(
++            wallet.list_onchain_send_receipts(0, 501),
++            "RECOVERY_REQUEST_INVALID",
++        );
++        assert!(
++            wallet
++                .list_onchain_send_receipts(u32::MAX, 1)
++                .unwrap()
++                .contains("\"receipts\":[]")
++        );
++    }
++    #[test]
++    fn native_pending_inventory_exports_only_exact_approved_command_and_fences_mutations() {
++        let (_r, wallet, _) = setup();
++        let store = Store::open(&wallet, false).unwrap();
++        let mut outbox = store.read(&wallet).unwrap();
++        let e = command(&wallet, &"cc".repeat(16));
++        let expected = serde_json::to_string(&e).unwrap();
++        outbox.records.push(Record::new(e));
++        store.write(&outbox).unwrap();
++        drop(store);
++        code(wallet.assert_no_pending_onchain_send(), "RECOVERY_PENDING");
++        let audit: Value = serde_json::from_str(&wallet.onchain_recovery_state().unwrap()).unwrap();
++        assert_eq!(audit["restoredSnapshot"], false);
++        assert_eq!(audit["pending"][0]["commandJson"], expected);
++        assert!(!audit.to_string().contains("signedPsbt"));
++    }
++    #[test]
++    fn imported_genesis_is_exact_idempotent_and_never_credits_a_balance() {
++        let (_r, mut wallet, _) = setup();
++        let encoded = include_str!("bfa7-regtest-contract.base64")
++            .trim()
++            .to_owned();
++        let asset = include_str!("bfa7-regtest-contract.id").trim().to_owned();
++        let first: Value = serde_json::from_str(
++            &wallet
++                .import_contract_base64(encoded.clone(), asset.clone())
++                .unwrap(),
++        )
++        .unwrap();
++        assert_eq!(first["assetId"], asset);
++        assert_eq!(first["alreadyImported"], false);
++        assert_eq!(first["metadata"]["assetSchema"], "Bfa");
++        let second: Value = serde_json::from_str(
++            &wallet
++                .import_contract_base64(encoded.clone(), asset.clone())
++                .unwrap(),
++        )
++        .unwrap();
++        assert_eq!(second["alreadyImported"], true);
++        let balance = wallet.get_asset_balance(asset.clone()).unwrap();
++        assert_eq!(
++            (balance.settled, balance.future, balance.spendable),
++            (0, 0, 0)
++        );
++        assert!(
++            wallet
++                .import_contract_base64(
++                    encoded,
++                    "rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE".into()
++                )
++                .is_err()
++        );
++        assert_eq!(wallet.get_asset_balance(asset).unwrap().settled, 0);
++    }
++}
+diff --git a/src/wallet/mod.rs b/src/wallet/mod.rs
+index 1b7852c..af94262 100644
+--- a/src/wallet/mod.rs
++++ b/src/wallet/mod.rs
+@@ -13,6 +13,10 @@ pub(crate) mod offline;
+ pub(crate) mod online;
+ #[cfg(feature = "_online")]
+ mod prepared_sweep;
++#[cfg(feature = "_online")]
++mod durable_onchain;
++#[cfg(feature = "_online")]
++mod durable_observation;
+ #[cfg(test)]
+ mod prepared_sweep_fixture;
+ pub mod rust_only;
+diff --git a/src/wallet/online.rs b/src/wallet/online.rs
+index fa40d01..9962d9d 100644
+--- a/src/wallet/online.rs
++++ b/src/wallet/online.rs
+@@ -7182,6 +7182,17 @@ pub trait WalletOnline: WalletOffline {
+     }
+ 
+     fn send_end_impl(&mut self, txn: &DbTxn, signed_psbt: &Psbt) -> Result<OperationResult, Error> {
++        self.send_end_impl_with_durable_callback(txn, signed_psbt, |_| Ok(()))
++    }
++    fn send_end_impl_with_durable_callback<F>(
++        &mut self,
++        txn: &DbTxn,
++        signed_psbt: &Psbt,
++        mut before_submit: F,
++    ) -> Result<OperationResult, Error>
++    where
++        F: FnMut(&DbTxn) -> Result<(), Error>,
++    {
+         // a send ended again (e.g. retried after a crash) is completed only while it's still in
+         // progress: one that has failed (which revoked its signed TX on the sender proxy) or
+         // progressed must not be brought back to waiting for the counterparty. This is checked
+@@ -7225,7 +7236,14 @@ pub trait WalletOnline: WalletOffline {
+             fascia.update_witness_tx(tx.clone());
+         }
+ 
+-        self.gen_consignments(txn, &fascia, &info_contents.transfers, &transfer_dir)?;
++        super::durable_onchain::immutable_consignments(
++            self,
++            txn,
++            &fascia,
++            &info_contents.transfers,
++            &transfer_dir,
++            &txid,
++        )?;
+ 
+         // only the TX is needed to broadcast it
+         atomic_write(
+@@ -7324,6 +7342,7 @@ pub trait WalletOnline: WalletOffline {
+                     ),
+                 )
+             });
++            before_submit(txn)?;
+             let res = proxy_client.prepare_ack(
+                 transfer_data,
+                 &expiration,
+@@ -7510,7 +7529,19 @@ pub trait WalletOnline: WalletOffline {
+     }
+ 
+     fn send_btc_end_impl(&mut self, txn: &DbTxn, signed_psbt: &Psbt) -> Result<String, Error> {
++        self.send_btc_end_impl_with_durable_callback(txn, signed_psbt, |_| Ok(()))
++    }
++    fn send_btc_end_impl_with_durable_callback<F>(
++        &mut self,
++        txn: &DbTxn,
++        signed_psbt: &Psbt,
++        before_submit: F,
++    ) -> Result<String, Error>
++    where
++        F: FnOnce(&DbTxn) -> Result<(), Error>,
++    {
+         self.check_vanilla_end(txn, signed_psbt, WalletTransactionType::SendBtc)?;
++        before_submit(txn)?;
+         let tx = self.broadcast_psbt(txn, signed_psbt)?;
+         self.finalize_vanilla_wallet_transaction(txn, signed_psbt, WalletTransactionType::SendBtc)?;
+         Ok(tx.compute_txid().to_string())
+diff --git a/src/wallet/singlesig.rs b/src/wallet/singlesig.rs
+index 9374659..bab2078 100644
+--- a/src/wallet/singlesig.rs
++++ b/src/wallet/singlesig.rs
+@@ -878,7 +878,7 @@ impl Wallet {
+         self.keys.mnemonic.is_none()
+     }
+ 
+-    fn check_xprv(&self) -> Result<(), Error> {
++    pub(crate) fn check_xprv(&self) -> Result<(), Error> {
+         if self.watch_only() {
+             error!(self.logger(), "Invalid operation for a watch only wallet");
+             return Err(Error::WatchOnly);
+@@ -1187,6 +1187,36 @@ impl Wallet {
+         sender_transport_endpoint: Option<String>,
+         dry_run: bool,
+     ) -> Result<SendBeginResult, Error> {
++        self.send_begin_with_durable_callback(
++            online,
++            recipient_map,
++            donation,
++            fee_rate,
++            min_confirmations,
++            expiration_timestamp,
++            sender_transport_endpoint,
++            dry_run,
++            |_, _| Ok(()),
++        )
++    }
++
++    /// Persist an exact unsigned identity before input reservations may commit.
++    #[allow(clippy::too_many_arguments)]
++    pub fn send_begin_with_durable_callback<F>(
++        &mut self,
++        online: Online,
++        recipient_map: HashMap<String, Vec<Recipient>>,
++        donation: bool,
++        fee_rate: u64,
++        min_confirmations: u8,
++        expiration_timestamp: u64,
++        sender_transport_endpoint: Option<String>,
++        dry_run: bool,
++        prepared: F,
++    ) -> Result<SendBeginResult, Error>
++    where
++        F: FnOnce(&SendBeginResult, &DbTxn) -> Result<(), Error>,
++    {
+         info!(self.logger(), "Sending (begin) to: {:?}...", recipient_map);
+         self.check_online(online)?;
+         let txn = self.database().begin_transaction()?;
+@@ -1203,9 +1233,7 @@ impl Wallet {
+         if !dry_run {
+             self.update_backup_info(&txn, false)?;
+         }
+-        self.persist_and_commit(txn)?;
+-        info!(self.logger(), "Send (begin) completed");
+-        Ok(SendBeginResult {
++        let result = SendBeginResult {
+             psbt: begin_op_data.psbt.to_string(),
+             batch_transfer_idx: begin_op_data.batch_transfer_idx,
+             details: SendDetails {
+@@ -1218,7 +1246,10 @@ impl Wallet {
+                 entropy: begin_op_data.info_batch_transfer.entropy,
+                 is_donation: donation,
+             },
+-        })
++        };
++        prepared(&result, &txn)?;
++        self.persist_and_commit(txn)?;
++        Ok(result)
+     }
+ 
+     /// Complete the send operation by saving the PSBT to disk, POSTing consignments to the RGB
+@@ -1368,10 +1399,37 @@ impl Wallet {
+         skip_sync: bool,
+         dry_run: bool,
+     ) -> Result<String, Error> {
++        self.send_btc_begin_with_durable_callback(
++            online,
++            address,
++            amount,
++            fee_rate,
++            skip_sync,
++            dry_run,
++            |_, _| Ok(()),
++        )
++    }
++
++    /// Persist an exact unsigned identity before input reservations may commit.
++    #[allow(clippy::too_many_arguments)]
++    pub fn send_btc_begin_with_durable_callback<F>(
++        &mut self,
++        online: Online,
++        address: String,
++        amount: u64,
++        fee_rate: u64,
++        skip_sync: bool,
++        dry_run: bool,
++        prepared: F,
++    ) -> Result<String, Error>
++    where
++        F: FnOnce(&str, &DbTxn) -> Result<(), Error>,
++    {
+         info!(self.logger(), "Sending BTC (begin)...");
+         self.check_online(online)?;
+         let txn = self.database().begin_transaction()?;
+         let res = self.send_btc_begin_impl(&txn, address, amount, fee_rate, skip_sync, dry_run)?;
++        prepared(&res.to_string(), &txn)?;
+         if !dry_run {
+             self.update_backup_info(&txn, false)?;
+         }

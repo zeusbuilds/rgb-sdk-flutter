@@ -9,11 +9,13 @@ final class RgbLibWalletIdentity {
     required this.id,
     required this.network,
     required this.masterFingerprint,
+    this.recoveryCohort,
   });
 
   final String id;
   final String network;
   final String masterFingerprint;
+  final String? recoveryCohort;
 
   String get protocol => 'RGB_L1';
 }
@@ -25,17 +27,38 @@ final class RgbLibRuntimeInfo {
     required this.sourceRevision,
     required this.bridgeVersion,
     required this.capabilities,
+    required this.integrationTree,
+    required this.overlayPatchSha256,
+    required this.sourceLockSha256,
+    required this.sourceManifestSha256,
+    this.contractRegistration = false,
+    this.durableOnchainRecovery = false,
   });
 
-  static const expectedVersion = '0.3.0-beta.7-upstream-dev-bfa.5-bfa';
+  static const expectedVersion =
+      '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1';
   static const expectedSourceRevision =
-      '0a9d352f2690902df2b6fae9bca1a6c13c3354d4';
-  static const expectedBridgeVersion = 4;
+      '9ec49c08be2e68f08521281e3efbd760ec989cb9';
+  static const expectedBridgeVersion = 5;
+  static const expectedIntegrationTree =
+      'c06ffffce1f0fd5273113132295fce3e6be25052';
+  static const expectedOverlayPatchSha256 =
+      '3ae6c65184ef6a4ea534100dac82e3c532192482cbd0229c2aa0238d1cf044c7';
+  static const expectedSourceLockSha256 =
+      '4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f';
+  static const expectedSourceManifestSha256 =
+      'd274d1ae7c23f7a27175a94dda5266be11912c23ce95f56c5ca993e2bd3f373f';
 
   final String version;
   final String sourceRevision;
   final int bridgeVersion;
+  final String integrationTree;
+  final String overlayPatchSha256;
+  final String sourceLockSha256;
+  final String sourceManifestSha256;
   final BfaCapabilities capabilities;
+  final bool contractRegistration;
+  final bool durableOnchainRecovery;
 }
 
 enum RgbLibAssetSchema {
@@ -91,6 +114,25 @@ final class RgbLibAssetMetadata {
   final String? linkedToContract;
 }
 
+/// A native-validated received mint requiring a matching external-chain lock.
+/// This is an observation, not proof that the mint or backing lock completed.
+final class RgbLibReceivedMint {
+  RgbLibReceivedMint._(RgbLibWire value)
+    : opid = value.requiredText('opid'),
+      lockId = value.requiredText('lockId'),
+      amount = value.amount('amount'),
+      beforeBlock = value.amount('beforeBlock'),
+      evmChainId = value.amount('evmChainId'),
+      bridgeContract = value.requiredText('bridgeContract');
+
+  final String opid;
+  final String lockId;
+  final BigInt amount;
+  final BigInt beforeBlock;
+  final BigInt evmChainId;
+  final String bridgeContract;
+}
+
 /// An RGB_L1 receive request, with the transport encryption public key.
 final class RgbLibReceiveData extends CoreInvoiceReceiveData {
   RgbLibReceiveData._(RgbLibWire value)
@@ -122,6 +164,7 @@ final class RgbLibInvoiceData extends CoreInvoiceData {
       super(
         invoice: invoice,
         recipientId: value.requiredText('recipientId'),
+        recipientType: value.known('recipientType', {'Blind', 'Witness'}),
         assetSchema: value.optionalText('assetSchema') == null
             ? null
             : value.schema('assetSchema').wireValue,
@@ -143,6 +186,9 @@ final class RgbLibTransfer extends CoreTransfer {
   RgbLibTransfer._(RgbLibWire value)
     : invoiceString = value.optionalText('invoiceString'),
       consignmentPath = value.optionalText('consignmentPath'),
+      changeUtxos = List.unmodifiable(
+        value.rows('changeUtxos').map((row) => row.outpoint),
+      ),
       super(
         idx: value.integer('idx'),
         batchTransferIdx: value.integer('batchTransferIdx'),
@@ -160,7 +206,9 @@ final class RgbLibTransfer extends CoreTransfer {
         txid: value.optionalTxid('txid'),
         recipientId: value.optionalText('recipientId'),
         receiveUtxo: value.optionalChild('receiveUtxo')?.outpoint,
-        changeUtxo: value.optionalChild('changeUtxo')?.outpoint,
+        changeUtxo: value.rows('changeUtxos').length == 1
+            ? value.rows('changeUtxos').single.outpoint
+            : null,
         expiration: value.optionalDecimalInt('expiration'),
         transportEndpoints: [
           for (final row in value.rows('transportEndpoints'))
@@ -174,6 +222,9 @@ final class RgbLibTransfer extends CoreTransfer {
 
   final String? invoiceString;
   final String? consignmentPath;
+
+  /// Every native change output; the legacy singular field is null for multiple outputs.
+  final List<Outpoint> changeUtxos;
 }
 
 /// Chain metadata; a height is absent when native has no observed tip.
@@ -232,6 +283,8 @@ final class RgbLibWire {
     : map = value is Map<Object?, Object?> ? value : invalidRgbLibWire(field);
 
   final Map<Object?, Object?> map;
+
+  RgbLibReceivedMint get receivedMint => RgbLibReceivedMint._(this);
 
   RgbLibWire child(String key) => RgbLibWire(map[key], key);
 

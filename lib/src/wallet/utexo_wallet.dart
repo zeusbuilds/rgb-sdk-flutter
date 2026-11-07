@@ -35,6 +35,7 @@ part 'utexo_wallet_lsp_apay.dart';
 part 'utexo_wallet_onchain.dart';
 part 'utexo_wallet_asset_media.dart';
 part 'recoverable_onchain_send.dart';
+part 'rgb_lib_recoverable_codec.dart';
 part 'utexo_wallet_lightning.dart';
 part 'utexo_wallet_raw.dart';
 part 'utexo_wallet_guards.dart';

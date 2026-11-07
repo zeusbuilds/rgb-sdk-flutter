@@ -16,7 +16,14 @@ private func rgbInvalid(_ message: String) -> RgbBridgeFailure {
 /// Rust variant. Used for rejections and for per-transfer refresh failures.
 /// The case name comes from reflection (payload cases) or the bare case text
 /// (payload-free cases), never from a type-qualified description.
+private let rgbRecoveryErrorCodes: Set<String> = [
+  "RECOVERY_STORAGE_INVALID", "RECOVERY_IDENTITY_MISMATCH", "RECOVERY_REQUEST_MISMATCH",
+  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN"
+]
 func rgbLibErrorCode(_ error: RGBLib.RgbLibError) -> String {
+  if case .Recovery(let code) = error {
+    return rgbRecoveryErrorCodes.contains(code) ? code : "NATIVE_ERROR"
+  }
   let described = String(describing: error).prefix { $0 != "(" }
   let name = Mirror(reflecting: error).children.first?.label
     ?? String(described.split(separator: ".").last ?? "")
@@ -24,6 +31,20 @@ func rgbLibErrorCode(_ error: RGBLib.RgbLibError) -> String {
     return "RGB_LIB_Unknown"
   }
   return "RGB_LIB_" + name.prefix(1).uppercased() + name.dropFirst()
+}
+private let rgbNativeSource = "9ec49c08be2e68f08521281e3efbd760ec989cb9"
+private let rgbNativeOverlay = "flutter-bfa7-durable-v1"
+private func rgbWriteProfile(_ profile: [String: Any], to file: URL) throws {
+  try JSONSerialization.data(withJSONObject: profile).write(to: file, options: .atomic)
+  try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+  let descriptor = Darwin.open(file.path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+  guard descriptor >= 0 else { throw rgbInvalid("Cannot persist wallet profile") }
+  defer { Darwin.close(descriptor) }
+  guard Darwin.fsync(descriptor) == 0 else { throw rgbInvalid("Cannot persist wallet profile") }
+  let parent = Darwin.open(file.deletingLastPathComponent().path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
+  guard parent >= 0 else { throw rgbInvalid("Cannot persist wallet profile directory") }
+  defer { Darwin.close(parent) }
+  guard Darwin.fsync(parent) == 0 else { throw rgbInvalid("Cannot persist wallet profile directory") }
 }
 private struct RgbParams {
   let values: [String: Any]
@@ -83,13 +104,12 @@ private func rgbArtifactInfo() -> [String: Any] {
   return info
 }
 private func rgbNetworkFromName(_ name: String) throws -> RGBLib.BitcoinNetwork {
-  switch name {
+  switch RgbLibNetworkPolicy.nativeNetwork(name) {
   case "mainnet": return .mainnet
   case "testnet": return .testnet
   case "testnet4": return .testnet4
   case "signet": return .signet
   case "regtest": return .regtest
-  case "utexo": return .signetCustom
   default: throw rgbInvalid("Unsupported Bitcoin network")
   }
 }
@@ -132,6 +152,7 @@ private final class RgbLibSession {
   let lease: RgbLibLease
   var profile: [String: Any]
   let reuse: Bool
+  let address = RgbLibSessionAddress()
   var online: RGBLib.Online?
   /// Serializes calls on this native handle; other sessions run independently.
   let lock = NSLock()
@@ -144,9 +165,8 @@ private final class RgbLibSession {
   }
   func save() throws {
     guard let wallet else { throw rgbInvalid("Wallet is closed") }
-    let data = try JSONSerialization.data(withJSONObject: profile)
-    try data.write(to: URL(fileURLWithPath: wallet.getWalletDir()).appendingPathComponent(rgbProfileName), options: .atomic)
-    try data.write(to: lease.root.appendingPathComponent(rgbProfileName), options: .atomic)
+    try rgbWriteProfile(profile, to: URL(fileURLWithPath: wallet.getWalletDir()).appendingPathComponent(rgbProfileName))
+    try rgbWriteProfile(profile, to: lease.root.appendingPathComponent(rgbProfileName))
   }
 }
 
@@ -166,6 +186,9 @@ final class RgbLibSwiftHelper {
   }
   private static func open(_ p: RgbParams) throws -> String {
     let net = try p.string("network")
+    guard !RgbLibNetworkPolicy.deploymentUnavailable(net) else {
+      throw RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "UTEXO Dev Signet is not qualified")
+    }
     let witnessName = try p.string("witnessVersion")
     let witness: RGBLib.WitnessVersion
     switch witnessName {
@@ -192,12 +215,14 @@ final class RgbLibSwiftHelper {
     } else {
       throw rgbInvalid("A mnemonic or public keys are required")
     }
+    keys.fingerprint = keys.fingerprint.lowercased()
     let max = try p.number("maxAllocationsPerUtxo", UInt32.self)
     guard max > 0 else { throw rgbInvalid("maxAllocationsPerUtxo must be positive") }
     let text = "\(net):\(witnessName):\(keys.vanilla):\(keys.colored)"
     let id = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     let expected: [String: Any] = [
-      "formatVersion": 1, "backend": "rgb-lib", "id": id, "network": net,
+      "formatVersion": 2, "backend": "rgb-lib", "id": id, "network": net,
+      "nativeSourceRevision": rgbNativeSource, "nativeOverlay": rgbNativeOverlay,
       "witnessVersion": witnessName, "maxAllocations": NSNumber(value: max),
       "masterFingerprint": keys.fingerprint, "accountXpubVanilla": keys.vanilla,
       "accountXpubColored": keys.colored
@@ -205,20 +230,29 @@ final class RgbLibSwiftHelper {
     let lease = try RgbLibLease(p.string("dataDir"))
     let marker = lease.root.appendingPathComponent(rgbProfileName)
     var profile = expected
+    profile["recoveryCohort"] = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     var created = false
     if FileManager.default.fileExists(atPath: marker.path) {
-      guard let stored = try JSONSerialization.jsonObject(with: Data(contentsOf: marker)) as? [String: Any],
+      let attributes = try marker.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+      guard attributes.isRegularFile == true, attributes.isSymbolicLink != true,
+        attributes.fileSize ?? Int.max <= 65536,
+        let stored = try JSONSerialization.jsonObject(with: Data(contentsOf: marker)) as? [String: Any],
         expected.allSatisfy({ key, value in (stored[key] as? NSObject)?.isEqual(value) == true }) else {
         throw RgbBridgeFailure(code: "WALLET_PROFILE_MISMATCH", message: "Storage belongs to a different wallet profile")
+      }
+      guard let cohort = stored["recoveryCohort"] as? String,
+        cohort.range(of: "^[0-9a-f]{32}$", options: .regularExpression) != nil else {
+        throw RgbBridgeFailure(code: "WALLET_PROFILE_MISMATCH", message: "Wallet recovery identity is unavailable")
       }
       profile = stored
     } else {
       guard try FileManager.default.contentsOfDirectory(atPath: lease.root.path).allSatisfy({ $0 == rgbLockName }) else {
         throw RgbBridgeFailure(code: "WALLET_STORAGE_NOT_EMPTY", message: "Use a separate empty wallet directory")
       }
-      try JSONSerialization.data(withJSONObject: expected).write(to: marker, options: .atomic)
+      try rgbWriteProfile(profile, to: marker)
       created = true
     }
+    profile.removeValue(forKey: "cachedAddress")
     let session: RgbLibSession
     do {
       let wallet = try RGBLib.Wallet(
@@ -226,6 +260,16 @@ final class RgbLibSwiftHelper {
         keys: RGBLib.SinglesigKeys(accountXpubVanilla: keys.vanilla, accountXpubColored: keys.colored, vanillaKeychain: nil, masterFingerprint: keys.fingerprint, mnemonic: mnemonic, witnessVersion: witness)
       )
       session = RgbLibSession(wallet: wallet, lease: lease, profile: profile, reuse: try p.bool("reuseAddresses"))
+      let identity: [String: Any] = ["version": 1, "walletBinding": id,
+        "cohort": profile["recoveryCohort"]!, "network": net, "witnessVersion": witnessName]
+      let text = String(data: try JSONSerialization.data(withJSONObject: identity), encoding: .utf8)!
+      let recoveryText = try wallet.initializeOnchainRecovery(identityJson: text, allowCreate: created)
+      guard let recoveryData = recoveryText.data(using: .utf8),
+        let recovery = try JSONSerialization.jsonObject(with: recoveryData) as? [String: Any],
+        recovery["walletBinding"] as? String == id,
+        recovery["cohort"] as? String == profile["recoveryCohort"] as? String else {
+        throw RgbBridgeFailure(code: "RECOVERY_IDENTITY_MISMATCH", message: "Native recovery identity does not match this wallet")
+      }
       try session.save()
     } catch {
       // The directory was empty before this call: return it to that state, or
@@ -254,26 +298,64 @@ final class RgbLibSwiftHelper {
     try RGBLib.restoreBackup(backupPath: p.string("backupPath"), password: p.string("password"), dataDir: stage.path)
     let dirs = try fm.contentsOfDirectory(at: stage, includingPropertiesForKeys: nil).filter { fm.fileExists(atPath: $0.appendingPathComponent(rgbProfileName).path) }
     guard dirs.count == 1,
-      let profile = try JSONSerialization.jsonObject(with: Data(contentsOf: dirs[0].appendingPathComponent(rgbProfileName))) as? [String: Any] else {
+      var profile = try JSONSerialization.jsonObject(with: Data(contentsOf: dirs[0].appendingPathComponent(rgbProfileName))) as? [String: Any] else {
       throw RgbBridgeFailure(code: "BACKUP_PROFILE_MISSING", message: "Backup does not contain an SDK RGB Lib profile")
     }
-    guard profile["formatVersion"] as? Int == 1, profile["backend"] as? String == "rgb-lib",
+    guard profile["formatVersion"] as? Int == 2, profile["backend"] as? String == "rgb-lib",
+      profile["nativeSourceRevision"] as? String == rgbNativeSource,
+      profile["nativeOverlay"] as? String == rgbNativeOverlay,
+      let cohort = profile["recoveryCohort"] as? String,
+      cohort.range(of: "^[0-9a-f]{32}$", options: .regularExpression) != nil,
       let fingerprint = profile["masterFingerprint"] as? String, fingerprint.count == 8,
       fingerprint.allSatisfy({ $0.isHexDigit }), dirs[0].lastPathComponent == fingerprint else {
       throw RgbBridgeFailure(code: "BACKUP_PROFILE_MISMATCH", message: "Invalid backup profile")
     }
+    guard !RgbLibNetworkPolicy.deploymentUnavailable(profile["network"] as? String ?? "") else {
+      throw RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "UTEXO Dev Signet is not qualified")
+    }
+    try validateRestoredRecovery(dirs[0], profile)
+    profile.removeValue(forKey: "cachedAddress")
+    try rgbWriteProfile(profile, to: dirs[0].appendingPathComponent(rgbProfileName))
     let destination = lease.root.appendingPathComponent(fingerprint)
     try fm.moveItem(at: dirs[0], to: destination)
     do {
-      try JSONSerialization.data(withJSONObject: profile).write(to: lease.root.appendingPathComponent(rgbProfileName), options: .atomic)
+      try rgbWriteProfile(profile, to: lease.root.appendingPathComponent(rgbProfileName))
     } catch {
       try? fm.removeItem(at: destination)
       throw error
     }
   }
+  private static func validateRestoredRecovery(_ walletDir: URL, _ profile: [String: Any]) throws {
+    let directory = walletDir.appendingPathComponent(".flutter-onchain-v1")
+    let outbox = directory.appendingPathComponent("outbox.json")
+    let lock = directory.appendingPathComponent(".lock")
+    guard walletDir.resolvingSymlinksInPath().standardizedFileURL == walletDir.standardizedFileURL,
+      directory.resolvingSymlinksInPath().standardizedFileURL == directory.standardizedFileURL,
+      outbox.resolvingSymlinksInPath().standardizedFileURL == outbox.standardizedFileURL,
+      lock.resolvingSymlinksInPath().standardizedFileURL == lock.standardizedFileURL,
+      (try lock.resourceValues(forKeys: [.isRegularFileKey])).isRegularFile == true,
+      (try lock.resourceValues(forKeys: [.fileSizeKey])).fileSize == 0,
+      (try directory.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == true,
+      (try outbox.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])).isRegularFile == true,
+      (try outbox.resourceValues(forKeys: [.fileSizeKey])).fileSize ?? Int.max <= 32*1024*1024,
+      let header = try JSONSerialization.jsonObject(with: Data(contentsOf: outbox)) as? [String: Any],
+      header["version"] as? Int == 1,
+      header["walletBinding"] as? String == profile["id"] as? String,
+      header["cohort"] as? String == profile["recoveryCohort"] as? String,
+      header["network"] as? String == profile["network"] as? String,
+      header["sourceRevision"] as? String == rgbNativeSource,
+      header["overlay"] as? String == rgbNativeOverlay else {
+      throw RgbBridgeFailure(code: "BACKUP_PROFILE_MISMATCH", message: "Backup recovery identity is unavailable or does not match this wallet")
+    }
+    // Only the known authenticated recovery files in the fresh restore area
+    // receive normalized Unix permissions; ordinary wallet opens never repair it.
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: outbox.path)
+    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: lock.path)
+  }
   private static func consignment(_ s: RgbLibSession, _ p: RgbParams) throws -> URL {
     let w = s.wallet!
-    let paths = Set(try w.listTransfers(assetFilter: .id(assetId: p.string("assetId")), txid: p.string("txid")).compactMap { $0.consignmentPath })
+    let paths = Set(try w.listTransfers(assetFilter: .id(assetId: p.string("assetId")), scope: .txid(txid: p.string("txid"))).compactMap { $0.consignmentPath })
     guard paths.count == 1, let path = paths.first else { throw RgbBridgeFailure(code: "CONSIGNMENT_NOT_FOUND", message: "No unique consignment for this transfer") }
     let file = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL
     let root = URL(fileURLWithPath: w.getWalletDir()).resolvingSymlinksInPath().standardizedFileURL.path
@@ -315,7 +397,7 @@ final class RgbLibSwiftHelper {
     switch operation {
     case "getRuntimeInfo":
       let artifact = rgbArtifactInfo()
-      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": 4, "burn": true, "consignment": true, "bfa": true]
+      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": 5, "integrationTree": artifact["integration_tree"] as? String ?? "", "overlayPatchSha256": artifact["overlay_patch_sha256"] as? String ?? "", "sourceLockSha256": artifact["source_lock_sha256"] as? String ?? "", "sourceManifestSha256": artifact["source_manifest_sha256"] as? String ?? "", "nativeOverlay": artifact["native_overlay"] as? String ?? "", "contractRegistration": true, "durableOnchainRecovery": true, "burn": true, "consignment": true, "bfa": true]
     case "openWallet": return try open(p)
     case "restoreBackup": try restore(p); return NSNull()
     default: break
@@ -336,45 +418,62 @@ final class RgbLibSwiftHelper {
     }
     return try run(operation, s, w, p)
   }
+  private static func indexerConfig(_ s: RgbLibSession, _ p: RgbParams) throws -> RGBLib.IndexerConfig {
+    let url = try p.string("indexerUrl")
+    guard let kind = RgbLibNetworkPolicy.indexerKind(s.profile["network"] as! String, try p.string("indexerKind")) else {
+      throw rgbInvalid("Indexer does not match the wallet chain profile")
+    }
+    switch kind {
+    case "electrum": return .electrum(url: url)
+    case "esplora": return .esplora(url: url)
+    case "devSignetElectrum": return .devSignetElectrum(url: url)
+    case "devSignetEsplora": return .devSignetEsplora(url: url)
+    case "bitcoind":
+      let auth: RGBLib.BitcoindAuth = try p.optional("cookieFile").map { .cookieFile(path: $0) } ?? .userPass(username: p.string("username"), password: p.string("password"))
+      return .bitcoind(url: url, auth: auth)
+    default: throw rgbInvalid("Unsupported indexer")
+    }
+  }
   private static func run(_ operation: String, _ s: RgbLibSession, _ w: RGBLib.Wallet, _ p: RgbParams) throws -> Any {
-    switch operation {
-    case "getWalletIdentity": return ["id": s.profile["id"]!, "network": s.profile["network"]!, "masterFingerprint": s.profile["masterFingerprint"]!]
+    return try RgbLibOperationPolicy.perform(operation, assertNoPending: { try w.assertNoPendingOnchainSend() }) {
+      switch operation {
+    case "getWalletIdentity": return ["id": s.profile["id"]!, "network": s.profile["network"]!, "masterFingerprint": s.profile["masterFingerprint"]!, "recoveryCohort": s.profile["recoveryCohort"]!]
+    case "getPublicKeys": return ["accountXpubVanilla": s.profile["accountXpubVanilla"]!, "accountXpubColored": s.profile["accountXpubColored"]!, "masterFingerprint": s.profile["masterFingerprint"]!]
+    case "getReceivedMint":
+      let recipient = try p.string("recipientId")
+      // Validate with the actual parser before core's recipient-named path lookup.
+      _ = try RGBLib.RecipientInfo(recipientId: recipient).recipientType()
+      return try w.getReceivedMint(recipientId: recipient).map { rgbDto($0) } ?? (NSNull() as Any)
+    case "importContract": return try w.importContract(contractBase64: p.string("contractBase64"), expectedAssetId: p.string("expectedAssetId"))
+    case "prepareOnchainSend": return try w.prepareOnchainSend(online: s.requireOnline(), requestJson: p.string("requestJson"))
+    case "commitOnchainSend": return try w.commitOnchainSend(online: s.requireOnline(), requestJson: p.string("requestJson"))
+    case "onchainSendStatus": return try w.onchainSendStatus(online: s.online, requestJson: p.string("requestJson"))
+    case "cancelOnchainSend": return try w.cancelOnchainSend(online: s.online, requestJson: p.string("requestJson"))
+    case "onchainRecoveryState": return try w.onchainRecoveryState()
+    case "listOnchainSendReceipts": return try w.listOnchainSendReceipts(offset: p.number("offset", UInt32.self), limit: p.number("limit", UInt16.self))
     case "goOnline":
-      let url = try p.string("indexerUrl")
-      let indexer: RGBLib.IndexerConfig
-      switch try p.string("indexerKind") {
-      case "electrum": indexer = .electrum(url: url)
-      case "esplora": indexer = .esplora(url: url)
-      case "bitcoind":
-        let auth: RGBLib.BitcoindAuth = try p.optional("cookieFile").map { .cookieFile(path: $0) } ?? .userPass(username: p.string("username"), password: p.string("password"))
-        indexer = .bitcoind(url: url, auth: auth)
-      default: throw rgbInvalid("Unsupported indexer")
-      }
+      let indexer = try indexerConfig(s, p)
       let ids = try p.strings("evmChainIds"), urls = try p.strings("evmRpcUrls")
+      let minimums = try p.strings("evmMinMintLockBlocks"), maximums = try p.strings("evmMaxMintLockBlocks")
       let endpoints = try p.strings("proxyEndpoints"), keys = try p.strings("proxyAuthKeys")
-      guard ids.count == urls.count, endpoints.count == keys.count else { throw rgbInvalid("Configuration arrays do not match") }
-      var evm: [UInt64: String] = [:]
-      for (id, url) in zip(ids, urls) {
-        guard let id = UInt64(id) else { throw rgbInvalid("Invalid chain ID") }; evm[id] = url
+      guard ids.count == urls.count, ids.count == minimums.count, ids.count == maximums.count, endpoints.count == keys.count else { throw rgbInvalid("Configuration arrays do not match") }
+      var evm: [UInt64: RGBLib.EvmChain] = [:]
+      for i in ids.indices {
+        guard let id = UInt64(ids[i]), let min = UInt64(minimums[i]), let max = UInt64(maximums[i]), min >= 2, max >= min else { throw rgbInvalid("Invalid backing chain policy") }
+        evm[id] = RGBLib.EvmChain(rpcUrl: urls[i], minMintLockBlocks: min, maxMintLockBlocks: max)
       }
       let proxy = zip(endpoints, keys).reduce(into: [String: String]()) { $0[$1.0] = $1.1 }
-      s.online = try w.goOnline(onlineOptions: RGBLib.OnlineOptions(indexerConfig: indexer, skipConsistencyCheck: false, vanillaSyncLookback: 20, failedWitnessReceiveGraceSecs: 86400, proxyAuthKeys: proxy, evmRpcUrls: evm))
+      s.online = try w.goOnline(onlineOptions: RGBLib.OnlineOptions(indexerConfig: indexer, skipConsistencyCheck: false, vanillaSyncLookback: 20, failedWitnessReceiveGraceSecs: 86400, proxyAuthKeys: proxy, evmChains: evm))
       return NSNull()
     case "getAddress":
-      if try p.bool("rotate") || !s.reuse || s.profile["cachedAddress"] as? String == nil {
-        let address = try w.getAddress(), previous = s.profile["cachedAddress"]
-        s.profile["cachedAddress"] = address
-        // Never keep an in-memory address that was not persisted.
-        do { try s.save() } catch { s.profile["cachedAddress"] = previous; throw error }
-      }
-      return s.profile["cachedAddress"]!
+      return try s.address.get(reuse: s.reuse, rotate: p.bool("rotate")) { try w.getAddress() }
     case "getBtcBalance": return try rgbDto(w.getBtcBalance(online: s.online, skipSync: p.bool("skipSync")))
     case "getAssetBalance": return try rgbDto(w.getAssetBalance(assetId: p.string("assetId")))
     case "listAssets": return try rgbDto(w.listAssets(filterAssetSchemas: p.strings("filterAssetSchemas").map(rgbSchema)))
     case "getAssetMetadata": return try rgbDto(w.getAssetMetadata(assetId: p.string("assetId")))
     case "listUnspents": return try w.listUnspents(online: s.online, settledOnly: false, skipSync: p.bool("skipSync")).map { rgbDto($0) }
     case "listTransactions": return try w.listTransactions(online: s.online, skipSync: p.bool("skipSync")).map { rgbDto($0) }
-    case "listTransfers": return try w.listTransfers(assetFilter: p.optional("assetId").map { .id(assetId: $0) } ?? .anyOrNone, txid: p.optional("txid")).map { rgbDto($0) }
+    case "listTransfers": return try w.listTransfers(assetFilter: p.optional("assetId").map { .id(assetId: $0) } ?? .anyOrNone, scope: p.optional("txid").map { .txid(txid: $0) } ?? .all).map { rgbDto($0) }
     case "createUtxos": return try w.createUtxos(online: s.requireOnline(), upTo: p.bool("upTo"), num: p.has("num") ? p.number("num", UInt8.self) : nil, size: p.has("size") ? p.number("size", UInt32.self) : nil, feeRate: p.amount("feeRate"), skipSync: p.bool("skipSync"))
     case "sendBtc": return try w.sendBtc(online: s.requireOnline(), address: p.string("address"), amount: p.amount("amount"), feeRate: p.amount("feeRate"), skipSync: p.bool("skipSync"))
     case "receive":
@@ -383,7 +482,16 @@ final class RgbLibSwiftHelper {
         return try rgbDto(w.witnessReceive(online: s.online, assetId: p.optional("assetId"), assignment: assignment, expirationTimestamp: p.amount("expirationTimestamp"), transportEndpoints: p.strings("transportEndpoints"), minConfirmations: p.number("minConfirmations", UInt8.self), encryption: nil))
       }
       return try rgbDto(w.blindReceive(online: s.online, assetId: p.optional("assetId"), assignment: assignment, expirationTimestamp: p.amount("expirationTimestamp"), transportEndpoints: p.strings("transportEndpoints"), minConfirmations: p.number("minConfirmations", UInt8.self), encryption: nil))
-    case "decodeInvoice": return try rgbDto(RGBLib.Invoice(invoiceString: p.string("invoice")).invoiceData())
+    case "decodeInvoice":
+      let data = try RGBLib.Invoice(invoiceString: p.string("invoice")).invoiceData()
+      let kind = try RGBLib.RecipientInfo(recipientId: data.recipientId).recipientType()
+      var result = rgbDto(data)
+      switch kind {
+      case .blind: result["recipientType"] = "Blind"
+      case .witness: result["recipientType"] = "Witness"
+      @unknown default: throw rgbInvalid("Unsupported recipient type")
+      }
+      return result
     case "send": return try send(s, p)
     case "issueAssetNia": return try rgbDto(w.issueAssetNia(ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }))
     case "issueAssetCfa": return try rgbDto(w.issueAssetCfa(name: p.string("name"), details: p.optional("details"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, filePath: p.optional("filePath")))
@@ -398,7 +506,13 @@ final class RgbLibSwiftHelper {
     case "deleteTransfers": return try w.deleteTransfers(batchTransferIdx: p.has("batchTransferIdx") ? p.number("batchTransferIdx", Int32.self) : nil, noAssetOnly: p.bool("noAssetOnly"))
     case "drainTo": return try w.drainTo(online: s.requireOnline(), address: p.string("address"), feeRate: p.amount("feeRate"))
     case "checkIndexerUrl":
-      switch try RGBLib.checkIndexerUrl(indexerUrl: p.string("indexerUrl"), bitcoindAuth: nil, bitcoinNetwork: rgbNetworkFromName(s.profile["network"] as! String)) {
+      guard !RgbLibNetworkPolicy.deploymentUnavailable(s.profile["network"] as! String) else {
+        throw RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "UTEXO Dev Signet is not qualified")
+      }
+      let protocolResult = try p.has("indexerKind")
+        ? RGBLib.checkIndexerConfig(indexerConfig: indexerConfig(s,p), bitcoinNetwork: rgbNetworkFromName(s.profile["network"] as! String))
+        : RGBLib.checkIndexerUrl(indexerUrl: p.string("indexerUrl"), bitcoindAuth: nil, bitcoinNetwork: rgbNetworkFromName(s.profile["network"] as! String))
+      switch protocolResult {
       case .bitcoind: return "bitcoind"
       case .electrum: return "electrum"
       case .esplora: return "esplora"
@@ -415,6 +529,7 @@ final class RgbLibSwiftHelper {
     case "getConsignmentPath": return try consignment(s, p).path
     case "getConsignment": return try Data(contentsOf: consignment(s, p)).base64EncodedString()
     default: throw rgbInvalid("Unknown native operation")
+      }
     }
   }
 }

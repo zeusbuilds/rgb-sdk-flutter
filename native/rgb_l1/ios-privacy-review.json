@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
+  "integrationTree": "c06ffffce1f0fd5273113132295fce3e6be25052",
+  "iosArchiveSha256": "b6d5baaaec5433f5f69b2da6f43a25225d7d7e4d441e1868de08ce34d022c11d",
+  "productionReady": false,
+  "disposition": "DiskSpace imports remain; final signed-app call paths and aggregate privacy reason require review. No approved reason is inferred from a symbol alone.",
+  "frameworks": [
+    {
+      "framework": "rgb_libFFI",
+      "slice": "ios-arm64",
+      "binarySha256": "4b5237342d4198c1c99c5cf11ebfbab1deb391bd75d8be48e9a1a6fd5394c60a",
+      "binarySizeBytes": 52758352,
+      "privacyImports": {
+        "statfs": [
+          "_statfs"
+        ],
+        "fstatfs": [
+          "_fstatfs"
+        ],
+        "fstat": [
+          "_fstat"
+        ],
+        "lstat": [
+          "_lstat"
+        ],
+        "stat": [
+          "_stat"
+        ],
+        "gettimeofday": [
+          "_gettimeofday"
+        ],
+        "clock_gettime": [
+          "_clock_gettime"
+        ]
+      },
+      "unexpectedFfiExports": [],
+      "attributionsPreserved": [
+        "LICENSE.rgb-lib.txt",
+        "LICENSE.MPL-2.0.txt",
+        "NOTICE.txt",
+        "source-manifest.json"
+      ]
+    },
+    {
+      "framework": "rgb_libFFI",
+      "slice": "ios-arm64_x86_64-simulator",
+      "binarySha256": "d4ea7126c85f84c0350f476a8b92223ec48a9c38ecb92e1d5345c73f81dea746",
+      "binarySizeBytes": 111412184,
+      "privacyImports": {
+        "statfs": [
+          "_statfs"
+        ],
+        "fstatfs": [
+          "_fstatfs"
+        ],
+        "fstat": [
+          "_fstat"
+        ],
+        "lstat": [
+          "_lstat"
+        ],
+        "stat": [
+          "_stat"
+        ],
+        "gettimeofday": [
+          "_gettimeofday"
+        ],
+        "clock_gettime": [
+          "_clock_gettime"
+        ]
+      },
+      "unexpectedFfiExports": [],
+      "attributionsPreserved": [
+        "LICENSE.rgb-lib.txt",
+        "LICENSE.MPL-2.0.txt",
+        "NOTICE.txt",
+        "source-manifest.json"
+      ]
+    },
+    {
+      "framework": "RGBLib",
+      "slice": "ios-arm64",
+      "binarySha256": "886f7d619179e6d48aee383e8b6662aa056942113c7f17e775ac8380bc86fff9",
+      "binarySizeBytes": 1577640,
+      "privacyImports": {},
+      "unexpectedFfiExports": [],
+      "attributionsPreserved": [
+        "LICENSE.rgb-lib.txt",
+        "LICENSE.MPL-2.0.txt",
+        "NOTICE.txt",
+        "source-manifest.json"
+      ]
+    },
+    {
+      "framework": "RGBLib",
+      "slice": "ios-arm64_x86_64-simulator",
+      "binarySha256": "6dea376b4203c51a90fb66d0c1cef78e727e04e7f979a49d24881846c562e5b0",
+      "binarySizeBytes": 3129896,
+      "privacyImports": {},
+      "unexpectedFfiExports": [],
+      "attributionsPreserved": [
+        "LICENSE.rgb-lib.txt",
+        "LICENSE.MPL-2.0.txt",
+        "NOTICE.txt",
+        "source-manifest.json"
+      ]
+    }
+  ]
+}

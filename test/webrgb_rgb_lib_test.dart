@@ -183,6 +183,10 @@ Object? _nativeReply(String method) => switch (method) {
   'getRuntimeInfo' => {
     'version': RgbLibRuntimeInfo.expectedVersion,
     'sourceRevision': RgbLibRuntimeInfo.expectedSourceRevision,
+    'integrationTree': RgbLibRuntimeInfo.expectedIntegrationTree,
+    'overlayPatchSha256': RgbLibRuntimeInfo.expectedOverlayPatchSha256,
+    'sourceLockSha256': RgbLibRuntimeInfo.expectedSourceLockSha256,
+    'sourceManifestSha256': RgbLibRuntimeInfo.expectedSourceManifestSha256,
     'bridgeVersion': RgbLibRuntimeInfo.expectedBridgeVersion,
     'bfa': true,
     'burn': true,
@@ -216,6 +220,7 @@ Object? _nativeReply(String method) => switch (method) {
       'updatedAt': '1',
       'status': 'Settled',
       'kind': 'Burn',
+      'changeUtxos': <Object?>[],
       'txid': _txid,
       'assignments': <Object?>[],
       'transportEndpoints': <Object?>[],

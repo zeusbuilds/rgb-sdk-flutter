@@ -2,6 +2,19 @@
 
 ## 0.2.0-beta.3 - Unreleased
 
+- Upgrade the separate RGB_L1 native engine to source-pinned BFA.7 with matching
+  UniFFI bridge-5 Android/iOS bindings and exact source/overlay/lock metadata.
+  Keep the released RN beta.40 BFA.5 reference independently immutable.
+- Add native genesis-only exact-ID contract registration without balance credit,
+  explicit per-EVM-chain mint-lock policy and exact received-mint DTOs.
+- Add authenticated native prepare/commit/status/cancel recovery, immutable
+  consignments, pending-command discovery and accepted-receipt inventory.
+  Never replay End or submission during status/restart; quarantine restored
+  snapshots that cannot prove freshness. Keep Aster RGB_L1 and Dev activation
+  gated pending funded platform/deployment and release qualification.
+- Remediate the exact RGB_L1 lock's known TLS, ctutils, Tokio and optional Arrow
+  advisories; disclose retained unmaintained dependencies and preserve native
+  privacy and independent legacy-RLN release blockers.
 - Enforce the initial mainnet password-only signing boundary in Dart and both
   native bridges, including advanced clients. Regtest external signing remains
   available for isolated qualification; mainnet Lightning remains unsupported.

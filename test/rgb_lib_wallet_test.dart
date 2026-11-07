@@ -10,6 +10,10 @@ const _txid =
 const _runtime = {
   'version': RgbLibRuntimeInfo.expectedVersion,
   'sourceRevision': RgbLibRuntimeInfo.expectedSourceRevision,
+  'integrationTree': RgbLibRuntimeInfo.expectedIntegrationTree,
+  'overlayPatchSha256': RgbLibRuntimeInfo.expectedOverlayPatchSha256,
+  'sourceLockSha256': RgbLibRuntimeInfo.expectedSourceLockSha256,
+  'sourceManifestSha256': RgbLibRuntimeInfo.expectedSourceManifestSha256,
   'bridgeVersion': RgbLibRuntimeInfo.expectedBridgeVersion,
   'bfa': true,
   'burn': true,
@@ -250,6 +254,13 @@ void main() {
         throwsA(_code('WALLET_OFFLINE')),
       );
       final rpc = {'42161': 'https://example.test'};
+      final policies = {
+        '42161': const RgbLibEvmChain(
+          rpcUrl: 'https://example.test',
+          minMintLockBlocks: 2,
+          maxMintLockBlocks: 512,
+        ),
+      };
       final params = RgbLibUnlockParams(
         indexer: const RgbLibIndexer.bitcoindCookie(
           'http://127.0.0.1:18443',
@@ -257,8 +268,10 @@ void main() {
         ),
         proxyEndpoint: 'https://proxy.example.test/json-rpc',
         evmRpcUrls: rpc,
+        evmChains: policies,
       );
       rpc['42161'] = 'https://unintended.test';
+      policies.clear();
       await session.goOnline(params);
       await session.goOnline(params);
       final online = calls.where((call) => call.method == _online).single;
@@ -388,6 +401,26 @@ void main() {
     );
     expect(calls.where((call) => call.method == 'send'), hasLength(1));
     expect(session.supportsRecoverableOnchainSend, isFalse);
+    await session.destroy();
+  });
+
+  test('health preserves the explicitly connected indexer profile', () async {
+    final session = wallet();
+    await session.init();
+    const url = 'https://public-indexer.example.test';
+    await session.unlock(
+      RgbLibUnlockParams(
+        indexer: const RgbLibIndexer.esplora(url),
+        proxyEndpoint: 'rpcs://proxy.example.test/json-rpc',
+      ),
+    );
+    dispatch = (call) => call.method == 'checkIndexerUrl'
+        ? 'esplora'
+        : _defaultReply(call.method);
+    expect((await session.checkIndexerUrl(url)).indexerProtocol, 'esplora');
+    expect(calls.last.arguments['indexerKind'], 'esplora');
+    await session.checkIndexerUrl('https://other-indexer.example.test');
+    expect(calls.last.arguments['indexerKind'], isNull);
     await session.destroy();
   });
 
@@ -562,6 +595,7 @@ Map<String, Object?> _transfer(
   ],
   'txid': _txid,
   'transportEndpoints': <Object?>[],
+  'changeUtxos': <Object?>[],
 };
 
 Map<String, Object?> _asset(String schema) => {

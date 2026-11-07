@@ -36,10 +36,12 @@ void main() {
     expect(rgb['approvedAsset'], isNull);
     expect(rgb['approvedContractBase64'], isNull);
     expect(rgb['approvedContractSha256'], isNull);
-    expect(bundled['generation'], 'BFA.5');
+    expect(bundled['generation'], 'BFA.7');
     expect(bundled['sourceRevision'], nativeBaseline['sourceRevision']);
     expect(bundled['sourceRevision'], RgbLibRuntimeInfo.expectedSourceRevision);
-    expect(bundled['standaloneContractRegistration'], isFalse);
+    expect(bundled['standaloneContractRegistration'], isTrue);
+    expect(bundled['durablePaymentRecoveryImplemented'], isTrue);
+    expect(bundled['nativeOverlay'], 'flutter-bfa7-durable-v1');
     expect(bundled['durablePaymentRecoveryQualified'], isFalse);
     expect(historical['admitted'], isFalse);
     expect(historical['assetId'], isNot(rgb['reportedDeployedAssetId']));
@@ -78,7 +80,13 @@ void main() {
       RgbLibUnlockParams(
         indexer: const RgbLibIndexer.esplora('https://indexer.example.test'),
         proxyEndpoint: 'rpcs://proxy.example.test/json-rpc',
-        evmRpcUrls: {'42161': 'https://arb1.arbitrum.io/rpc'},
+        evmChains: const {
+          '42161': RgbLibEvmChain(
+            rpcUrl: 'https://arb1.arbitrum.io/rpc',
+            minMintLockBlocks: 2,
+            maxMintLockBlocks: 512,
+          ),
+        },
       ),
     );
     expect(

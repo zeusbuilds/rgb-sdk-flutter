@@ -1,18 +1,29 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/services.dart';
 
 import '../../errors/rgb_sdk_exception.dart';
 import '../../models/burn_models.dart';
+import '../../models/imported_rgb_contract.dart';
 import '../../models/utexo_core_models.dart';
 import '../burn_operations.dart';
 import '../dev_signet_policy.dart';
+import '../utexo_wallet.dart'
+    show
+        RecoverableOnchainSendCommand,
+        RecoverableOnchainSendStatus,
+        RecoverableOnchainSendKind,
+        RecoverableOnchainSendPhase,
+        RgbLibRecoverableCodec;
 import '../utexo_wallet_types.dart';
 import 'config.dart';
+import 'network_profile.dart';
 import 'wire.dart';
 
 part 'operation_inputs.dart';
+part 'recoverable_operations.dart';
 
 /// Native RGB_L1 Bitcoin and RGB wallet, independent of the legacy RLN wallet.
 ///
@@ -45,8 +56,10 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   bool get watchOnly => _keys.readMnemonic == null;
   bool isDisposed() => _disposed;
 
-  /// One-shot native sends do not supply a durable payment recovery protocol.
-  bool get supportsRecoverableOnchainSend => false;
+  /// Whether the opened signing backend implements the native recovery protocol.
+  /// This capability does not establish funded or release qualification.
+  bool get supportsRecoverableOnchainSend =>
+      !watchOnly && _runtime?.durableOnchainRecovery == true;
 
   Future<T> _enqueue<T>(Future<T> Function() action) {
     final result = _tail.then((_) => action());
@@ -89,11 +102,25 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       version: row.text('version'),
       sourceRevision: row.text('sourceRevision'),
       bridgeVersion: row.integer('bridgeVersion'),
+      integrationTree: row.text('integrationTree'),
+      overlayPatchSha256: row.text('overlayPatchSha256'),
+      sourceLockSha256: row.text('sourceLockSha256'),
+      sourceManifestSha256: row.text('sourceManifestSha256'),
       capabilities: BfaCapabilities.fromMap(row.map),
+      contractRegistration: row.map['contractRegistration'] == true,
+      durableOnchainRecovery: row.map['durableOnchainRecovery'] == true,
     );
     if (info.version != RgbLibRuntimeInfo.expectedVersion ||
         info.sourceRevision != RgbLibRuntimeInfo.expectedSourceRevision ||
-        info.bridgeVersion != RgbLibRuntimeInfo.expectedBridgeVersion) {
+        info.bridgeVersion != RgbLibRuntimeInfo.expectedBridgeVersion ||
+        info.integrationTree != RgbLibRuntimeInfo.expectedIntegrationTree ||
+        info.overlayPatchSha256 !=
+            RgbLibRuntimeInfo.expectedOverlayPatchSha256 ||
+        info.sourceLockSha256 != RgbLibRuntimeInfo.expectedSourceLockSha256 ||
+        info.sourceManifestSha256 !=
+            RgbLibRuntimeInfo.expectedSourceManifestSha256 ||
+        (info.durableOnchainRecovery &&
+            row.map['nativeOverlay'] != RgbLibRecoverableCodec.overlay)) {
       throw const RgbLibWalletException(
         'The RGB_L1 native artifacts do not match this SDK.',
         code: 'NATIVE_VERSION_MISMATCH',
@@ -150,19 +177,25 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         'identity',
       );
       final fingerprint = row.text('masterFingerprint').toLowerCase();
+      final id = row.requiredText('id');
+      final cohort = row.optionalText('recoveryCohort');
       if (row.text('network') != network ||
           !RegExp(r'^[a-f0-9]{8}$').hasMatch(fingerprint) ||
           (keys != null &&
-              fingerprint != keys.masterFingerprint.toLowerCase())) {
+              fingerprint != keys.masterFingerprint.toLowerCase()) ||
+          (runtime.durableOnchainRecovery &&
+              (!RegExp(r'^[0-9a-f]{64}$').hasMatch(id) ||
+                  !RegExp(r'^[0-9a-f]{32}$').hasMatch(cohort ?? '')))) {
         throw const RgbLibWalletException(
           'Native wallet identity does not match the profile.',
           code: 'WALLET_CONFIG_MISMATCH',
         );
       }
       _identity = RgbLibWalletIdentity(
-        id: row.requiredText('id'),
+        id: id,
         network: network,
         masterFingerprint: fingerprint,
+        recoveryCohort: cohort,
       );
       _runtime = runtime;
     } catch (_) {
@@ -274,11 +307,13 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     bool online = false,
     bool signing = false,
     bool burn = false,
+    bool registration = false,
     Map<String, Object?> Function(String proxy)? proxyArguments,
   }) => _accept(() async {
     _requireIdentity();
     if ((signing && watchOnly) ||
-        (burn && _runtime?.capabilities.burn != true)) {
+        (burn && _runtime?.capabilities.burn != true) ||
+        (registration && _runtime?.contractRegistration != true)) {
       throw const RgbLibWalletException(
         'This wallet cannot sign the requested operation.',
         code: 'UNSUPPORTED_CAPABILITY',
@@ -338,14 +373,31 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       }, online: true);
 
   Future<RgbLibIndexerCheck> checkIndexerUrl(String indexerUrl) async {
-    requireQualifiedUtexoDevSignet(endpoints: [indexerUrl]);
-    return _call('checkIndexerUrl', (value) {
-      if (value is! String ||
-          !{'esplora', 'electrum', 'bitcoind'}.contains(value)) {
-        invalidRgbLibWire('indexerProtocol');
-      }
-      return (indexerProtocol: value);
-    }, arguments: {'indexerUrl': indexerUrl});
+    requireQualifiedUtexoDevSignet(
+      customSignetProfile: network == 'utexo',
+      endpoints: [indexerUrl],
+    );
+    final configured = _online?.nativeArguments;
+    final sameIndexer = configured?['indexerUrl'] == indexerUrl;
+    return _call(
+      'checkIndexerUrl',
+      (value) {
+        if (value is! String ||
+            !{'esplora', 'electrum', 'bitcoind'}.contains(value)) {
+          invalidRgbLibWire('indexerProtocol');
+        }
+        return (indexerProtocol: value);
+      },
+      arguments: {
+        'indexerUrl': indexerUrl,
+        'indexerKind': sameIndexer ? configured!['indexerKind'] : null,
+        if (sameIndexer) ...{
+          'username': configured!['username'],
+          'password': configured['password'],
+          'cookieFile': configured['cookieFile'],
+        },
+      },
+    );
   }
 
   Future<CoreBtcBalance> getBtcBalance({bool skipSync = false}) => _call(
@@ -865,6 +917,8 @@ Future<Object?> _invoke(
     final code = switch (raw) {
       'RGB_LIB_WatchOnly' => 'UNSUPPORTED_CAPABILITY',
       'RGB_LIB_AssetNotFound' => 'ASSET_NOT_FOUND',
+      'RGB_LIB_ContractIdMismatch' => 'CONTRACT_ID_MISMATCH',
+      'RGB_LIB_EvmChainIdMismatch' => 'EVM_CHAIN_ID_MISMATCH',
       _ when raw.startsWith('RGB_LIB_Invalid') => 'INVALID_PARAMS',
       _ when raw.startsWith('RGB_LIB_Insufficient') => 'INSUFFICIENT_FUNDS',
       _ when _nativeCodes.contains(raw) => raw,
@@ -876,6 +930,7 @@ Future<Object?> _invoke(
 
 const _nativeCodes = {
   'NATIVE_BACKEND_UNAVAILABLE',
+  'DEPLOYMENT_UNQUALIFIED',
   'WALLET_NOT_INITIALIZED',
   'WALLET_DISPOSED',
   'INVALID_CONFIG',
@@ -888,6 +943,16 @@ const _nativeCodes = {
   'CONSIGNMENT_NOT_FOUND',
   'INVALID_CONSIGNMENT_PATH',
   'WALLET_OFFLINE',
+  'RECOVERY_STORAGE_INVALID',
+  'RECOVERY_IDENTITY_MISMATCH',
+  'RECOVERY_REQUEST_MISMATCH',
+  'RECOVERY_REQUEST_INVALID',
+  'RECOVERY_PENDING',
+  'RECOVERY_CAPACITY',
+  'RECOVERY_REJECTED',
+  'RECOVERY_BUSY',
+  'RECOVERY_OBSERVATION_INVALID',
+  'RECOVERY_RESTORE_UNCERTAIN',
 };
 
 String _nonempty(Object? value, String field) =>

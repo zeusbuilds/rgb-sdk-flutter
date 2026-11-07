@@ -6,6 +6,7 @@ import '../../crypto/constants.dart';
 import '../../errors/rgb_sdk_exception.dart';
 import '../dev_signet_policy.dart';
 import '../network_defaults.dart';
+import 'network_profile.dart';
 
 /// Stable failure categories for the native on-chain wallet.
 final class RgbLibWalletException extends WalletException {
@@ -28,6 +29,9 @@ final class RgbLibWalletParams {
   final String storageDirPath;
   final RgbLibWitnessVersion witnessVersion;
   final int maxAllocationsPerUtxo;
+
+  /// Reuse only a freshly native-derived address within the current open session.
+  /// Reopening derives from native again; all previously derived addresses remain valid.
   final bool reuseAddresses;
 }
 
@@ -128,6 +132,27 @@ final class RgbLibIndexer {
   final String? cookieFile;
 }
 
+/// Explicit backing-chain RPC and reviewed mint reservation lifetime policy.
+///
+/// BFA.7 requires these bounds to prevent an untrusted mint from reserving a
+/// recipient's Bitcoin output for an unbounded number of backing-chain blocks.
+final class RgbLibEvmChain {
+  const RgbLibEvmChain({
+    required this.rpcUrl,
+    required this.minMintLockBlocks,
+    required this.maxMintLockBlocks,
+  });
+
+  /// Credential-free RPC for this configured backing-chain identity.
+  final String rpcUrl;
+
+  /// Minimum mint lock lifetime in backing-chain blocks, never Bitcoin blocks.
+  final int minMintLockBlocks;
+
+  /// Maximum receiving-output reservation budget in backing-chain blocks.
+  final int maxMintLockBlocks;
+}
+
 /// Configuration for an RGB_L1 online session, with protocol 1.0 RGB transport.
 final class RgbLibUnlockParams {
   RgbLibUnlockParams({
@@ -135,14 +160,22 @@ final class RgbLibUnlockParams {
     this.indexerUrl,
     this.proxyEndpoint,
     Map<String, String> evmRpcUrls = const {},
+    Map<String, RgbLibEvmChain> evmChains = const {},
     Map<String, String> proxyAuthKeys = const {},
   }) : evmRpcUrls = Map.unmodifiable(evmRpcUrls),
+       evmChains = Map.unmodifiable(evmChains),
        proxyAuthKeys = Map.unmodifiable(proxyAuthKeys);
 
   final RgbLibIndexer? indexer;
   final String? indexerUrl;
   final String? proxyEndpoint;
+
+  /// Legacy source-compatible RPC map. Each entry must also have an identical
+  /// RPC and explicit mint-lock budget in [evmChains]; a bare map fails closed.
   final Map<String, String> evmRpcUrls;
+
+  /// Deployment-approved backing-chain RPC and mint reservation policies.
+  final Map<String, RgbLibEvmChain> evmChains;
   final Map<String, String> proxyAuthKeys;
 }
 
@@ -252,6 +285,7 @@ RgbLibOnlineConfig resolveRgbLibOnline(
       params.proxyEndpoint,
       ...params.proxyAuthKeys.keys,
       ...params.evmRpcUrls.values,
+      ...params.evmChains.values.map((chain) => chain.rpcUrl),
     ],
   );
   if (params.indexer != null && params.indexerUrl != null) {
@@ -282,13 +316,25 @@ RgbLibOnlineConfig resolveRgbLibOnline(
         defaults?.proxyEndpoint ??
         invalidRgbLibConfig('An explicit RGB proxy is required.'),
   );
-  final chains = params.evmRpcUrls.keys.toList()..sort();
+  for (final entry in params.evmRpcUrls.entries) {
+    if (params.evmChains[entry.key]?.rpcUrl != entry.value) {
+      invalidRgbLibConfig(
+        'BFA.7 requires an explicit mint lock policy for each EVM RPC.',
+      );
+    }
+  }
+  final chains = params.evmChains.keys.toList()..sort();
   for (final chain in chains) {
     if (!RegExp(r'^[1-9][0-9]{0,19}$').hasMatch(chain) ||
         BigInt.parse(chain) > BigInt.parse('18446744073709551615')) {
       invalidRgbLibConfig('EVM chain IDs must be positive UInt64 decimals.');
     }
-    _url(params.evmRpcUrls[chain]!, {'https', 'http'}, 'EVM RPC');
+    final policy = params.evmChains[chain]!;
+    _url(policy.rpcUrl, {'https', 'http'}, 'EVM RPC');
+    if (policy.minMintLockBlocks < 2 ||
+        policy.maxMintLockBlocks < policy.minMintLockBlocks) {
+      invalidRgbLibConfig('EVM mint lock bounds must satisfy 2 <= min <= max.');
+    }
   }
   final auth = <String, String>{};
   for (final entry in params.proxyAuthKeys.entries) {
@@ -301,17 +347,33 @@ RgbLibOnlineConfig resolveRgbLibOnline(
     }
     auth[endpoint] = entry.value;
   }
+  final nativeKind = rgbLibNativeIndexerKind(network, indexer.kind.name);
+  if (nativeKind == null) {
+    invalidRgbLibConfig(
+      'This indexer cannot verify the selected chain profile.',
+    );
+  }
   final proxies = auth.keys.toList()..sort();
   return (
     proxyEndpoint: proxy,
     nativeArguments: {
-      'indexerKind': indexer.kind.name,
+      'indexerKind': nativeKind,
       'indexerUrl': indexer.url,
       'username': indexer.username,
       'password': indexer.password,
       'cookieFile': indexer.cookieFile,
       'evmChainIds': chains,
-      'evmRpcUrls': [for (final chain in chains) params.evmRpcUrls[chain]!],
+      'evmRpcUrls': [
+        for (final chain in chains) params.evmChains[chain]!.rpcUrl,
+      ],
+      'evmMinMintLockBlocks': [
+        for (final chain in chains)
+          params.evmChains[chain]!.minMintLockBlocks.toString(),
+      ],
+      'evmMaxMintLockBlocks': [
+        for (final chain in chains)
+          params.evmChains[chain]!.maxMintLockBlocks.toString(),
+      ],
       'proxyEndpoints': proxies,
       'proxyAuthKeys': [for (final proxy in proxies) auth[proxy]!],
     },

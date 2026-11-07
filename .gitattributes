@@ -1,2 +1,8 @@
 # Unified patch context requires a leading space even for empty source lines.
 native/patches/*.patch -whitespace
+# Native manifests, patches and upstream notices are byte-exact hashed inputs.
+native/rgb_l1/** -text
+# Unified-diff context markers and original license endings are intentional.
+native/rgb_l1/*.patch -whitespace
+native/rgb_l1/patches/*.patch -whitespace
+native/rgb_l1/inherited-licenses/** -whitespace

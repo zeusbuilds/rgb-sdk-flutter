@@ -24,6 +24,14 @@ and its parity check still identify the legacy RLN engine.
 
 ## Exact dependency boundaries
 
+**November 7 Flutter upgrade:** the released RN identities in this section are
+historical immutable parity inputs. Flutter now carries a separately versioned
+BFA.7 source overlay, native standalone registration and durable recovery.
+See [BFA.7 integration](BFA7_NATIVE_INTEGRATION.md) for current implementation
+and qualification limits. The frozen RN/native-reference verifier still checks
+the original bytes and separately verifies the Flutter divergence. Earlier
+BFA.5 platform tests below do not qualify the new BFA.7 artifacts.
+
 | Reference | Verified identity and applicability |
 | --- | --- |
 | RN `1.0.0-beta.40` | `RGB_L1` is now the default wallet protocol. `RGB_LN` is optional and disabled at compile time in the distributed configuration. Explicit RLN use retains `0.17.0-beta.3`. |
@@ -55,11 +63,11 @@ overrides before connection. The legacy RLN `utexo` alias remains usable with
 explicit compatible public Signet services. Arbitrary independently configured
 endpoints remain a caller-owned qualification responsibility.
 
-The evidence manifest records requirements without admitting an asset or
-fabricating an import API. Updating metadata alone cannot bridge BFA.5 to
-BFA.6/7. Matching mobile native registration, checkpoint enforcement, durable
-send/backup recovery and funded deployment qualification remain prerequisites
-for activation. The [latest referenced Dev E2E](https://github.com/UTEXO-Protocol/bridge/actions/runs/42261217049)
+The evidence manifest records requirements without admitting an asset. The
+new BFA.7 Flutter source implements native genesis registration, checkpoint
+guards and durable payment identity/recovery with matching mobile bindings.
+Exact-artifact, funded deployment and restored-backup freshness qualification
+remain prerequisites for activation. The [latest referenced Dev E2E](https://github.com/UTEXO-Protocol/bridge/actions/runs/42261217049)
 failed while waiting for the web UI mint-confirmation button; this does not
 prove a native mint or chain-settlement failure. Aster's RGB_L1 gate stays closed.
 
@@ -91,6 +99,14 @@ explicit dispositions because they affect the SDK's compatibility surface.
 | Generated code, tooling and release layout | Generated DTO/spec drift checks, host stubs and exact native smokes, Maven Android instrumentation, published source excludes tests and local bindings, package cleanup removes unused interfaces/constants and moves legacy sources under opt-in configuration. | The immutable verifier covers every upstream path including the TS-only generator, example, docs and test changes. Flutter's bridge and clean consumer checks remain independently runnable. |
 
 ## Production gates
+
+The implementation gaps described below were the beta.40/BFA.5 audit state.
+The BFA.7 candidate implements native contract registration, a durable
+wallet-bound payment outbox and the gated Aster adapter; those implementation
+gaps are superseded by [the current integration record](BFA7_NATIVE_INTEGRATION.md).
+Funded platform/reorg/backup-freshness, deployment, privacy and final release
+qualification remain gates. Restored snapshots deliberately cannot infer
+nonexecution or authorize new spending.
 
 1. **SDK and Aster durable sends.** RN's RGB_L1 send wraps a single native send
    call. It cannot by itself preserve Aster's prepare, commit, lookup and cancel
@@ -140,7 +156,15 @@ explicit dispositions because they affect the SDK's compatibility surface.
    qualification infrastructure with dedicated wallet data. Public mainnet
    release approval also requires the Aster release checklist.
 
-## BFA.5 native dependency audit
+## Historical BFA.5 native dependency audit
+
+The current BFA.7 lock resolves the listed vulnerabilities. The exact source
+and lock review in `native/rgb_l1/security-review.json` records zero known
+vulnerabilities and zero unsound notices at RustSec
+`309392b18f6b17022f82c701f300433126901068`, with three disclosed unmaintained
+dependencies. This does not clear independent privacy or funds-safety gates.
+The following table preserves the historical audit rather than implying it
+describes the replacement graph.
 
 `cargo audit --no-fetch --file <pinned UniFFI Cargo.lock> --json` failed on
 the 547-package lock at SHA-256
@@ -185,7 +209,7 @@ rejection of altered commitments, watch-only refusal and proof-sharing consent.
 Native smoke, funded delivery and signed release evidence have separate scope.
 
 
-## Flutter candidate evidence
+## Historical BFA.5 Flutter candidate evidence
 
 The SDK passed 658 host tests and static analysis. The test matrix, public
 API, source snapshot, legacy RN and beta.40 reference checks pass. The

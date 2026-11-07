@@ -44,10 +44,15 @@ Map<String, Object?> rgbLibIosPrivacyDisposition() {
   final ios = data['ios'] as Map<String, Object?>?;
   final source = data['sourceRevision'];
   final archive = ios?['sha256'];
-  final known =
-      source == '0a9d352f2690902df2b6fae9bca1a6c13c3354d4' &&
+  final bfa7 =
+      source == '9ec49c08be2e68f08521281e3efbd760ec989cb9' &&
       archive ==
-          '44890e57b78935a2c7842d9baeed5172bbd99e9b2b91c6a599fbc2c745760669';
+          'b6d5baaaec5433f5f69b2da6f43a25225d7d7e4d441e1868de08ce34d022c11d';
+  final known =
+      bfa7 ||
+      (source == '0a9d352f2690902df2b6fae9bca1a6c13c3354d4' &&
+          archive ==
+              '44890e57b78935a2c7842d9baeed5172bbd99e9b2b91c6a599fbc2c745760669');
   return {
     'scope': 'rgb-l1-native-ios-required-reason-api',
     'sourceCommit': source,
@@ -55,7 +60,9 @@ Map<String, Object?> rgbLibIosPrivacyDisposition() {
     'status': known ? 'blocked-known-unresolved' : 'unreviewed',
     'productionReady': false,
     'blockers': [
-      if (known)
+      if (bfa7)
+        'iOS privacy: RGB_L1 BFA.7 retains statfs/fstatfs imports in the linked native FFI framework. DiskSpace call-path justification and final signed-app API/aggregate-manifest evidence remain unresolved; do not inherit a reason from RN or treat a clean dependency audit as privacy approval.'
+      else if (known)
         'iOS privacy: RGB_L1 BFA.5 imports statfs/fstatfs. Review the linked call paths and signed archive before selecting a DiskSpace reason.'
       else
         'iOS privacy: RGB_L1 has no approved required-reason API disposition for its exact source and archive.',

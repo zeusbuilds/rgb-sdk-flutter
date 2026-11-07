@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "name": "bfa.7-flutter.1",
+  "version": "0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1",
+  "bridgeVersion": 5,
+  "source": {
+    "repository": "https://github.com/UTEXO-Protocol/rgb-lib-bfa.git",
+    "revision": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
+    "tree": "a4f8ad11dd975d357f9d2c6baab0d45205416986",
+    "coreOverlayTree": "201cd56766598a5f9fdcd8cb51fea406d56e2772"
+  },
+  "corePatches": [
+    {
+      "path": "patches/rgb-lib-bfa.7-registration.patch",
+      "sha256": "9d8de81004931453fc74036e2462287702e4ebf2ff4dcaa40b7fd4ac77a9bf2e"
+    },
+    {
+      "path": "patches/rgb-lib-bfa.7-native-egress.patch",
+      "sha256": "8cfc5a170f7be7f75b6a36abfcd0d94eeb6b36d2c024ac3b3d0bb8170cbcb310"
+    },
+    {
+      "path": "patches/rgb-lib-bfa.7-signet-checkpoint.patch",
+      "sha256": "80bb105cd93fdfdf6bf688e73ced79d8891b765149fcade141c2e0a53dd4047d"
+    },
+    {
+      "path": "patches/rgb-lib-bfa.7-embedded-lifecycle.patch",
+      "sha256": "fa6ff320655cd158ad3fe4b75f418ec245a2ae119bd1dfaa616c96d15783b086"
+    }
+  ],
+  "esplora": {
+    "version": "0.12.3",
+    "crateSha256": "f19e3ea99dbfbef0c1ec26d83e69de0c579f6aa6aaac4f44597805fcc27e97af",
+    "overlayTree": "0b02f9ababbb4f276dcea5168fc8cf59914c6744",
+    "patch": {
+      "path": "patches/esplora-client-0.12.3-guarded-blocking.patch",
+      "sha256": "b2e57136d14df61750ada1937b73ff6be25c4a8cb10ca1e0c0d20ff043c15534"
+    }
+  },
+  "integration": {
+    "patch": "source-overlay.patch",
+    "patchSha256": "3ae6c65184ef6a4ea534100dac82e3c532192482cbd0229c2aa0238d1cf044c7",
+    "tree": "c06ffffce1f0fd5273113132295fce3e6be25052",
+    "uniffiLockSha256": "4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f"
+  },
+  "build": {
+    "rust": "1.94.0",
+    "uniffi": "0.32.2",
+    "androidNdk": "28.2.13676358",
+    "minAndroidApi": 24,
+    "minIosVersion": "16.0",
+    "targets": [
+      "aarch64-apple-ios",
+      "aarch64-apple-ios-sim",
+      "x86_64-apple-ios",
+      "aarch64-linux-android",
+      "x86_64-linux-android"
+    ],
+    "kotlinJars": [
+      {
+        "group": "org.jetbrains.kotlin",
+        "name": "kotlin-compiler-embeddable",
+        "version": "2.2.20",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/2.2.20/kotlin-compiler-embeddable-2.2.20.jar",
+        "sha256": "1c6c3f810bfe6a41abcbc34b3a2ef639f1e3f4aeed3a953a4b0974eea4f41889",
+        "sizeBytes": 56907103
+      },
+      {
+        "group": "org.jetbrains.kotlin",
+        "name": "kotlin-stdlib",
+        "version": "2.2.20",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.2.20/kotlin-stdlib-2.2.20.jar",
+        "sha256": "8836ccffd3585fadda9901244b20d42901d2f3cd581058d8434e2ffabcf3a3e7",
+        "sizeBytes": 1761444
+      },
+      {
+        "group": "org.jetbrains.kotlin",
+        "name": "kotlin-script-runtime",
+        "version": "2.2.20",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-script-runtime/2.2.20/kotlin-script-runtime-2.2.20.jar",
+        "sha256": "5c8bd5dd7ae1ea2eeb2778fdbeaa19a562184975f6cab8a0bb6779e4190731ae",
+        "sizeBytes": 44769
+      },
+      {
+        "group": "org.jetbrains.kotlin",
+        "name": "kotlin-reflect",
+        "version": "1.6.10",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.6.10/kotlin-reflect-1.6.10.jar",
+        "sha256": "3277ac102ae17aad10a55abec75ff5696c8d109790396434b496e75087854203",
+        "sizeBytes": 3038560
+      },
+      {
+        "group": "org.jetbrains.kotlin",
+        "name": "kotlin-daemon-embeddable",
+        "version": "2.2.20",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-daemon-embeddable/2.2.20/kotlin-daemon-embeddable-2.2.20.jar",
+        "sha256": "7c5c8cd2f8beadd3283239bb9ca219a0cafa1af02682b407b181e1179718f2f7",
+        "sizeBytes": 347986
+      },
+      {
+        "group": "org.jetbrains.kotlinx",
+        "name": "kotlinx-coroutines-core-jvm",
+        "version": "1.8.0",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.0/kotlinx-coroutines-core-jvm-1.8.0.jar",
+        "sha256": "9860906a1937490bf5f3b06d2f0e10ef451e65b95b269f22daf68a3d1f5065c5",
+        "sizeBytes": 1548360
+      },
+      {
+        "group": "org.jetbrains",
+        "name": "annotations",
+        "version": "26.0.2",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/26.0.2/annotations-26.0.2.jar",
+        "sha256": "2037be378980d3ba9333e97955f3b2cde392aa124d04ca73ce2eee6657199297",
+        "sizeBytes": 31170
+      },
+      {
+        "group": "net.java.dev.jna",
+        "name": "jna",
+        "version": "5.17.0",
+        "url": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.17.0/jna-5.17.0.jar",
+        "sha256": "b3a9408e7c51e08ef0e3bfcc08f443f6ec0f6191ba8cd7c18d53d2b22e5bdbc0",
+        "sizeBytes": 2002589
+      }
+    ],
+    "kotlinVersion": "2.2.20",
+    "bindgenFiles": {
+      "bindgen-tool/Cargo.toml": "e4eab7c1c4e25ad2d4a839bf9fb99ad7ca79a8d245f90b69b113f34fe42a1378",
+      "bindgen-tool/Cargo.lock": "f6f38ddf6c6873acfa6a01a48c2ebe9e22299d08ef81bfde607a44a1ef55ed28",
+      "bindgen-tool/src/main.rs": "f7a2dd11fb370e9595bdfa6c32fc41a9b67a60bbab06ec711cb7a03eb873ffa6"
+    }
+  },
+  "qualification": "Gated local candidate. Native builds and funded/platform/recovery qualification required before admission.",
+  "nativeOverlay": "flutter-bfa7-durable-v1"
+}

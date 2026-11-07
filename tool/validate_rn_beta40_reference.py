@@ -118,15 +118,24 @@ def verify(args):
     require(metadata['rgbSdk']['rln'] is False, 'Expected RLN to be disabled in beta.40')
 
     native_manifest = json.loads(source['src/bindings/rgb-lib/manifest.json'])
-    flutter_native = json.loads(LOCK.with_name('rgb_lib_native_baseline.json')
-                                .read_text(encoding='utf-8'))
+    # Preserve the exact released RN native reference even when Flutter carries a
+    # separately qualified source overlay. Advancing Flutter must not relabel RN.
+    reference_pin = lock['nativeReference']
+    reference_path = LOCK.with_name(reference_pin['path'])
+    reference_bytes = reference_path.read_bytes()
+    require(hashlib.sha256(reference_bytes).hexdigest() == reference_pin['sha256'],
+            'Frozen RN native reference digest changed')
+    reference_native = json.loads(reference_bytes)
     for field in ('version', 'sourceTag', 'sourceRevision', 'uniffiVersion',
                   'bridgeVersion', 'swiftModule'):
-        require(flutter_native[field] == native_manifest[field],
-                f'Flutter RGB_L1 pin differs from the reference: {field}')
+        require(reference_native[field] == native_manifest[field],
+                f'Released RN RGB_L1 reference differs: {field}')
     for field in ('url', 'sha256', 'minIosVersion'):
-        require(flutter_native['ios'][field] == native_manifest['ios'][field],
-                f'Flutter RGB_L1 iOS pin differs from the reference: {field}')
+        require(reference_native['ios'][field] == native_manifest['ios'][field],
+                f'Released RN RGB_L1 iOS reference differs: {field}')
+    flutter_native = json.loads(LOCK.with_name('rgb_lib_native_baseline.json')
+                                .read_text(encoding='utf-8'))
+    validate_flutter_native_upgrade(flutter_native, reference_native)
 
     added = source.keys() - older.keys()
     removed = older.keys() - source.keys()
@@ -145,6 +154,52 @@ def verify(args):
     print(f"Verified {lock['package']}@{lock['version']} at {lock['source']['commit']}. "
           f'{len(shared)} shipped source files match; {len(changes)} changed paths verified.')
 
+
+def validate_flutter_native_upgrade(current, reference):
+    """Validate the explicit BFA.7 divergence; never accept an arbitrary new pin."""
+    if current == reference:
+        return
+    root = LOCK.parent.parent
+    manifest_path = root / 'native/rgb_l1/source-manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    require(current['version'] == manifest['version']
+            == '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.1',
+            'Flutter native upgrade has an unreviewed version')
+    require(current['sourceRevision'] == manifest['source']['revision']
+            == '9ec49c08be2e68f08521281e3efbd760ec989cb9',
+            'Flutter native upgrade has an unreviewed source')
+    require(current['bridgeVersion'] == manifest['bridgeVersion'] == 5
+            and current['uniffiVersion'] == manifest['build']['uniffi'] == '0.32.2'
+            and current['swiftModule'] == reference['swiftModule'] == 'RGBLib',
+            'Flutter native upgrade ABI differs from its reviewed contract')
+    integration = manifest['integration']
+    require(re.fullmatch(r'[0-9a-f]{64}', integration['patchSha256'])
+            and current['sourceOverlaySha256'] == integration['patchSha256']
+            and current['integrationTree'] == integration['tree']
+            and re.fullmatch(r'[0-9a-f]{40}', integration['tree'])
+            and current['sourceLockSha256'] == integration['uniffiLockSha256']
+            and re.fullmatch(r'[0-9a-f]{64}', integration['uniffiLockSha256'])
+            and current['nativeOverlay'] == manifest['nativeOverlay']
+            == 'flutter-bfa7-durable-v1'
+            and current['sourceManifestSha256']
+            == hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            'Flutter native upgrade provenance is incomplete or mismatched')
+    for patch in manifest['corePatches'] + [manifest['esplora']['patch']]:
+        path = manifest_path.parent / patch['path']
+        require(hashlib.sha256(path.read_bytes()).hexdigest() == patch['sha256'],
+                f'Flutter native core patch differs: {patch["path"]}')
+    overlay = manifest_path.parent / integration['patch']
+    require(hashlib.sha256(overlay.read_bytes()).hexdigest()
+            == integration['patchSha256'], 'Flutter native integration patch differs')
+    for platform, archive_key in [('ios', 'sha256'), ('android', 'archiveSha256')]:
+        require(isinstance(current[platform][archive_key], str)
+                and re.fullmatch(r'[0-9a-f]{64}', current[platform][archive_key]),
+                f'Flutter {platform} native archive is not checksum pinned')
+    require(type(current['ios']['sizeBytes']) is int and current['ios']['sizeBytes'] > 0
+            and type(current['android']['archiveSizeBytes']) is int
+            and current['android']['archiveSizeBytes'] > 0,
+            'Flutter native archive sizes must be pinned')
+    print('Flutter BFA.7 overlay is separate from the frozen RN beta.40 native reference.')
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

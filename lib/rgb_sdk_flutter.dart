@@ -106,6 +106,7 @@ export 'src/wallet/network_defaults.dart'
 export 'src/wallet/rgb_lib/config.dart'
     show
         RgbLibIndexer,
+        RgbLibEvmChain,
         RgbLibIndexerKind,
         RgbLibKeys,
         RgbLibMnemonicReader,
@@ -115,7 +116,13 @@ export 'src/wallet/rgb_lib/config.dart'
         RgbLibWalletParams,
         RgbLibWitnessVersion,
         getRgbLibNetworkDefaults;
-export 'src/wallet/rgb_lib/rgb_lib_wallet.dart' show RgbLibWallet;
+export 'src/wallet/rgb_lib/rgb_lib_wallet.dart'
+    show
+        RgbLibWallet,
+        RgbLibDurableOperations,
+        RgbLibPendingOnchainOperation,
+        RgbLibOnchainSendReceipt,
+        RgbLibOnchainSendReceiptPage;
 export 'src/wallet/rgb_lib/wire.dart'
     show
         RgbLibAssetMetadata,
@@ -126,6 +133,7 @@ export 'src/wallet/rgb_lib/wire.dart'
         RgbLibNetworkInfo,
         RgbLibReceiveAssignment,
         RgbLibReceiveData,
+        RgbLibReceivedMint,
         RgbLibRuntimeInfo,
         RgbLibTransfer,
         RgbLibWalletIdentity;

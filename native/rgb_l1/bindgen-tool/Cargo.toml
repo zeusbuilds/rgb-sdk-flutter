@@ -1,0 +1,16 @@
+[package]
+name = "flutter-rgb-lib-bindgen"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94.0"
+publish = false
+license = "MIT"
+
+[dependencies]
+uniffi = { version = "=0.32.2", default-features = false, features = ["cli"] }
+
+[workspace]
+
+[profile.release]
+debug = 0
+strip = "debuginfo"

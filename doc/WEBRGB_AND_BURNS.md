@@ -1,7 +1,7 @@
 # WebRGB and BFA Burns
 
 Reference: RN `1.0.0-beta.40` at `5c8b2dfc79844c73e061a3df1ccbfdc1278d3ca7`,
-WebRGB 0.1.3 and WalletConnect 0.1.3. Flutter supports the BFA.5 on-chain
+WebRGB 0.1.3 and WalletConnect 0.1.3. Flutter supports the BFA on-chain
 engine and the legacy RLN 0.17.0-beta.3 engine. For release evidence, see
 [upstream parity and mainnet gates](UPSTREAM_PARITY_BETA40.md).
 

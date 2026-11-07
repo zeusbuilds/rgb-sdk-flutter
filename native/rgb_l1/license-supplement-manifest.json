@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 1,
+  "sourceLockSha256": "4b675f6187e069e6236033415ff157379b039717b387a1dd596669ec52f6a21f",
+  "scope": "Supplement to Cargo dependency inventory. Exact upstream commit license texts for workspace-inherited files; not a complete license approval.",
+  "resolvedPackageCount": 47,
+  "files": [
+    {
+      "repository": "https://github.com/SeaQL/sea-orm",
+      "revision": "db40a19a7bde7be8e1c4b346b1b70d72e87f0245",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/SeaQL/sea-orm/db40a19a7bde7be8e1c4b346b1b70d72e87f0245/LICENSE-APACHE",
+      "path": "inherited-licenses/SeaQL-sea-orm-db40a19a7bde7be8e1c4b346b1b70d72e87f0245/LICENSE-APACHE",
+      "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb",
+      "sizeBytes": 10846,
+      "packages": [
+        "sea-orm-arrow-2.0.0-rc.5",
+        "sea-orm-cli-2.0.4",
+        "sea-orm-macros-2.0.4",
+        "sea-orm-migration-2.0.4"
+      ]
+    },
+    {
+      "repository": "https://github.com/SeaQL/sea-orm",
+      "revision": "db40a19a7bde7be8e1c4b346b1b70d72e87f0245",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/SeaQL/sea-orm/db40a19a7bde7be8e1c4b346b1b70d72e87f0245/LICENSE-MIT",
+      "path": "inherited-licenses/SeaQL-sea-orm-db40a19a7bde7be8e1c4b346b1b70d72e87f0245/LICENSE-MIT",
+      "sha256": "b937e4dc7e279159e5e61f9360ebb516fefb622791c445cdc88f504c4b58b019",
+      "sizeBytes": 1067,
+      "packages": [
+        "sea-orm-arrow-2.0.0-rc.5",
+        "sea-orm-cli-2.0.4",
+        "sea-orm-macros-2.0.4",
+        "sea-orm-migration-2.0.4"
+      ]
+    },
+    {
+      "repository": "https://github.com/SeaQL/sea-query",
+      "revision": "24986a26992729e235e9078abd7e1b9407471837",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/SeaQL/sea-query/24986a26992729e235e9078abd7e1b9407471837/LICENSE-APACHE",
+      "path": "inherited-licenses/SeaQL-sea-query-24986a26992729e235e9078abd7e1b9407471837/LICENSE-APACHE",
+      "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb",
+      "sizeBytes": 10846,
+      "packages": [
+        "sea-query-sqlx-0.9.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/SeaQL/sea-query",
+      "revision": "24986a26992729e235e9078abd7e1b9407471837",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/SeaQL/sea-query/24986a26992729e235e9078abd7e1b9407471837/LICENSE-MIT",
+      "path": "inherited-licenses/SeaQL-sea-query-24986a26992729e235e9078abd7e1b9407471837/LICENSE-MIT",
+      "sha256": "382b1ae2eb3b0eb5391c3c049e62c7170bd080906724f87c1c632d8a2967563d",
+      "sizeBytes": 1057,
+      "packages": [
+        "sea-query-sqlx-0.9.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/SeaQL/sea-query",
+      "revision": "f4f75ea470ce25572f3d3c856d6ebf1b10d6f62f",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/SeaQL/sea-query/f4f75ea470ce25572f3d3c856d6ebf1b10d6f62f/LICENSE-APACHE",
+      "path": "inherited-licenses/SeaQL-sea-query-f4f75ea470ce25572f3d3c856d6ebf1b10d6f62f/LICENSE-APACHE",
+      "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb",
+      "sizeBytes": 10846,
+      "packages": [
+        "sea-query-derive-1.0.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/SeaQL/sea-query",
+      "revision": "f4f75ea470ce25572f3d3c856d6ebf1b10d6f62f",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/SeaQL/sea-query/f4f75ea470ce25572f3d3c856d6ebf1b10d6f62f/LICENSE-MIT",
+      "path": "inherited-licenses/SeaQL-sea-query-f4f75ea470ce25572f3d3c856d6ebf1b10d6f62f/LICENSE-MIT",
+      "sha256": "382b1ae2eb3b0eb5391c3c049e62c7170bd080906724f87c1c632d8a2967563d",
+      "sizeBytes": 1057,
+      "packages": [
+        "sea-query-derive-1.0.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/akhilles/crc-catalog",
+      "revision": "ed4ad631f22b05055c21a3a4127eb7cf6d75bb62",
+      "upstreamPath": "LICENSES/Apache-2.0.txt",
+      "url": "https://raw.githubusercontent.com/akhilles/crc-catalog/ed4ad631f22b05055c21a3a4127eb7cf6d75bb62/LICENSES/Apache-2.0.txt",
+      "path": "inherited-licenses/akhilles-crc-catalog-ed4ad631f22b05055c21a3a4127eb7cf6d75bb62/Apache-2.0.txt",
+      "sha256": "d3cdb764b98283ee7c3a3cea8d374e2a2957322374378d1f3263f4d512741fc3",
+      "sizeBytes": 11346,
+      "packages": [
+        "crc-catalog-2.5.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/akhilles/crc-catalog",
+      "revision": "ed4ad631f22b05055c21a3a4127eb7cf6d75bb62",
+      "upstreamPath": "LICENSES/MIT.txt",
+      "url": "https://raw.githubusercontent.com/akhilles/crc-catalog/ed4ad631f22b05055c21a3a4127eb7cf6d75bb62/LICENSES/MIT.txt",
+      "path": "inherited-licenses/akhilles-crc-catalog-ed4ad631f22b05055c21a3a4127eb7cf6d75bb62/MIT.txt",
+      "sha256": "5ef8fcfb6cccec8fcae043c834099a60c8b7406408db576e026d2b7e67dc5cf5",
+      "sizeBytes": 1073,
+      "packages": [
+        "crc-catalog-2.5.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/bitcoindevkit/bdk",
+      "revision": "5dc6e959379982a1661e8f57c3ee7af334627ca5",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/bitcoindevkit/bdk/5dc6e959379982a1661e8f57c3ee7af334627ca5/LICENSE",
+      "path": "inherited-licenses/bitcoindevkit-bdk-5dc6e959379982a1661e8f57c3ee7af334627ca5/LICENSE",
+      "sha256": "031dbd187e6e01b8b0ab57250038c3810633323e61a0a4d1d0c171760dba38c7",
+      "sizeBytes": 693,
+      "packages": [
+        "bdk_bitcoind_rpc-0.22.1",
+        "bdk_chain-0.23.4",
+        "bdk_core-0.6.4",
+        "bdk_electrum-0.24.1",
+        "bdk_esplora-0.22.3"
+      ]
+    },
+    {
+      "repository": "https://github.com/bitcoindevkit/bdk",
+      "revision": "5dc6e959379982a1661e8f57c3ee7af334627ca5",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/bitcoindevkit/bdk/5dc6e959379982a1661e8f57c3ee7af334627ca5/LICENSE-APACHE",
+      "path": "inherited-licenses/bitcoindevkit-bdk-5dc6e959379982a1661e8f57c3ee7af334627ca5/LICENSE-APACHE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "sizeBytes": 11357,
+      "packages": [
+        "bdk_bitcoind_rpc-0.22.1",
+        "bdk_chain-0.23.4",
+        "bdk_core-0.6.4",
+        "bdk_electrum-0.24.1",
+        "bdk_esplora-0.22.3"
+      ]
+    },
+    {
+      "repository": "https://github.com/bitcoindevkit/bdk",
+      "revision": "5dc6e959379982a1661e8f57c3ee7af334627ca5",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/bitcoindevkit/bdk/5dc6e959379982a1661e8f57c3ee7af334627ca5/LICENSE-MIT",
+      "path": "inherited-licenses/bitcoindevkit-bdk-5dc6e959379982a1661e8f57c3ee7af334627ca5/LICENSE-MIT",
+      "sha256": "638da3722c9e102ccd8011d82f61ae3b611174e4a0f8da185c582df137b60a8c",
+      "sizeBytes": 1023,
+      "packages": [
+        "bdk_bitcoind_rpc-0.22.1",
+        "bdk_chain-0.23.4",
+        "bdk_core-0.6.4",
+        "bdk_electrum-0.24.1",
+        "bdk_esplora-0.22.3"
+      ]
+    },
+    {
+      "repository": "https://github.com/bitcoindevkit/bdk",
+      "revision": "8f281da1bf1cd461d0a33381f962cc4716960727",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/bitcoindevkit/bdk/8f281da1bf1cd461d0a33381f962cc4716960727/LICENSE",
+      "path": "inherited-licenses/bitcoindevkit-bdk-8f281da1bf1cd461d0a33381f962cc4716960727/LICENSE",
+      "sha256": "031dbd187e6e01b8b0ab57250038c3810633323e61a0a4d1d0c171760dba38c7",
+      "sizeBytes": 693,
+      "packages": [
+        "bdk_file_store-0.22.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/bitcoindevkit/bdk",
+      "revision": "8f281da1bf1cd461d0a33381f962cc4716960727",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/bitcoindevkit/bdk/8f281da1bf1cd461d0a33381f962cc4716960727/LICENSE-APACHE",
+      "path": "inherited-licenses/bitcoindevkit-bdk-8f281da1bf1cd461d0a33381f962cc4716960727/LICENSE-APACHE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "sizeBytes": 11357,
+      "packages": [
+        "bdk_file_store-0.22.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/bitcoindevkit/bdk",
+      "revision": "8f281da1bf1cd461d0a33381f962cc4716960727",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/bitcoindevkit/bdk/8f281da1bf1cd461d0a33381f962cc4716960727/LICENSE-MIT",
+      "path": "inherited-licenses/bitcoindevkit-bdk-8f281da1bf1cd461d0a33381f962cc4716960727/LICENSE-MIT",
+      "sha256": "638da3722c9e102ccd8011d82f61ae3b611174e4a0f8da185c582df137b60a8c",
+      "sizeBytes": 1023,
+      "packages": [
+        "bdk_file_store-0.22.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/jni-rs/jni-rs",
+      "revision": "33045a124105c939d1e2cbdcb5a39e5d868ffa03",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/jni-rs/jni-rs/33045a124105c939d1e2cbdcb5a39e5d868ffa03/LICENSE-APACHE",
+      "path": "inherited-licenses/jni-rs-jni-rs-33045a124105c939d1e2cbdcb5a39e5d868ffa03/LICENSE-APACHE",
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+      "sizeBytes": 10847,
+      "packages": [
+        "jni-macros-0.22.4"
+      ]
+    },
+    {
+      "repository": "https://github.com/jni-rs/jni-rs",
+      "revision": "33045a124105c939d1e2cbdcb5a39e5d868ffa03",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/jni-rs/jni-rs/33045a124105c939d1e2cbdcb5a39e5d868ffa03/LICENSE-MIT",
+      "path": "inherited-licenses/jni-rs-jni-rs-33045a124105c939d1e2cbdcb5a39e5d868ffa03/LICENSE-MIT",
+      "sha256": "fea1d5bf3dd71605ce5d7d2ff695c1837e914c77195e523a86b5391716477960",
+      "sizeBytes": 1104,
+      "packages": [
+        "jni-macros-0.22.4"
+      ]
+    },
+    {
+      "repository": "https://github.com/jni-rs/jni-rs",
+      "revision": "5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/jni-rs/jni-rs/5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7/LICENSE-APACHE",
+      "path": "inherited-licenses/jni-rs-jni-rs-5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7/LICENSE-APACHE",
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+      "sizeBytes": 10847,
+      "packages": [
+        "jni-0.22.4"
+      ]
+    },
+    {
+      "repository": "https://github.com/jni-rs/jni-rs",
+      "revision": "5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/jni-rs/jni-rs/5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7/LICENSE-MIT",
+      "path": "inherited-licenses/jni-rs-jni-rs-5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7/LICENSE-MIT",
+      "sha256": "fea1d5bf3dd71605ce5d7d2ff695c1837e914c77195e523a86b5391716477960",
+      "sizeBytes": 1104,
+      "packages": [
+        "jni-0.22.4"
+      ]
+    },
+    {
+      "repository": "https://github.com/jni-rs/jni-sys",
+      "revision": "64d77b7a5f119d7b55b4e2c169a4668067ff59e6",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/jni-rs/jni-sys/64d77b7a5f119d7b55b4e2c169a4668067ff59e6/LICENSE-APACHE",
+      "path": "inherited-licenses/jni-rs-jni-sys-64d77b7a5f119d7b55b4e2c169a4668067ff59e6/LICENSE-APACHE",
+      "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08",
+      "sizeBytes": 11358,
+      "packages": [
+        "jni-sys-macros-0.4.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/jni-rs/jni-sys",
+      "revision": "64d77b7a5f119d7b55b4e2c169a4668067ff59e6",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/jni-rs/jni-sys/64d77b7a5f119d7b55b4e2c169a4668067ff59e6/LICENSE-MIT",
+      "path": "inherited-licenses/jni-rs-jni-sys-64d77b7a5f119d7b55b4e2c169a4668067ff59e6/LICENSE-MIT",
+      "sha256": "1d85bd754b04ceec93e98e890edd1fa3c6a22e81bcb32135806beeccefa51cd1",
+      "sizeBytes": 1071,
+      "packages": [
+        "jni-sys-macros-0.4.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/mozilla/uniffi-rs",
+      "revision": "7bc621ee9d0d15371d792612707ba5ed4111f950",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/mozilla/uniffi-rs/7bc621ee9d0d15371d792612707ba5ed4111f950/LICENSE",
+      "path": "inherited-licenses/mozilla-uniffi-rs-7bc621ee9d0d15371d792612707ba5ed4111f950/LICENSE",
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "sizeBytes": 16725,
+      "packages": [
+        "uniffi-0.32.2",
+        "uniffi_bindgen-0.32.2",
+        "uniffi_build-0.32.2",
+        "uniffi_core-0.32.2",
+        "uniffi_internal_macros-0.32.2",
+        "uniffi_macros-0.32.2",
+        "uniffi_meta-0.32.2",
+        "uniffi_pipeline-0.32.2",
+        "uniffi_udl-0.32.2"
+      ]
+    },
+    {
+      "repository": "https://github.com/r-efi/r-efi",
+      "revision": "7e1b0322d31d625f81a5656096330934f9cd835d",
+      "upstreamPath": "AUTHORS",
+      "url": "https://github.com/r-efi/r-efi/blob/7e1b0322d31d625f81a5656096330934f9cd835d/AUTHORS",
+      "path": "inherited-licenses/r-efi-7e1b0322d31d625f81a5656096330934f9cd835d/AUTHORS",
+      "sha256": "d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111",
+      "sizeBytes": 3733,
+      "packages": [
+        "r-efi-6.0.0"
+      ],
+      "selectedLicense": "MIT",
+      "basis": "Exact published AUTHORS includes complete MIT permission/warranty text and original Red Hat/Microsoft/David Rheinsberg copyrights."
+    },
+    {
+      "repository": "https://github.com/r-efi/r-efi",
+      "revision": "97b55bed1c2c91dcbf787674849f05337ff80b33",
+      "upstreamPath": "AUTHORS",
+      "url": "https://github.com/r-efi/r-efi/blob/97b55bed1c2c91dcbf787674849f05337ff80b33/AUTHORS",
+      "path": "inherited-licenses/r-efi-97b55bed1c2c91dcbf787674849f05337ff80b33/AUTHORS",
+      "sha256": "ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7",
+      "sizeBytes": 3693,
+      "packages": [
+        "r-efi-5.3.0"
+      ],
+      "selectedLicense": "MIT",
+      "basis": "Exact published AUTHORS includes complete MIT permission/warranty text and original Red Hat/Microsoft/David Rheinsberg copyrights."
+    },
+    {
+      "repository": "https://github.com/rgb-protocol/rgb-api",
+      "revision": "4922e50734ab456d086546ab2befd5fa0aec99cc",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/rgb-protocol/rgb-api/4922e50734ab456d086546ab2befd5fa0aec99cc/LICENSE",
+      "path": "inherited-licenses/rgb-protocol-rgb-api-4922e50734ab456d086546ab2befd5fa0aec99cc/LICENSE",
+      "sha256": "7cc5c5f35b62ec9b3ea305026a5d7ef9d162403440eec419206712bedaa160c2",
+      "sizeBytes": 11376,
+      "packages": [
+        "rgb-psbt-utils-0.11.2-rc.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/rgb-protocol/rgb-ops",
+      "revision": "00f8d62e6107767cca085d9f9b3183c35ad6d71f",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/rgb-protocol/rgb-ops/00f8d62e6107767cca085d9f9b3183c35ad6d71f/LICENSE",
+      "path": "inherited-licenses/rgb-protocol-rgb-ops-00f8d62e6107767cca085d9f9b3183c35ad6d71f/LICENSE",
+      "sha256": "563b1bc1c6dc82b097325450aff0dd685f7aa857628fb1fb2ecbca5820f3f488",
+      "sizeBytes": 11376,
+      "packages": [
+        "rgb-invoicing-0.11.2-rc.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/rgb-protocol/rgb-strict-encoding",
+      "revision": "e12b9944b30171950de03778d6666b24bc33d994",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/rgb-protocol/rgb-strict-encoding/e12b9944b30171950de03778d6666b24bc33d994/LICENSE",
+      "path": "inherited-licenses/rgb-protocol-rgb-strict-encoding-e12b9944b30171950de03778d6666b24bc33d994/LICENSE",
+      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+      "sizeBytes": 10173,
+      "packages": [
+        "rgb-strict-encoding-1.0.5",
+        "rgb-strict-encoding-derive-1.0.5"
+      ]
+    },
+    {
+      "repository": "https://github.com/rust-amplify/amplify-derive",
+      "revision": "29ca86c56316ce683bf3827a9d245334db69ce1f",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/rust-amplify/amplify-derive/29ca86c56316ce683bf3827a9d245334db69ce1f/LICENSE",
+      "path": "inherited-licenses/rust-amplify-amplify-derive-29ca86c56316ce683bf3827a9d245334db69ce1f/LICENSE",
+      "sha256": "a7173d3ff287d45cecb4f31f854259264206b152b00bf4ac6ba0445bb0e864a9",
+      "sizeBytes": 11365,
+      "packages": [
+        "amplify_syn-2.0.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/rust-amplify/amplify-num",
+      "revision": "872842c3d151296b18314dfa5bf86548c2ce4f29",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/rust-amplify/amplify-num/872842c3d151296b18314dfa5bf86548c2ce4f29/LICENSE",
+      "path": "inherited-licenses/rust-amplify-amplify-num-872842c3d151296b18314dfa5bf86548c2ce4f29/LICENSE",
+      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+      "sizeBytes": 10173,
+      "packages": [
+        "amplify_num-0.5.4"
+      ]
+    },
+    {
+      "repository": "https://github.com/rust-amplify/amplify-num",
+      "revision": "98cda24f2ed2d19ffaba743f59f9ad34464bb492",
+      "upstreamPath": "LICENSE",
+      "url": "https://raw.githubusercontent.com/rust-amplify/amplify-num/98cda24f2ed2d19ffaba743f59f9ad34464bb492/LICENSE",
+      "path": "inherited-licenses/rust-amplify-amplify-num-98cda24f2ed2d19ffaba743f59f9ad34464bb492/LICENSE",
+      "sha256": "77b04ce7fbdecebd48c88512a3f303a25b5186a4dd05a533622e2a901284a8c7",
+      "sizeBytes": 11419,
+      "packages": [
+        "amplify_apfloat-0.3.1"
+      ]
+    },
+    {
+      "repository": "https://github.com/rustls/rustls-platform-verifier",
+      "revision": "252e25161a91af476cbea620e29d277592d27ec7",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/rustls/rustls-platform-verifier/252e25161a91af476cbea620e29d277592d27ec7/LICENSE-APACHE",
+      "path": "inherited-licenses/rustls-rustls-platform-verifier-252e25161a91af476cbea620e29d277592d27ec7/LICENSE-APACHE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "sizeBytes": 11357,
+      "packages": [
+        "rustls-platform-verifier-android-0.2.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/rustls/rustls-platform-verifier",
+      "revision": "252e25161a91af476cbea620e29d277592d27ec7",
+      "upstreamPath": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/rustls/rustls-platform-verifier/252e25161a91af476cbea620e29d277592d27ec7/LICENSE-MIT",
+      "path": "inherited-licenses/rustls-rustls-platform-verifier-252e25161a91af476cbea620e29d277592d27ec7/LICENSE-MIT",
+      "sha256": "1c7cf76689c837a68ed8d704994e52a0f2940c087958f860d17f3186afbdcc0c",
+      "sizeBytes": 1066,
+      "packages": [
+        "rustls-platform-verifier-android-0.2.0"
+      ]
+    },
+    {
+      "repository": "https://github.com/spdx/license-list-data",
+      "revision": "31846481de7ea17d92f2f46fad76abe58b2e9bb0",
+      "upstreamPath": "text/MIT.txt",
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/31846481de7ea17d92f2f46fad76abe58b2e9bb0/text/MIT.txt",
+      "path": "inherited-licenses/sea-bae-0.2.2/LICENSE-and-published-attribution.txt",
+      "sha256": "62052d4059b46d3b0cf8f71f5429b3d1ef0f209af1df95c87861cc60c3f68932",
+      "sizeBytes": 1386,
+      "packages": [
+        "sea-bae-0.2.2"
+      ],
+      "selectedLicense": "MIT",
+      "basis": "Exact published Cargo.toml.orig declares MIT and David Pedersen as author; source commit69863a9b02bbc2eed3d04fe20a5845a147e3a749 has no separate license/copyright file. Original declarations preserved. Canonical permission body included; template copyright placeholders omitted, with no invented copyright claim."
+    },
+    {
+      "repository": "https://github.com/SeaQL/sea-schema",
+      "revision": "67d496fb194531de78334d84158f5525c7f1df07",
+      "upstreamPath": "LICENSE-APACHE",
+      "url": "https://github.com/SeaQL/sea-schema/blob/67d496fb194531de78334d84158f5525c7f1df07/LICENSE-APACHE",
+      "path": "inherited-licenses/sea-schema-derive-0.3.0/LICENSE-APACHE",
+      "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb",
+      "sizeBytes": 10846,
+      "packages": [
+        "sea-schema-derive-0.3.0"
+      ],
+      "selectedLicense": "Apache-2.0",
+      "basis": "Exact derive crate declares MIT OR Apache-2.0; chosen Apache text supplied by the same upstream workspace parent. The derive source commit is 3adebabf9e27cecedf200d82016b7d0dfec16c19, which was not substituted with this parent commit."
+    },
+    {
+      "repository": "https://github.com/spdx/license-list-data",
+      "revision": "31846481de7ea17d92f2f46fad76abe58b2e9bb0",
+      "upstreamPath": "text/CC0-1.0.txt",
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/31846481de7ea17d92f2f46fad76abe58b2e9bb0/text/CC0-1.0.txt",
+      "path": "inherited-licenses/spdx-license-list-data-31846481de7ea17d92f2f46fad76abe58b2e9bb0/CC0-1.0.txt",
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "sizeBytes": 7048,
+      "packages": [
+        "base58ck-0.1.101",
+        "bitcoin-0.32.102",
+        "bitcoin-consensus-encoding-1.3.0",
+        "bitcoin-internals-0.7.0",
+        "bitcoin-io-0.1.101",
+        "bitcoin-units-0.1.101",
+        "bitcoin_hashes-0.14.101"
+      ],
+      "basis": "Canonical license text for the exact published Cargo metadata SPDX declaration; not a substituted upstream copyright notice."
+    },
+    {
+      "repository": "https://github.com/spdx/license-list-data",
+      "revision": "31846481de7ea17d92f2f46fad76abe58b2e9bb0",
+      "upstreamPath": "text/MITNFA.txt",
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/31846481de7ea17d92f2f46fad76abe58b2e9bb0/text/MITNFA.txt",
+      "path": "inherited-licenses/spdx-license-list-data-31846481de7ea17d92f2f46fad76abe58b2e9bb0/MITNFA.txt",
+      "sha256": "d436716f7a05466f52443893079761c8a88f4967d0ef490fabc0a1c9ef1c3a1d",
+      "sizeBytes": 1531,
+      "packages": [
+        "hex_lit-0.1.1"
+      ],
+      "basis": "Canonical license text for the exact published Cargo metadata SPDX declaration; not a substituted upstream copyright notice."
+    },
+    {
+      "repository": "https://github.com/UTEXO-Protocol/rgb-lib-bfa",
+      "revision": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
+      "upstreamPath": "LICENSE",
+      "url": "https://github.com/UTEXO-Protocol/rgb-lib-bfa/blob/9ec49c08be2e68f08521281e3efbd760ec989cb9/LICENSE",
+      "path": "inherited-licenses/utexo-rgb-lib-bfa-9ec49c08be2e68f08521281e3efbd760ec989cb9/LICENSE",
+      "sha256": "8295b7e63fbb3db4b2c990752f94e44e41e91fea12b0cd251ba1da9e0f23d5f6",
+      "sizeBytes": 1082,
+      "packages": [
+        "rgb-lib-migration-0.3.0-beta.5",
+        "rgb-lib-uniffi-0.1.0"
+      ]
+    }
+  ],
+  "remaining": [],
+  "excludedOptionalLockPackages": [
+    {
+      "package": "winapi-i686-pc-windows-gnu-0.4.0",
+      "reason": "No dependency path in exact normal/build Cargo graph for any admitted mobile target; optional Windows-only archive is not linked in these artifacts.",
+      "verifiedTargets": [
+        "aarch64-apple-ios",
+        "aarch64-apple-ios-sim",
+        "x86_64-apple-ios",
+        "aarch64-linux-android",
+        "x86_64-linux-android"
+      ],
+      "edges": "normal,build"
+    },
+    {
+      "package": "winapi-x86_64-pc-windows-gnu-0.4.0",
+      "reason": "No dependency path in exact normal/build Cargo graph for any admitted mobile target; optional Windows-only archive is not linked in these artifacts.",
+      "verifiedTargets": [
+        "aarch64-apple-ios",
+        "aarch64-apple-ios-sim",
+        "x86_64-apple-ios",
+        "aarch64-linux-android",
+        "x86_64-linux-android"
+      ],
+      "edges": "normal,build"
+    }
+  ],
+  "disposition": "All49 missing-text cases classified:47 supplied exact/inherited/canonical license texts with published declarations;2 optional Windows-only packages excluded from all5 admitted mobile build graphs. This remains source-backed attribution evidence, not complete legal/SBOM approval.",
+  "publishedDeclarationExcerpts": [
+    {
+      "package": "hex_lit-0.1.1",
+      "path": "inherited-licenses/published-license-declarations/hex_lit-0.1.1/README.md",
+      "originalFile": "README.md",
+      "originalSha256": "4817e234fa343ed48b5200ec7e3ddf2c5127a9bf5f8dd44253ccda360fc34493",
+      "sourceUrl": "https://docs.rs/crate/hex_lit/0.1.1/source/README.md",
+      "sourceRevision": "a1b61585654a3280103a9622c272b2f8ba278a47",
+      "excerptOriginalStartLine": 59,
+      "excerptSha256": "a332f7c02f3376dfa8ff986ad7f3dfec993a1a009027185e1ebca330b2b1b7a4",
+      "basis": "Only the exact license declaration is needed here; full source remains available from the checksum-pinned crate. No license/copyright text omitted."
+    }
+  ]
+}

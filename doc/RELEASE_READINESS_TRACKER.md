@@ -9,6 +9,12 @@ were removed because they overlapped and had drifted from the implementation.
 
 ### November 6 React Native beta.40 and RGB_L1
 
+November 7 follow-up: Flutter now carries a separately named BFA.7 source
+overlay with native contract registration and durable recovery. Aster's gated
+adapter consumes those APIs; the factory and release gates remain closed.
+See [current BFA.7 mechanisms and qualification limits](BFA7_NATIVE_INTEGRATION.md).
+The original RN BFA.5 source/archive reference below remains immutable.
+
 The published reference switches its default wallet to rgb-lib BFA.5.
 Flutter adds a separately selected RGB_L1 backend and preserves the existing
 RLN constructor. Aster remains gated on durable send and release qualification.
@@ -17,9 +23,9 @@ See [the source audit and dispositions](UPSTREAM_PARITY_BETA40.md).
 | ID | Pri | Status | Finding and evidence | Required outcome |
 | --- | --- | --- | --- | --- |
 | NOV-001 | P1 | Verified | The beta.40 source, npm archive, and BFA.5 native provenance are pinned. Flutter has typed RGB_L1 session, exact amount, receive, transfer, issuance, backup and maintenance APIs. Existing RLN compatibility checks are still pinned independently. | Continue reviewing upstream changes against the immutable reference and keep separate native artifact evidence. |
-| NOV-002 | P0 | In progress | The published RGB_L1 bridge lacks a durable exact-payment outcome protocol. Aster's backend gate prevents switching the existing wallet flows to one-shot sends. | Persist and reconcile the same authorized BTC/RGB operation across process interruption, prove cancellation and recovery, and qualify backup of both wallet and operation state before activating Aster. |
-| NOV-003 | P0 | Blocked upstream | Exact BFA.5 UniFFI dependency lock has nine RustSec advisories. The iOS binary imports DiskSpace APIs and its required-reason use still needs an archive-specific review. Current dual-engine packaging also retains the independent RLN security and privacy gates. | Qualify the patched or reviewed dependency graph, native provenance and required-reason usage for the exact signed app artifacts. |
-| NOV-004 | P0 | In progress | BFA.5 changes consignment layout and needs proxy 1.0. A compatible issuer-approved mainnet USDT contract and first-receive/bootstrap workflow are still unqualified. | Qualify the exact mainnet deployment and funded BTC/USDT, reorg, interruption and backup recovery on both current mobile platforms with a compatible existing fixture. |
+| NOV-002 | P0 | In progress | BFA.7 Flutter overlay implements authenticated native exact-payment identity, dispatch boundary, read-only status, cancellation tombstones and receipt recovery. Native fault/restart/backup tests pass. Restored snapshots remain fenced because an old backup cannot prove absence of a later payment. Aster has the adapter but stays gated. | Qualify funded mobile interruption/reorg cases and a freshness authority for unrestricted restored-wallet spending. No status or restart may replay End, proxy submission or broadcast. |
+| NOV-003 | P0 | In progress | Patched BFA.7 UniFFI lock has zero known vulnerabilities and zero unsound notices at the recorded RustSec revision; three unmaintained dependencies remain disclosed. Static iOS inputs still import DiskSpace APIs. Dual-engine packages retain independent RLN security/privacy gates. | Verify exact platform/native provenance and final signed-archive required-reason call paths. Advisory remediation alone does not approve a release. |
+| NOV-004 | P0 | In progress | BFA.7 native standalone genesis registration and exact Aster metadata bootstrap are implemented. Proxy 1.0, issuer-approved current contracts, backing deployment and funded acceptance remain required; historical BFA.5 exports cannot authenticate Dev or mainnet assets. | Obtain approved current export/hash/name/ticker/precision/backing contracts and explicit EVM mint-lock policy, then qualify exact BTC/USDT receive/send/history/restart on both mobile platforms. |
 
 ### October 16 Production Privacy Disposition
 
@@ -780,8 +786,8 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 | P2 | 79 |
 | P3 | 0 |
 | Open | 2 |
-| In progress | 25 |
-| Blocked upstream | 4 |
+| In progress | 26 |
+| Blocked upstream | 3 |
 | Needs decision | 0 |
 | Accepted constraint | 7 |
 | Verified | 254 |

@@ -23,10 +23,17 @@ SLICES = (
     ("ios-arm64", "iphoneos", ("arm64",), ""),
     ("ios-arm64_x86_64-simulator", "iphonesimulator", ("arm64", "x86_64"), "-simulator"),
 )
+ATTRIBUTION_FILES = (
+    "LICENSE.rgb-lib.txt", "LICENSE.MPL-2.0.txt", "NOTICE.txt", "source-manifest.json",
+)
 
 
 def run(*args):
-    return subprocess.check_output(args, text=True).strip()
+    env = os.environ.copy()
+    xcode = Path("/Applications/Xcode.app/Contents/Developer")
+    if xcode.is_dir():
+        env.setdefault("DEVELOPER_DIR", str(xcode))
+    return subprocess.check_output(args, text=True, env=env).strip()
 
 
 def sha256(path):
@@ -40,6 +47,19 @@ def sha256(path):
 def verify_archive(archive):
     if archive.stat().st_size != PIN["ios"]["sizeBytes"] or sha256(archive) != PIN["ios"]["sha256"]:
         raise ValueError("RGB Lib iOS archive does not match the verified release pin.")
+
+
+def verify_provenance(provenance):
+    fields = {
+        "version": "version", "bridge_version": "bridgeVersion",
+        "source_commit": "sourceRevision", "source_lock_sha256": "sourceLockSha256",
+        "integration_tree": "integrationTree", "overlay_patch_sha256": "sourceOverlaySha256",
+        "source_manifest_sha256": "sourceManifestSha256", "native_overlay": "nativeOverlay",
+    }
+    for archive_key, pin_key in fields.items():
+        expected = PIN.get(pin_key)
+        if expected is None or provenance.get(archive_key) != expected:
+            raise ValueError("RGB Lib iOS provenance does not match the release pin: " + archive_key)
 
 
 def build_identity():
@@ -86,6 +106,11 @@ def prepare_framework(directory, name):
     return framework
 
 
+def copy_attribution(release, framework):
+    for filename in ATTRIBUTION_FILES:
+        shutil.copyfile(release / filename, framework / filename)
+
+
 def build_slice(release, work, slice_id, sdk, architectures, suffix):
     sdk_path = run("xcrun", "--sdk", sdk, "--show-sdk-path")
     compiler_help = run("xcrun", "swiftc", "-help")
@@ -95,6 +120,8 @@ def build_slice(release, work, slice_id, sdk, architectures, suffix):
     directory = work / slice_id
     ffi = prepare_framework(directory, "rgb_libFFI")
     swift = prepare_framework(directory, "RGBLib")
+    copy_attribution(release, ffi)
+    copy_attribution(release, swift)
     modules = swift / "Modules/RGBLib.swiftmodule"
     modules.mkdir(parents=True)
     (ffi / "Headers").mkdir()
@@ -179,15 +206,14 @@ def install(work, identity):
     release = work / "release"
     with zipfile.ZipFile(archive) as source:
         source.extract("version.json", release)
+        for filename in ATTRIBUTION_FILES:
+            source.extract(filename, release)
         source.extract("Sources/RgbLib/RgbLib.swift", release)
         for slice_id, _, _, _ in SLICES:
             for file in ("librgblibuniffi.a", "Headers/rgb_libFFI.h"):
                 source.extract(f"rgb_libFFI.xcframework/{slice_id}/{file}", release)
     provenance = json.loads((release / "version.json").read_text())
-    if (provenance["version"], provenance["source_commit"], provenance["source_lock_sha256"]) != (
-        PIN["version"], PIN["sourceRevision"], PIN["sourceLockSha256"]
-    ):
-        raise ValueError("RGB Lib iOS provenance does not match the release pin.")
+    verify_provenance(provenance)
 
     print("[rgb-lib] Building verified iOS and simulator frameworks.", flush=True)
     slices = [build_slice(release, work, *slice_info) for slice_info in SLICES]

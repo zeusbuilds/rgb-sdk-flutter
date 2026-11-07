@@ -27,6 +27,10 @@ class RecoverableOnchainSendCommand {
     required this.walletBinding,
     required Map<String, Object?> request,
     required bool restored,
+    this.backend,
+    this.recoveryCohort,
+    this.nativeSourceRevision,
+    this.nativeOverlay,
   }) : _request = Map<String, Object?>.unmodifiable(request),
        _restored = restored;
 
@@ -40,6 +44,13 @@ class RecoverableOnchainSendCommand {
   factory RecoverableOnchainSendCommand.fromJson(String requestJson) {
     final envelope = _recoverableJsonObject(requestJson, 'command');
     final version = envelope['version'];
+    if (version == 3) {
+      final command = RgbLibRecoverableCodec.restore(envelope);
+      if (command.requestJson != requestJson) {
+        _recoverableInvalid('command.canonicalEncoding');
+      }
+      return command;
+    }
     if (version is! int || (version != 1 && version != 2)) {
       _recoverableInvalid('command.version');
     }
@@ -86,16 +97,27 @@ class RecoverableOnchainSendCommand {
   /// Canonical native network, bound into the fingerprint.
   final String network;
 
-  /// SDK envelope version. New commands use stable wallet identity in version 2.
+  /// SDK envelope version: legacy RLN uses version 2; RGB_L1 uses version 3.
   final int version;
 
   /// Legacy version-1 wallet path; null for stable-identity commands.
   /// Version 1 cannot be relocated and is never silently migrated.
   final String? storageDirPath;
 
-  /// Version-2 domain-separated digest of network and both account xpubs.
+  /// Stable native account identity. RLN version 2 uses a domain-separated
+  /// network/xpub digest; RGB_L1 version 3 also binds its backend and cohort.
   /// Null only for legacy version-1 commands.
   final String? walletBinding;
+
+  /// Explicit native engine for version 3. Legacy RLN commands have no value.
+  final String? backend;
+
+  /// Private native storage cohort; never inferred from account keys alone.
+  final String? recoveryCohort;
+
+  /// Exact RGB_L1 source and recovery overlay bound into version 3 commands.
+  final String? nativeSourceRevision;
+  final String? nativeOverlay;
   final Map<String, Object?> _request;
   final bool _restored;
 
@@ -112,11 +134,17 @@ class RecoverableOnchainSendCommand {
   /// Exact private SDK envelope to persist before calling prepare.
   String get requestJson => jsonEncode(<String, Object?>{
     'version': version,
+    if (version == 3) 'backend': backend,
     'network': network,
     if (version == 1)
       'storageDirPath': storageDirPath
     else
       'walletBinding': walletBinding,
+    if (version == 3) ...{
+      'recoveryCohort': recoveryCohort,
+      'nativeSourceRevision': nativeSourceRevision,
+      'nativeOverlay': nativeOverlay,
+    },
     'request': _request,
   });
 
@@ -125,8 +153,8 @@ class RecoverableOnchainSendCommand {
 
 /// Validated, command-bound result from native durable send recovery.
 ///
-/// The accepted phase means the native end operation returned successfully, not that
-/// the transaction has chain confirmations. Missing, malformed, contradictory
+/// The accepted phase means native established submission, including exact
+/// post-dispatch reconciliation; it does not mean chain confirmation. Missing, malformed, contradictory
 /// or mismatched native status throws instead of authorizing a new send.
 class RecoverableOnchainSendStatus {
   const RecoverableOnchainSendStatus._({

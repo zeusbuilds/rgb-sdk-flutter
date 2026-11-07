@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Cross-language canonical envelope and hash vectors. RGB asset identity is an opaque syntax fixture, not deployment approval. No payment is dispatched.",
+  "vectors": [
+    {
+      "name": "bitcoin",
+      "requestJson": "{\"version\":3,\"backend\":\"RGB_L1\",\"network\":\"regtest\",\"walletBinding\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"recoveryCohort\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"nativeSourceRevision\":\"9ec49c08be2e68f08521281e3efbd760ec989cb9\",\"nativeOverlay\":\"flutter-bfa7-durable-v1\",\"request\":{\"version\":2,\"operationId\":\"cccccccccccccccccccccccccccccccc\",\"kind\":\"bitcoin\",\"amount\":\"1500\",\"feeRate\":\"2\",\"address\":\"mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn\",\"assetId\":null,\"recipientId\":null,\"transportEndpoints\":[],\"senderTransportEndpoint\":null,\"witnessAmountSat\":null,\"witnessBlinding\":null,\"minConfirmations\":1,\"donation\":false,\"expirationTimestamp\":null,\"invoicePublicKey\":null,\"invoiceEncryption\":null,\"fingerprint\":\"30b58ec1795f6958f3642f85ec43759c9b31d0cc39cb2d41a4062ff17fd9f7bb\"}}",
+      "fingerprint": "30b58ec1795f6958f3642f85ec43759c9b31d0cc39cb2d41a4062ff17fd9f7bb"
+    },
+    {
+      "name": "rgb",
+      "requestJson": "{\"version\":3,\"backend\":\"RGB_L1\",\"network\":\"regtest\",\"walletBinding\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"recoveryCohort\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"nativeSourceRevision\":\"9ec49c08be2e68f08521281e3efbd760ec989cb9\",\"nativeOverlay\":\"flutter-bfa7-durable-v1\",\"request\":{\"version\":2,\"operationId\":\"dddddddddddddddddddddddddddddddd\",\"kind\":\"rgb\",\"amount\":\"18446744073709551615\",\"feeRate\":\"2\",\"address\":null,\"assetId\":\"rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE\",\"recipientId\":\"rgb-witness-vector\",\"transportEndpoints\":[\"rpc://127.0.0.1:29300/json-rpc\"],\"senderTransportEndpoint\":\"rpc://127.0.0.1:29300/json-rpc\",\"witnessAmountSat\":\"1000\",\"witnessBlinding\":\"18446744073709551615\",\"minConfirmations\":1,\"donation\":false,\"expirationTimestamp\":\"2000000000\",\"invoicePublicKey\":\"d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a\",\"invoiceEncryption\":\"Required\",\"fingerprint\":\"adcde71585fb5167bb163c246487655445969b369658d5a9a9bbbd84921d3ee0\"}}",
+      "fingerprint": "adcde71585fb5167bb163c246487655445969b369658d5a9a9bbbd84921d3ee0"
+    }
+  ]
+}
