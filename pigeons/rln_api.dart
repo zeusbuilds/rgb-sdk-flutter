@@ -326,6 +326,7 @@ abstract class RlnHostApi {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   );
 
   @TaskQueue(type: TaskQueueType.serialBackgroundThread)
@@ -413,6 +414,12 @@ abstract class RlnHostApi {
 
   @TaskQueue(type: TaskQueueType.serialBackgroundThread)
   void rlnSync(int nodeId);
+
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
+  RlnWireResponse rlnAssetMetadata(int nodeId, String assetId);
+
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
+  RlnWireResponse rlnPostAssetMedia(int nodeId, Uint8List bytes);
 
   @TaskQueue(type: TaskQueueType.serialBackgroundThread)
   RlnWireResponse rlnIssueAssetNia(

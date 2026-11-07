@@ -1,18 +1,21 @@
 # WebRGB and BFA Burns
 
-Target: RN beta.39 at `41ff170f794edff2a1822a672ddab37e29505f14`,
-`@utexo/webrgb` 0.1.3, RLN 0.17.0-beta.3. This document defines integration
-contracts, not production qualification. Check RELEASE_READINESS_TRACKER.md.
+Reference: RN `1.0.0-beta.40` at `5c8b2dfc79844c73e061a3df1ccbfdc1278d3ca7`,
+WebRGB 0.1.3 and WalletConnect 0.1.3. Flutter supports the BFA.5 on-chain
+engine and the legacy RLN 0.17.0-beta.3 engine. For release evidence, see
+[upstream parity and mainnet gates](UPSTREAM_PARITY_BETA40.md).
 
 ## Optional Provider
 
 Import `package:rgb_sdk_flutter/rgb_sdk_flutter_webrgb.dart`. The ordinary
 wallet entrypoint does not install or expose a browser provider automatically.
-`WebRgbProvider` implements the same RN subset: enable, getInfo, getAddress,
+Use `WebRgbProvider` with an RLN wallet or `WebRgbProvider.rgbLib` with an
+RGB_L1 wallet. The provider implements enable, getInfo, getAddress,
 blindReceive, witnessReceive, signMessage, listAssets, getAssetBalance,
 listTransfers, getTransferStatus,
-decodeRgbInvoice, and optional burnAsset/getConsignment. It does not pretend to
-implement the rest of WebRGB (issuance, generic sends, discovery, transports).
+decodeRgbInvoice, and optional burnAsset/getConsignment. RGB_L1 reports its
+own protocol and omits message signing. A watch-only wallet reports burn as
+unavailable. Both engines keep issuance and generic sends outside WebRGB.
 
 The host owns transport authentication, origin verification, JSON request
 validation, user consent, timeouts and session expiration. Pass immutable typed
@@ -67,6 +70,24 @@ The native commitment is 12 zero bytes followed by the account bytes; the Tron
 version and checksum are excluded. Tron address casing is preserved in consent,
 results, durable metadata and history. Hex-form Tron addresses are rejected.
 
+### V1 bridge destinations
+
+For an RGB_L1 deployment using V1 commitments, supply `BurnDestinationRoute`
+entries through `WebRgbBurnOptions.destinationRoutes`. Each allowlisted chain
+must have one route with its approved `dstEid`. A zero `dstEid` selects a direct
+20-byte EVM destination. A routed Tron destination commits the 21-byte account
+including `0x41`. Wallet configuration owns these routes. `getInfo()` exposes
+their version and chain-to-EID mapping when burn is available and authorized.
+
+The wallet derives the exact `BurnDestination` from that route and the
+requested payout address. A caller may supply the destination as a check. A
+conflicting chain, EID or recipient fails before approval or journal writes.
+The native burn reason is the Keccak-256 commitment to the V1 ABI tuple. That
+commitment binds the destination chain, route and recipient bytes. The user
+approval, durable journal and authorized status response carry the same
+destination. An approved V1 configuration never falls back to raw address
+padding on a mismatch.
+
 ## Durable Burn Ownership
 
 Burns destroy RGB units. A burn result is not confirmation or proof that an
@@ -81,10 +102,12 @@ must retain all records across process restart. Only one process/isolate may
 own a wallet and store. There is deliberately no in-memory production store.
 Test fixtures are not an implementation recommendation.
 
-State transitions are prepared -> pending -> complete. Pending is durably
-written before native invocation. Failure/revocation before invocation cancels
-the record. Typed native InsufficientFunds/NoAvailableUtxos from the burn call,
-before a result is returned, also cancel because native guarantees no broadcast.
+State transitions are prepared -> pending -> complete. `BurnCapabilityWallet`
+checks support before creating a record. Pending is durably written before
+native invocation. Failure/revocation before invocation cancels the record.
+Known typed native funding and capability refusals cancel only when they
+establish non-submission. A general funding or transport failure remains
+unresolved if native could already have submitted the operation.
 An uncertain outcome after invocation remains pending and blocks
 every new burn, including from another provider. A known native result whose
 final write failed remains in memory and can be flushed with retryPersistence
@@ -103,7 +126,7 @@ records normalize to v2 while preserving their old private IDs; unsupported
 versions, missing results, conflicting recipients and malformed records fail
 closed. WebRGB responses use txid as transferId, never a private journal ID.
 Every v2 payout record must contain a native `params.burnRecipient` matching
-the exact account encoded from its supported chain/address pair. Old malformed
+its exact approved chain/address or verified V1 commitment. Old malformed
 records with missing commitments remain errors and must be recovered by the
 host; they are not silently removed or treated as permission to burn again.
 
@@ -114,7 +137,8 @@ cancelled burn, even if that storage failure happens to use a funding error code
 
 ## WalletConnect Router
 
-`WebRgbWalletConnectSession` implements wallet-side positional RPC dispatch for
+`WebRgbWalletConnectSession` and `WebRgbWalletConnectSession.rgbLib` implement
+wallet-side positional RPC dispatch for
 the experimental `webrgb:1` profile, `rgb:<network>` chain and qualified account.
 It is not a complete WalletKit transport. The host must initialize WalletKit,
 pair, negotiate proposals, verify peer origin, obtain consent, persist sessions,
@@ -142,6 +166,8 @@ consent apply even when native supports general saved consignment access.
 Burn approval can include proof-export approval for that session/transaction.
 A new or revoked session must obtain fresh consent, even for the same origin.
 This is intentionally stricter than RN's lasting journal-derived consent.
+Successful proof export can authorize the same session to view the saved V1
+payout metadata for that exact transaction. Revocation clears that permission.
 
 Exports return complete canonical standard Base64, byteLength and a 0x-prefixed
 Keccak-256 digest (not SHA3-256). The limit is 16 MiB decoded, and only one proof
@@ -163,8 +189,9 @@ provider boundary. Diagnostic causes remain on the wallet side.
 - Password and native external-signer unlock forward ethRpcUrl. The latter
   uses RLN 0.17's request API, a deliberate bridge improvement over RN's flat
   entrypoint. External-signer burn remains unsupported. Never log RPC credentials.
-- New RLN importRgbContract/importRgbTransferConsignment methods are not
-  exported by RN; Flutter does not add unsupported stable wallet surface.
+- Canonical contract import is a legacy Flutter RLN extension. The published
+  RGB_L1 UniFFI surface needs a separate qualified registration path before
+  Aster can use it for its configured mainnet asset.
 
 ## Verification Scope
 

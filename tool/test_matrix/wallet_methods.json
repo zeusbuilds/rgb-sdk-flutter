@@ -1004,6 +1004,39 @@
       "contract": "covered",
       "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.cancelOnchainSend",
       "evidenceBucket": "durable_send_contract"
+    },
+    {
+      "id": "getAssetMetadata",
+      "group": "rgb",
+      "support": "supported",
+      "fixture": "funded_rgb_asset_types",
+      "contract": "implemented",
+      "ios": "required",
+      "android": "required",
+      "implementation": "lib/src/wallet/utexo_wallet_asset_media.dart::UtexoWallet.getAssetMetadata",
+      "evidenceBucket": "funded_rgb_asset_types"
+    },
+    {
+      "id": "issueAssetCfa",
+      "group": "rgb",
+      "support": "supported",
+      "fixture": "funded_rgb_asset_types",
+      "contract": "implemented",
+      "ios": "required",
+      "android": "required",
+      "implementation": "lib/src/wallet/utexo_wallet_asset_media.dart::UtexoWallet.issueAssetCfa",
+      "evidenceBucket": "funded_rgb_asset_types"
+    },
+    {
+      "id": "issueAssetUda",
+      "group": "rgb",
+      "support": "supported",
+      "fixture": "funded_rgb_asset_types",
+      "contract": "implemented",
+      "ios": "required",
+      "android": "required",
+      "implementation": "lib/src/wallet/utexo_wallet_asset_media.dart::UtexoWallet.issueAssetUda",
+      "evidenceBucket": "funded_rgb_asset_types"
     }
   ]
 }

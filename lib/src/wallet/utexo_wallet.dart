@@ -23,6 +23,8 @@ import 'burn_operations.dart';
 import 'lightning_policy.dart';
 import 'network_defaults.dart';
 import 'recoverable_storage.dart';
+import 'rgb_lib/config.dart' show rgbLibLocalFile;
+import 'rgb_lib/wire.dart' show RgbLibAssetMetadata, RgbLibWire;
 import 'rln_signers.dart';
 import 'utexo_wallet_types.dart';
 import 'wallet_policy.dart';
@@ -30,6 +32,7 @@ import 'wallet_policy.dart';
 part 'utexo_wallet_lifecycle.dart';
 part 'utexo_wallet_lsp_apay.dart';
 part 'utexo_wallet_onchain.dart';
+part 'utexo_wallet_asset_media.dart';
 part 'recoverable_onchain_send.dart';
 part 'utexo_wallet_lightning.dart';
 part 'utexo_wallet_raw.dart';
@@ -125,7 +128,6 @@ abstract class _UtexoWalletInternals {
   void _requirePositive(int value, String field);
   void _requireNonNegative(int value, String field);
   void _requireNonNegativeOptional(int? value, String field);
-  void _requireNonNegativeList(List<int> values, String field);
   void _requireUInt8(int value, String field);
   void _requireUInt8Optional(int? value, String field);
   void _requireUInt16(int value, String field);
@@ -146,10 +148,11 @@ class UtexoWallet extends _UtexoWalletInternals
         _UtexoWalletLifecycle,
         _UtexoWalletLspApay,
         _UtexoWalletOnchain,
+        _UtexoWalletAssetMedia,
         _UtexoWalletBfa,
         _UtexoWalletLightning,
         _UtexoWalletGuards
-    implements ILspWallet, BurnWallet {
+    implements ILspWallet, BurnCapabilityWallet {
   static const _defaultOperationTimeouts = RlnOperationTimeoutPolicy();
 
   UtexoWallet({

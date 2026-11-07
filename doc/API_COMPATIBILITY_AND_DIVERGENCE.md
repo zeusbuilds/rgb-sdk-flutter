@@ -58,12 +58,22 @@ ship.
 | `sendRgb(skipSync: true)` | Flutter maintainer | `API-006` | Fail fast instead of accepting and silently discarding the value. | `test/rln_client_contract_test.dart::sendRgb rejects skipSync true before native call`; Android/iOS native skip-sync rejection cases. | Pinned native RLN exposes a real skip-sync request field and RN/core define semantics. |
 | `gossipRgsServerUrl` unlock field | Flutter maintainer | `API-030` | Forward for password-backed unlock. Reject non-empty values only for native external signers, whose ABI has no RGS argument. | Password forwarding and external-signer rejection tests in `test/utexo_wallet_test.dart`. | Pinned native external-signer unlock consumes the field end to end. |
 | Fractional native fee rates | Flutter maintainer | `MODEL-014` | Require integer-equivalent sats/vbyte and reject fractional values before native execution. RN currently defaults some calls to `1.5`, then truncates through the UInt64 bridge; Flutter does not reproduce that data-loss bug. | Dart wallet validation plus mirrored Android/iOS bridge numeric vectors. | Native/core adopt an exact fractional fee-rate representation end to end. |
-| High-level CFA/UDA issuance | Flutter maintainer | `API-017` | Expose only through low-level RN-parity `RlnClient`/`RLNBinding`, not the stable wallet facade. | Wallet matrix excludes `issueAssetCfa`/`issueAssetUda`; low-level matrix keeps the RN methods. | RN adds wallet-level CFA/UDA methods or product approves a Flutter-only extension library. |
+| RGB_L1 backend and legacy RLN constructor | Flutter and Aster maintainers | `NOV-001`, `NOV-002` | Select `RgbLibWallet` explicitly. Existing `UtexoWallet` callers retain RLN and their storage format. RGB_L1 distinguishes the UTEXO custom Signet chain from public Signet. | SDK and native session tests, plus Aster backend validation. | Activate Aster RGB_L1 when durable recovery and the new deployment are qualified. |
+| High-level CFA/UDA issuance | Flutter maintainer | `API-017`, `NOV-001` | beta.40 adds wallet-level CFA/UDA issuance. Flutter preserves the raw digest methods and adds stable file-based APIs with bounded uploads. | Wallet and native wire matrix, invalid media path and upload boundaries. | Keep both surfaces through the SDK's normal compatibility policy. |
 | Standalone account-key Schnorr signing default | Flutter maintainer plus release security owner | `SEC-007` | Fail closed by default and require `SchnorrSigningMode.experimentalDart` for the pure-Dart signer, even though RN's top-level core `signMessage` is callable by default. Wallet/node-key signing remains native RLN-backed and RN-aligned. | `test/crypto_bip340_vectors_test.dart::standalone Schnorr signing fails closed without explicit opt in`; `test/utexo_wallet_test.dart::signs and verifies RN-core compatible Schnorr messages`; `tool/validate_codebase_hardening.dart`. | Replace the pure-Dart implementation with a vetted/native signing primitive or complete a formal crypto review proving production suitability, then update public docs and parity tests before changing the default. |
 | Durable credential storage | Consuming app owner plus Flutter maintainer | `SEC-009` | App-owned storage boundary; SDK owns only in-memory minimization and diagnostics. | `doc/INTEGRATION_SECURITY_AND_RELEASE.md`; release package validation requires `doc/SECURITY.md`. | SDK product scope expands to include a native secure-storage subsystem. |
 | Native builds/regtest in CI | Release owner | `TEST-017`, `G-12` | Keep native builds and funded regtest smokes local-only, but mandatory for release evidence. | `tool/test_release_candidate.sh` fails every skipped required gate; no debug override can make it release-eligible. | CI is provisioned with reliable simulators/emulators and a funded regtest stack. |
 
 ## Pre-Release Contract Changes
+
+### React Native beta.40 adaptation
+
+`NOV-001` adds an explicit `RgbLibWallet` facade and a separate native
+runtime pin. Use a dedicated wallet directory and protocol 1.0 proxy.
+Legacy RLN callers retain their constructor and storage. Rebuild the
+mobile app when updating the SDK. The generated RLN invoice bridge adds
+an optional description, and the new native methods handle file media and
+asset metadata. These changes require the corresponding native bridge.
 
 ### October Qualification Follow-Up
 

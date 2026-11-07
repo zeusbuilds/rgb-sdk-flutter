@@ -103,6 +103,32 @@ export 'src/native_artifact_info.dart';
 export 'src/wallet/burn_operations.dart';
 export 'src/wallet/network_defaults.dart'
     show NetworkEndpoints, getNetworkDefaults;
+export 'src/wallet/rgb_lib/config.dart'
+    show
+        RgbLibIndexer,
+        RgbLibIndexerKind,
+        RgbLibKeys,
+        RgbLibMnemonicReader,
+        RgbLibPublicKeys,
+        RgbLibUnlockParams,
+        RgbLibWalletException,
+        RgbLibWalletParams,
+        RgbLibWitnessVersion,
+        getRgbLibNetworkDefaults;
+export 'src/wallet/rgb_lib/rgb_lib_wallet.dart' show RgbLibWallet;
+export 'src/wallet/rgb_lib/wire.dart'
+    show
+        RgbLibAssetMetadata,
+        RgbLibAssetSchema,
+        RgbLibIndexerCheck,
+        RgbLibInvoiceData,
+        RgbLibMedia,
+        RgbLibNetworkInfo,
+        RgbLibReceiveAssignment,
+        RgbLibReceiveData,
+        RgbLibRuntimeInfo,
+        RgbLibTransfer,
+        RgbLibWalletIdentity;
 export 'src/wallet/rln_signers.dart'
     show
         NativeExternalRlnSigner,

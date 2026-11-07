@@ -261,6 +261,7 @@ exit 42
     'lib/arm64-v8a/libflutter.so',
     'lib/arm64-v8a/libjnidispatch.so',
     'lib/arm64-v8a/librgb_lightning_node.so',
+    'lib/arm64-v8a/librgblibuniffi.so',
   ];
   for (final (label, entries, compatible, diagnostic) in [
     ('complete arm64 runtime', requiredNativeEntries, true, null),
@@ -274,7 +275,7 @@ exit 42
       'missing Flutter engine',
       requiredNativeEntries.where((entry) => !entry.endsWith('/libflutter.so')),
       false,
-      'Missing required Flutter/RLN/JNA libraries',
+      'Missing required Flutter/RLN/RGB Lib/JNA libraries',
     ),
     (
       'duplicate native entry',

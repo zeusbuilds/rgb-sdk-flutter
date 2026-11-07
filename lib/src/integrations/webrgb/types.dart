@@ -1,3 +1,4 @@
+import '../../wallet/burn_destination.dart';
 import '../../wallet/burn_operations.dart';
 
 /// dApp-session approval. Values are SDK-owned immutable snapshots.
@@ -17,9 +18,15 @@ class WebRgbBurnOptions {
   WebRgbBurnOptions({
     required this.operations,
     required Iterable<String> allowedPayoutChainIds,
-  }) : allowedPayoutChainIds = Set.unmodifiable(allowedPayoutChainIds);
+    Iterable<BurnDestinationRoute> destinationRoutes = const [],
+  }) : allowedPayoutChainIds = Set.unmodifiable(allowedPayoutChainIds),
+       destinationRoutes = List.unmodifiable(destinationRoutes);
   final BurnOperations operations;
   final Set<String> allowedPayoutChainIds;
+
+  /// Deployment-owned V1 routes. A configured V1 route never falls back to
+  /// legacy address padding if the request names a different chain or route.
+  final List<BurnDestinationRoute> destinationRoutes;
 }
 
 /// One approved transport session, not a global wallet permission.
@@ -51,7 +58,10 @@ class WebRgbInfo {
     required this.network,
     required Iterable<String> methods,
     Iterable<String>? burnRecipientNamespaces,
+    this.protocol = 'RGB_LN',
+    Iterable<BurnDestinationRoute> burnDestinationRoutes = const [],
   }) : methods = List.unmodifiable(methods),
+       burnDestinationRoutes = List.unmodifiable(burnDestinationRoutes),
        burnRecipientNamespaces = burnRecipientNamespaces == null
            ? null
            : List.unmodifiable(burnRecipientNamespaces);
@@ -60,8 +70,9 @@ class WebRgbInfo {
 
   /// Host-authorized address namespaces; absent when burning is unavailable.
   final List<String>? burnRecipientNamespaces;
+  final List<BurnDestinationRoute> burnDestinationRoutes;
   bool get ready => true;
-  String get protocol => 'RGB_LN';
+  final String protocol;
   Map<String, Object?> toJson() => {
     'ready': ready,
     'network': network,
@@ -69,6 +80,12 @@ class WebRgbInfo {
     'methods': methods,
     if (burnRecipientNamespaces != null)
       'burnRecipientNamespaces': burnRecipientNamespaces,
+    if (burnDestinationRoutes.isNotEmpty) ...{
+      'burnDestinationVersion': 1,
+      'burnDestinationRoutes': burnDestinationRoutes
+          .map((route) => route.toJson())
+          .toList(),
+    },
   };
 }
 
@@ -178,6 +195,7 @@ class WebRgbTransfer {
     this.txid,
     this.network,
     this.burnRecipient,
+    this.burnDestination,
     this.batchTransferIdx,
     this.feeRate,
     this.minConfirmations,
@@ -194,6 +212,7 @@ class WebRgbTransfer {
   final String? txid;
   final String? network;
   final BurnPayout? burnRecipient;
+  final BurnDestination? burnDestination;
   final int? batchTransferIdx;
   final int? feeRate;
   final int? minConfirmations;
@@ -212,6 +231,8 @@ class WebRgbTransfer {
     if (txid != null) 'txid': txid,
     if (network != null) 'network': network,
     if (burnRecipient != null) 'burnRecipient': payoutJson(burnRecipient!),
+    if (burnDestination case final destination?)
+      'burnDestination': destination.toJson(),
     if (batchTransferIdx != null) 'batchTransferIdx': batchTransferIdx,
     if (feeRate != null) 'feeRate': feeRate,
     if (minConfirmations != null) 'minConfirmations': minConfirmations,
@@ -271,6 +292,7 @@ class WebRgbBurnAssetArgs {
     required this.assetId,
     required this.amount,
     required this.burnRecipient,
+    this.burnDestination,
     this.feeRate = 2,
     this.minConfirmations = 3,
   });
@@ -280,6 +302,7 @@ class WebRgbBurnAssetArgs {
   /// Positive u64 decimal base units.
   final String amount;
   final BurnPayout burnRecipient;
+  final BurnDestination? burnDestination;
   final int feeRate;
   final int minConfirmations;
 }
@@ -292,12 +315,14 @@ class WebRgbBurnAssetResult {
     required this.amount,
     required this.burnRecipient,
     required this.minConfirmations,
+    this.burnDestination,
   });
   final String txid;
   String get transferId => txid;
   final String assetId;
   final String amount;
   final BurnPayout burnRecipient;
+  final BurnDestination? burnDestination;
   final int minConfirmations;
   String get status => 'WaitingConfirmations';
   Map<String, Object?> toJson() => {
@@ -306,6 +331,8 @@ class WebRgbBurnAssetResult {
     'assetId': assetId,
     'amount': amount,
     'burnRecipient': payoutJson(burnRecipient),
+    if (burnDestination case final destination?)
+      'burnDestination': destination.toJson(),
     'status': status,
     'minConfirmations': minConfirmations,
   };

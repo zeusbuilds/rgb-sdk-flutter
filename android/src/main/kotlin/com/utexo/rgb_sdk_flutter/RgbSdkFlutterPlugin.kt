@@ -23,6 +23,7 @@ import org.json.JSONObject
 class RgbSdkFlutterPlugin :
     FlutterPlugin,
     RlnHostApi {
+    private var rgbLibChannel: RgbLibChannel? = null
     private val storageDirectoryPolicy = RlnStorageDirectoryPolicy()
     internal val nodeStore = RlnNodeStore()
     private val operationLock = Any()
@@ -41,6 +42,7 @@ class RgbSdkFlutterPlugin :
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         RlnHostApi.setUp(flutterPluginBinding.binaryMessenger, this)
+        rgbLibChannel = RgbLibChannel(flutterPluginBinding)
     }
 
     override fun getNativeArtifactInfo(): RlnNativeArtifactInfo {
@@ -127,6 +129,13 @@ class RgbSdkFlutterPlugin :
     private fun prepareStorageDirectory(path: String, operation: String) {
         try {
             storageDirectoryPolicy.prepare(path)
+            RlnStorageClaim.claim(path)
+        } catch (_: RlnStorageClaimException) {
+            throw FlutterError(
+                code = "Conflict",
+                message = "Wallet storage belongs to another backend.",
+                details = bridgeErrorDetails(operation, "conflict", false)
+            )
         } catch (error: RlnStorageDirectoryPolicyException) {
             invalidArgument(
                 operation = operation,
@@ -454,6 +463,7 @@ class RgbSdkFlutterPlugin :
             "paymentHash" to invoice.paymentHash,
             "paymentSecret" to invoice.paymentSecret,
             "payeePubkey" to invoice.payeePubkey,
+            "minFinalCltvExpiryDelta" to invoice.minFinalCltvExpiryDelta.toString(),
             "network" to invoice.network
         )
     }
@@ -1094,7 +1104,8 @@ class RgbSdkFlutterPlugin :
         assetAmount: Long?,
         paymentHash: String?,
         minFinalCltvExpiryDelta: Long?,
-        descriptionHash: String?
+        descriptionHash: String?,
+        description: String?
     ): RlnWireResponse {
         return runRlnWire("rlnLnInvoice") {
             val request = LnInvoiceRequest(
@@ -1103,6 +1114,7 @@ class RgbSdkFlutterPlugin :
                 assetId = assetId,
                 assetAmount = assetAmount?.let { requireULong(it, "assetAmount", "rlnLnInvoice") },
                 paymentHash = paymentHash,
+                description = description,
                 descriptionHash = descriptionHash,
                 minFinalCltvExpiryDelta = minFinalCltvExpiryDelta?.let { requireUShort(it, "minFinalCltvExpiryDelta", "rlnLnInvoice") }
             )
@@ -1376,6 +1388,12 @@ class RgbSdkFlutterPlugin :
         }
     }
 
+    override fun rlnAssetMetadata(nodeId: Long, assetId: String): RlnWireResponse =
+        runRlnWire("rlnAssetMetadata") { RlnAssetMedia.metadata(nodeStore.get(nodeId), assetId) }
+
+    override fun rlnPostAssetMedia(nodeId: Long, bytes: ByteArray): RlnWireResponse =
+        runRlnWire("rlnPostAssetMedia") { RlnAssetMedia.upload(nodeStore.get(nodeId), bytes) }
+
     override fun rlnIssueAssetCfa(nodeId: Long, name: String, details: String?, precision: Long, amounts: List<Long>, fileDigest: String?): RlnWireResponse {
         return runRlnWire("rlnIssueAssetCfa") {
             val asset = nodeStore.get(nodeId).issueassetcfa(
@@ -1465,6 +1483,8 @@ class RgbSdkFlutterPlugin :
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        rgbLibChannel?.close()
+        rgbLibChannel = null
         RlnHostApi.setUp(binding.binaryMessenger, null)
         closeEngine().whenComplete { _, error ->
             if (error != null) Log.e("RgbSdkFlutter", "Native engine cleanup failed.")

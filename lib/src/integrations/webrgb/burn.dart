@@ -5,19 +5,20 @@ import 'dart:math';
 import 'package:pointycastle/digests/keccak.dart';
 
 import '../../models/burn_models.dart';
+import '../../wallet/burn_destination.dart';
 import '../../wallet/burn_operations.dart';
 import '../../wallet/burn_recipient.dart' as recipient;
-import '../../wallet/utexo_wallet.dart';
 import 'errors.dart';
 import 'session.dart';
 import 'types.dart';
+import 'wallet.dart';
 
 const _maxProofBytes = 16 * 1024 * 1024;
 
 /// Private controller: durable mutation ownership stays in BurnOperations.
 class WebRgbBurnController {
   WebRgbBurnController(this._wallet, this._session, this._options) {
-    if (!_options.operations.belongsTo(_wallet)) {
+    if (!_options.operations.belongsTo(_wallet.burnWallet)) {
       throw const WebRgbError(
         'INVALID_PARAMS',
         'Burn journal belongs to another wallet.',
@@ -28,12 +29,30 @@ class WebRgbBurnController {
     )) {
       throw const WebRgbError('INVALID_PARAMS', 'Invalid payout chain policy.');
     }
+    final routes = _options.destinationRoutes;
+    if (routes.isNotEmpty &&
+        (_wallet.protocol != 'RGB_L1' ||
+            routes.map((route) => route.chainId).toSet().length !=
+                routes.length ||
+            routes.length != _options.allowedPayoutChainIds.length ||
+            routes.any(
+              (route) =>
+                  !_options.allowedPayoutChainIds.contains(route.chainId),
+            ))) {
+      throw const WebRgbError(
+        'INVALID_PARAMS',
+        'Invalid V1 payout route policy.',
+      );
+    }
   }
-  final UtexoWallet _wallet;
+  final WebRgbWallet _wallet;
   final WebRgbSession _session;
   final WebRgbBurnOptions _options;
   final Set<String> _exports = {};
   WebRgbGetConsignmentResult? _proof;
+
+  List<BurnDestinationRoute> get destinationRoutes =>
+      _options.destinationRoutes;
 
   /// Address namespaces enabled by the host's explicit payout-chain policy.
   List<String> get recipientNamespaces => [
@@ -52,7 +71,11 @@ class WebRgbBurnController {
   Future<List<String>> methods(int revision) async {
     final caps = await _session.call(revision, _wallet.getBfaCapabilities);
     return [
-      if (caps.burn && caps.consignment) 'burnAsset',
+      if (caps.bfa &&
+          caps.burn &&
+          caps.consignment &&
+          _options.allowedPayoutChainIds.isNotEmpty)
+        'burnAsset',
       if (caps.consignment) 'getConsignment',
     ];
   }
@@ -85,13 +108,36 @@ class WebRgbBurnController {
         ),
       ),
     );
+    final destination = await webRgbWalletCall(() async {
+      final supplied = args.burnDestination;
+      if (destinationRoutes.isEmpty) {
+        if (supplied == null) return null;
+        throw const WebRgbError(
+          'INVALID_PARAMS',
+          'V1 payout routes are unavailable.',
+        );
+      }
+      final route = destinationRoutes.singleWhere(
+        (route) => route.chainId == payout.chainId,
+      );
+      final expected = BurnDestination.forPayout(route, payout.address);
+      if (supplied != null) {
+        supplied.validatePayout(payout.chainId, payout.address);
+        if (supplied.dstEid != expected.dstEid) {
+          throw const WebRgbError(
+            'INVALID_PARAMS',
+            'Payout route does not match wallet configuration.',
+          );
+        }
+      }
+      return expected;
+    });
     final request = BurnParams(
       assetId: args.assetId,
       amount: args.amount,
-      burnRecipient: recipient.encodeBurnRecipient(
-        payout.chainId,
-        payout.address,
-      ),
+      burnRecipient:
+          destination?.commitment ??
+          recipient.encodeBurnRecipient(payout.chainId, payout.address),
       feeRate: args.feeRate,
       minConfirmations: max(3, args.minConfirmations),
     );
@@ -116,6 +162,7 @@ class WebRgbBurnController {
       'assetId': request.assetId,
       'amount': request.amount,
       'burnRecipient': payoutJson(payout),
+      if (destination != null) 'burnDestination': destination.toJson(),
       'feeRate': request.feeRate,
       'minConfirmations': request.minConfirmations,
       'getConsignment': true,
@@ -129,6 +176,7 @@ class WebRgbBurnController {
           origin: _session.options.origin,
           network: args.network,
           payout: payout,
+          burnDestination: destination,
         ),
         () => _session.check(revision),
       ),
@@ -141,6 +189,7 @@ class WebRgbBurnController {
       assetId: request.assetId,
       amount: request.amount,
       burnRecipient: payout,
+      burnDestination: destination,
       minConfirmations: request.minConfirmations,
     );
   }
@@ -154,7 +203,11 @@ class WebRgbBurnController {
     final records = await _session.call(revision, _options.operations.records);
     final matches = records.where(
       (record) =>
-          record.metadata.origin == _session.options.origin &&
+          (record.metadata.origin == _session.options.origin ||
+              (record.metadata.burnDestination != null &&
+                  _exports.contains(
+                    '${record.params.assetId}:${record.result?.txid}',
+                  ))) &&
           record.result?.txid == id &&
           (assetId == null || record.params.assetId == assetId),
     );
@@ -164,13 +217,13 @@ class WebRgbBurnController {
     await _session.call(revision, _wallet.refreshWallet);
     final transfers = await _session.call(
       revision,
-      () => _wallet.listTransfers(assetId: record.params.assetId),
+      () => _wallet.burnWallet.listTransfers(assetId: record.params.assetId),
     );
     final transactions = await _session.call(
       revision,
       () => _wallet.listTransactionsByTxid(result.txid),
     );
-    final network = await _session.call(revision, _wallet.getNetworkInfo);
+    final blockHeight = await _session.call(revision, _wallet.getBlockHeight);
     final matchedTransfers = transfers.where(
       (item) => item.txid == result.txid && item.kind == 'Burn',
     );
@@ -191,6 +244,7 @@ class WebRgbBurnController {
         assetId: record.params.assetId,
         amount: amount <= BigInt.from(9007199254740991) ? amount.toInt() : null,
         burnRecipient: record.metadata.payout,
+        burnDestination: record.metadata.burnDestination,
         txid: result.txid,
         batchTransferIdx: result.batchTransferIdx,
         status: status,
@@ -201,7 +255,9 @@ class WebRgbBurnController {
         blockHeight: height,
         confirmations: height == null
             ? 0
-            : max(0, network.blockHeight - height + 1),
+            : blockHeight == null
+            ? null
+            : max(0, blockHeight - height + 1),
       ),
     );
   }
@@ -228,11 +284,10 @@ class WebRgbBurnController {
         'assetId': args.assetId,
         'txid': args.txid,
       });
-      _exports.add(key);
     }
     final transfers = await _session.call(
       revision,
-      () => _wallet.listTransfers(assetId: args.assetId),
+      () => _wallet.burnWallet.listTransfers(assetId: args.assetId),
     );
     if (!transfers.any(
       (item) => item.kind == 'Burn' && item.txid == args.txid,
@@ -251,7 +306,7 @@ class WebRgbBurnController {
     }
     final encoded = await _session.call(
       revision,
-      () => _wallet.getConsignment(args.assetId, args.txid),
+      () => _wallet.burnWallet.getConsignment(args.assetId, args.txid),
     );
     if (encoded.length > ((_maxProofBytes + 2) ~/ 3) * 4) {
       throw const WebRgbError(
@@ -265,6 +320,7 @@ class WebRgbBurnController {
       () => _hashProofInBackground(args, encoded),
     );
     _proof = result;
+    _exports.add(key);
     return result;
   }
 }

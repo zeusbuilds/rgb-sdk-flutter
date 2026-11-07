@@ -1,7 +1,7 @@
 # RGB SDK Flutter
 
-Flutter plugin for Bitcoin, RGB assets, and RGB Lightning wallets backed by
-RGB Lightning Node native artifacts.
+Flutter plugin for Bitcoin and RGB assets using native rgb-lib or the legacy
+RGB Lightning Node backend.
 
 This package is the Flutter counterpart to
 [`@utexo/rgb-sdk-rn`](https://github.com/UTEXO-Protocol/rgb-sdk-rn). It exposes
@@ -14,7 +14,12 @@ for RN/native parity diagnostics.
 
 Current package version: `0.2.0-beta.3`.
 
-The current baseline is:
+The on-chain `RgbLibWallet` uses the published rgb-lib BFA.5 artifacts
+referenced by React Native `1.0.0-beta.40`. It uses a dedicated storage
+directory and a protocol 1.0 RGB proxy. See
+[the beta.40 implementation and release gates](doc/UPSTREAM_PARITY_BETA40.md).
+
+The existing `UtexoWallet` remains an explicit RLN facade. Its baseline is:
 
 - `UTEXO-Protocol/rgb-sdk-rn` `dev` at
   `41ff170f794edff2a1822a672ddab37e29505f14`
@@ -22,7 +27,7 @@ The current baseline is:
 - `@utexo/rgb-sdk-core` `1.0.0-beta.9`
 - RGB Lightning Node `0.17.0-beta.3`
 
-Static parity and implementation work target that exact baseline. Current
+Legacy RLN parity checks retain that baseline. Current
 release eligibility still depends on the clean-candidate native, consumer, and
 funded/unfunded evidence recorded in the tracker. The accepted production
 constraints include `PKG-006` artifact provenance and the upstream lifecycle /

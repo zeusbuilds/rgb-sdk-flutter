@@ -651,7 +651,14 @@ class RlnClient {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   }) {
+    if (description != null && descriptionHash != null) {
+      throw const WalletValidationException(
+        'Provide either description or descriptionHash.',
+        field: 'description',
+      );
+    }
     return _nativeMap(
       'rlnLnInvoice',
       () => _hostApi.rlnLnInvoice(
@@ -663,6 +670,7 @@ class RlnClient {
         paymentHash,
         minFinalCltvExpiryDelta,
         descriptionHash,
+        description,
       ),
     );
   }
@@ -879,6 +887,22 @@ class RlnClient {
   Future<void> sync(int nodeId) {
     return _native('rlnSync', () => _hostApi.rlnSync(nodeId));
   }
+
+  Future<Map<Object?, Object?>> assetMetadata({
+    required int nodeId,
+    required String assetId,
+  }) => _nativeMap(
+    'rlnAssetMetadata',
+    () => _hostApi.rlnAssetMetadata(nodeId, assetId),
+  );
+
+  Future<Map<Object?, Object?>> postAssetMedia({
+    required int nodeId,
+    required Uint8List bytes,
+  }) => _nativeMap(
+    'rlnPostAssetMedia',
+    () => _hostApi.rlnPostAssetMedia(nodeId, bytes),
+  );
 
   Future<Object?> issueAssetNia({
     required int nodeId,

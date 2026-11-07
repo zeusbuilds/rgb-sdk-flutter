@@ -1,6 +1,8 @@
 // ignore_for_file: unused_element
 
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 
 import '../client/rln_client.dart';
 import '../crypto/constants.dart';
@@ -14,6 +16,7 @@ part 'rln_binding_types.dart';
 part 'rln_binding_lifecycle.dart';
 part 'rln_binding_lightning.dart';
 part 'rln_binding_onchain.dart';
+part 'rln_binding_asset_media.dart';
 part 'rln_binding_bfa.dart';
 
 enum _RlnLifecycleState { idle, active, shuttingDown, destroying, timedOut }
@@ -53,6 +56,7 @@ class RLNBinding extends _RlnBindingInternals
         _RlnBindingLifecycle,
         _RlnBindingLightning,
         _RlnBindingOnchain,
+        _RlnBindingAssetMedia,
         _RlnBindingBfa {
   RLNBinding({
     RlnClient? client,

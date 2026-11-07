@@ -409,6 +409,69 @@ mixin _RlnBindingOnchain on _RlnBindingInternals {
     );
   }
 
+  /// Observes newly recorded colorable outpoints within the same node queue.
+  /// RLN 0.17 acknowledges creation without returning a count.
+  Future<int> rlnCreateUtxosCounted(
+    bool upTo,
+    int? num,
+    int? size,
+    double feeRate,
+    bool skipSync,
+  ) => _withNodeOperation('rlnCreateUtxos', (nodeId) async {
+    final before = {
+      for (final row in await _client.listUnspents(
+        nodeId: nodeId,
+        skipSync: skipSync,
+      ))
+        RlnUnspent.fromMap(row).utxo.outpoint,
+    };
+    // The baseline read can outlive the facade's deadline. Do not start a
+    // financial mutation after the node has been quarantined or closed.
+    _assertRegularOpsAllowed();
+    await _client.createUtxos(
+      nodeId: nodeId,
+      upTo: upTo,
+      num: num,
+      size: size,
+      feeRate: feeRate,
+      skipSync: true,
+    );
+    try {
+      final after = await _client.listUnspents(nodeId: nodeId, skipSync: true);
+      final created = {
+        for (final row in after)
+          if (RlnUnspent.fromMap(row).utxo case final utxo
+              when utxo.exists &&
+                  utxo.colorable &&
+                  !before.contains(utxo.outpoint))
+            utxo.outpoint,
+      };
+      final outpointPattern = RegExp(r'^[a-f0-9]{64}:[0-9]+$');
+      if (created.isEmpty ||
+          created.length > (num ?? 255) ||
+          created.any((outpoint) => !outpointPattern.hasMatch(outpoint)) ||
+          created.map((outpoint) => outpoint.substring(0, 64)).toSet().length !=
+              1) {
+        throw const NativeProtocolException(
+          'Native output inventory did not establish the created count.',
+          field: 'rlnCreateUtxos.count',
+        );
+      }
+      return created.length;
+    } catch (error, stack) {
+      // The create call already succeeded. A failed observation must never
+      // imply that it is safe to repeat creation.
+      Error.throwWithStackTrace(
+        WalletError(
+          'UTXO creation completed but its output count is unavailable.',
+          code: 'UTXO_CREATION_COUNT_UNAVAILABLE',
+          cause: error,
+        ),
+        stack,
+      );
+    }
+  });
+
   Future<void> rlnBackup(String backupPath, String password) {
     return _withNodeOperation(
       'rlnBackup',

@@ -7,6 +7,20 @@ were removed because they overlapped and had drifted from the implementation.
 
 ## Document Control
 
+### November 6 React Native beta.40 and RGB_L1
+
+The published reference switches its default wallet to rgb-lib BFA.5.
+Flutter adds a separately selected RGB_L1 backend and preserves the existing
+RLN constructor. Aster remains gated on durable send and release qualification.
+See [the source audit and dispositions](UPSTREAM_PARITY_BETA40.md).
+
+| ID | Pri | Status | Finding and evidence | Required outcome |
+| --- | --- | --- | --- | --- |
+| NOV-001 | P1 | Verified | The beta.40 source, npm archive, and BFA.5 native provenance are pinned. Flutter has typed RGB_L1 session, exact amount, receive, transfer, issuance, backup and maintenance APIs. Existing RLN compatibility checks are still pinned independently. | Continue reviewing upstream changes against the immutable reference and keep separate native artifact evidence. |
+| NOV-002 | P0 | In progress | The published RGB_L1 bridge lacks a durable exact-payment outcome protocol. Aster's backend gate prevents switching the existing wallet flows to one-shot sends. | Persist and reconcile the same authorized BTC/RGB operation across process interruption, prove cancellation and recovery, and qualify backup of both wallet and operation state before activating Aster. |
+| NOV-003 | P0 | Blocked upstream | Exact BFA.5 UniFFI dependency lock has nine RustSec advisories. The iOS binary imports DiskSpace APIs and its required-reason use still needs an archive-specific review. Current dual-engine packaging also retains the independent RLN security and privacy gates. | Qualify the patched or reviewed dependency graph, native provenance and required-reason usage for the exact signed app artifacts. |
+| NOV-004 | P0 | In progress | BFA.5 changes consignment layout and needs proxy 1.0. A compatible issuer-approved mainnet USDT contract and first-receive/bootstrap workflow are still unqualified. | Qualify the exact mainnet deployment and funded BTC/USDT, reorg, interruption and backup recovery on both current mobile platforms with a compatible existing fixture. |
+
 ### October 16 Production Privacy Disposition
 
 The current `0.2.0-beta.3` candidate retains the exact native inputs below.
@@ -760,17 +774,17 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 
 | Measure | Count |
 | --- | ---: |
-| Total tracked findings | 288 |
-| P0 | 10 |
-| P1 | 199 |
+| Total tracked findings | 292 |
+| P0 | 13 |
+| P1 | 200 |
 | P2 | 79 |
 | P3 | 0 |
 | Open | 2 |
-| In progress | 23 |
-| Blocked upstream | 3 |
+| In progress | 25 |
+| Blocked upstream | 4 |
 | Needs decision | 0 |
 | Accepted constraint | 7 |
-| Verified | 253 |
+| Verified | 254 |
 
 This rollup is generated from all finding rows; verified code is not equivalent
 to clean-candidate platform qualification. Seven accepted constraints remain.
@@ -787,6 +801,8 @@ to clean-candidate platform qualification. Seven accepted constraints remain.
 | 6 | Native and WalletConnect qualification | OCT-028, OCT-031, OCT-033 | 3 | 0/3/0/0 | Complete live session transport and exact clean consumer/platform qualification. Provider and journal contracts verified separately do not close these rows. |
 
 | 7 | RLN 0.17 page size and upstream recovery | OCT-036, OCT-037 | 2 | 0/2/0/0 | Qualify exact native artifacts, independent current-platform execution and upstream recovery; do not inherit WDK host passes. |
+
+| 8 | RGB_L1 production admission | NOV-002, NOV-003, NOV-004 | 3 | 3/0/0/0 | Qualify durable payment recovery, exact native security and privacy, and the BTC/USDT deployment on both platforms. |
 
 ## P0 Execution Log
 
@@ -912,7 +928,7 @@ native-bridge layers. Remaining release work is deliberately narrow:
 | API-014 | P2 | Verified | `UtexoWallet.onchainSend` now requires `RgbSendRequest.amount` explicitly and no longer falls back to the decoded RGB invoice assignment, matching current RN `UTEXOWallet.onchainSend`. | Covered by `test/utexo_wallet_test.dart::requires explicit onchainSend amount instead of decoded fallback` and documented in `RgbSendRequest` plus the divergence map. |
 | API-015 | P1 | Verified | Always-present wallet facade stubs for PSBT/begin-end/bridge-only/service-only methods were removed; callers now see absent `psbt`/`beginEnd` carriers and false capability flags instead of callable `Object`-typed throwers. | Keep `createBackup` as the explicit accepted native-blocked exception under API-019. |
 | API-016 | P2 | Verified | Removed stale wallet facade methods `getXpub`, generic `send`, `getLightningReceiveRequest`, and `getLightningSendRequest`; integration tests now call `onchainSend`. | `onchainSend`, `getLightningReceiveStatus`, and `getLightningSendStatus` are the stable spellings. Deleted names are also removed from the wallet method matrix. |
-| API-017 | P2 | Verified | High-level CFA/UDA issuance was a Flutter extension absent from current RN wallet. `UtexoWallet.issueAssetCfa` and `UtexoWallet.issueAssetUda` were removed from the stable wallet facade and the wallet method matrix. | Keep CFA/UDA issuance at the low-level RN-parity `RlnClient`/`RLNBinding` layer unless RN adds wallet-level methods. |
+| API-017 | P2 | Verified | RN beta.40 adds high-level CFA/UDA issuance. Flutter exposes typed CFA/UDA methods for both engines with bounded local media handling on RLN and retains the existing raw digest methods. | Keep funded issuance and media evidence scoped to the exact qualified native artifact. |
 | API-018 | P2 | Verified | Added explicit wallet node-key aliases `signNodeMessage` and `verifyNodeMessage`; documented that top-level `signMessage`/`verifyMessage` are account-key helpers while wallet `signMessage`/`verifyMessage` remain RN node-key aliases. | Keep both key identities covered separately by wallet node-key tests and RN-core Schnorr/account-xpub tests. |
 | API-019 | P1 | Accepted constraint | `createBackup` is now explicitly native-blocked and tested to throw without invoking native backup; recovery/mainnet readiness remains forbidden until upstream supplies a real implementation. | Preserve this boundary until native recovery is implemented and independently proven. |
 | API-020 | P2 | Verified | `doc/API_COMPATIBILITY_AND_DIVERGENCE.md` now defines stable facade, advanced parity, compatibility shim, unsupported/native-blocked, and internal tiers; it also defines deprecation and breaking-change rules. `tool/api_snapshot.json` plus `dart run tool/validate_api_snapshot.dart` gate the current exported Dart, Pigeon, generated bridge, and native bridge surface. | Update the snapshot and migration note in the same change as any intentional public API or bridge-surface change. |

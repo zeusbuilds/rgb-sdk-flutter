@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -129,6 +130,7 @@ class FakeRlnHostApi extends RlnHostApi {
   int addressCalls = 0;
   int networkInfoCalls = 0;
   int listAssetsCalls = 0;
+  List<String>? lastFilterAssetSchemas;
   int? lastRgbInvoiceMinConfirmations;
   String? lastRgbInvoiceAssignmentKind;
   Map<Object?, Object?>? lastSendRgb;
@@ -177,6 +179,15 @@ class FakeRlnHostApi extends RlnHostApi {
   bool? lastListTransactionsSkipSync;
   bool? lastRefreshTransfersSkipSync;
   bool? lastCreateUtxosUpTo;
+  bool? lastBtcBalanceSkipSync;
+  final utxoOperations = <String>[];
+  final observedUtxos = <Map<Object?, Object?>>[];
+  final createdUtxoCounts = <int>[];
+  Future<void>? unspentReadGate;
+  String decodedRgbAssignment = '100';
+  String decodedRgbNetwork = 'regtest';
+  int decodedRgbExpiry = 4102444800;
+  double feeEstimate = 2.25;
   int? lastCreateUtxosNum;
   double? lastCreateUtxosFeeRate;
   int? lastEstimateFeeBlocks;
@@ -463,6 +474,7 @@ class FakeRlnHostApi extends RlnHostApi {
 
   @override
   Future<RlnWireResponse> rlnBtcBalance(int nodeId, bool skipSync) async {
+    lastBtcBalanceSkipSync = skipSync;
     return _wireMap(<Object?, Object?>{
       'vanilla': <Object?, Object?>{
         'settled': 1000,
@@ -501,7 +513,7 @@ class FakeRlnHostApi extends RlnHostApi {
     int nodeId,
     String indexerUrl,
   ) async {
-    return _wireMap(<Object?, Object?>{'indexerProtocol': 'electrum'});
+    return _wireMap(<Object?, Object?>{'indexerProtocol': 'Electrum'});
   }
 
   @override
@@ -539,9 +551,9 @@ class FakeRlnHostApi extends RlnHostApi {
       'proxyRecipientId': 'proxy-recipient',
       'recipientType': 'Blind',
       'assetId': 'asset',
-      'assignment': '100',
-      'network': 'regtest',
-      'expirationTimestamp': 4102444800,
+      'assignment': decodedRgbAssignment,
+      'network': decodedRgbNetwork,
+      'expirationTimestamp': decodedRgbExpiry,
       'transportEndpoints': <String>['rpc://proxy/json-rpc'],
     });
   }
@@ -552,6 +564,7 @@ class FakeRlnHostApi extends RlnHostApi {
     List<String> filterAssetSchemas,
   ) async {
     listAssetsCalls += 1;
+    lastFilterAssetSchemas = filterAssetSchemas;
     return _wireMap(<Object?, Object?>{
       'nia': <Object?>[
         <Object?, Object?>{
@@ -715,6 +728,21 @@ class FakeRlnHostApi extends RlnHostApi {
     lastCreateUtxosUpTo = upTo;
     lastCreateUtxosNum = num;
     lastCreateUtxosFeeRate = feeRate;
+    utxoOperations.add('create:$skipSync');
+    final count = createdUtxoCounts.isEmpty ? 0 : createdUtxoCounts.removeAt(0);
+    final txid = observedUtxos.length.toRadixString(16).padLeft(64, '0');
+    for (var index = 0; index < count; index++) {
+      observedUtxos.add(<Object?, Object?>{
+        'utxo': <Object?, Object?>{
+          'outpoint': '$txid:$index',
+          'btcAmount': size ?? 1000,
+          'colorable': true,
+          'exists': true,
+        },
+        'rgbAllocations': <Object?>[],
+        'pendingBlinded': 0,
+      });
+    }
   }
 
   @override
@@ -739,6 +767,8 @@ class FakeRlnHostApi extends RlnHostApi {
     bool skipSync,
   ) async {
     lastListUnspentsSkipSync = skipSync;
+    utxoOperations.add('read:$skipSync');
+    await unspentReadGate;
     return _wireList(<Map<Object?, Object?>>[
       <Object?, Object?>{
         'utxo': <Object?, Object?>{
@@ -756,6 +786,7 @@ class FakeRlnHostApi extends RlnHostApi {
         ],
         'pendingBlinded': 0,
       },
+      ...observedUtxos,
     ]);
   }
 
@@ -790,7 +821,7 @@ class FakeRlnHostApi extends RlnHostApi {
   @override
   Future<RlnWireResponse> rlnEstimateFee(int nodeId, int blocks) async {
     lastEstimateFeeBlocks = blocks;
-    return _wireMap(<Object?, Object?>{'feeRate': 2.25});
+    return _wireMap(<Object?, Object?>{'feeRate': feeEstimate});
   }
 
   @override
@@ -811,6 +842,7 @@ class FakeRlnHostApi extends RlnHostApi {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   ) async {
     lastLnInvoice = <Object?, Object?>{
       'amtMsat': amtMsat,
@@ -820,6 +852,7 @@ class FakeRlnHostApi extends RlnHostApi {
       'paymentHash': paymentHash,
       'minFinalCltvExpiryDelta': minFinalCltvExpiryDelta,
       'descriptionHash': descriptionHash,
+      'description': description,
     };
     return _wireMap(<Object?, Object?>{'invoice': 'lnbc-invoice'});
   }
@@ -2455,27 +2488,109 @@ void main() {
   });
 
   test(
-    'requires explicit onchainSend amount instead of decoded fallback',
+    'uses the exact fungible invoice amount when onchainSend omits it',
     () async {
-      final hostApi = FakeRlnHostApi();
+      final hostApi = FakeRlnHostApi()
+        ..decodedRgbAssignment = 'Fungible(9007199254740993)';
       final wallet = walletWith(hostApi);
-      await wallet.init(password: 'password');
-      await wallet.unlock(password: 'password', config: UtexoUnlockConfig());
+      await unlockWallet(wallet);
 
-      await expectLater(
-        wallet.onchainSend(const RgbSendRequest(invoice: 'rgb:invoice')),
-        throwsA(
-          isA<WalletValidationException>().having(
-            (error) => error.field,
-            'field',
-            'amount',
-          ),
-        ),
+      final response = await wallet.onchainSend(
+        const RgbSendRequest(invoice: 'rgb:invoice'),
       );
-
-      expect(hostApi.lastSendRgb, isNull);
+      expect(response.txid, 'txid');
+      expect(hostApi.lastSendRgb?['amount'], 9007199254740993);
     },
   );
+
+  test('does not dispatch an invalid or mismatched RGB invoice', () async {
+    final hostApi = FakeRlnHostApi();
+    final wallet = walletWith(hostApi);
+    await unlockWallet(wallet);
+    const omitted = RgbSendRequest(invoice: 'rgb:invoice');
+
+    await expectLater(
+      wallet.onchainSend(
+        const RgbSendRequest(invoice: 'rgb:invoice', amount: 42),
+      ),
+      throwsA(
+        isA<WalletValidationException>().having(
+          (error) => error.field,
+          'field',
+          'amount',
+        ),
+      ),
+    );
+    await expectLater(
+      wallet.onchainSend(
+        const RgbSendRequest(invoice: 'rgb:invoice', assetId: 'other'),
+      ),
+      throwsA(
+        isA<WalletValidationException>().having(
+          (error) => error.field,
+          'field',
+          'assetId',
+        ),
+      ),
+    );
+    hostApi.decodedRgbAssignment = 'InflationRight(100)';
+    await expectLater(
+      wallet.onchainSend(omitted),
+      throwsA(
+        isA<WalletValidationException>().having(
+          (error) => error.field,
+          'field',
+          'invoice.assignment',
+        ),
+      ),
+    );
+    hostApi.decodedRgbAssignment = 'Any';
+    await expectLater(
+      wallet.onchainSend(omitted),
+      throwsA(
+        isA<WalletValidationException>().having(
+          (error) => error.field,
+          'field',
+          'amount',
+        ),
+      ),
+    );
+    hostApi.decodedRgbAssignment = 'Fungible(9223372036854775808)';
+    await expectLater(
+      wallet.onchainSend(omitted),
+      throwsA(
+        isA<WalletValidationException>().having(
+          (error) => error.field,
+          'field',
+          'amount',
+        ),
+      ),
+    );
+    hostApi.decodedRgbNetwork = 'signet';
+    await expectLater(
+      wallet.onchainSend(omitted),
+      throwsA(
+        isA<WalletValidationException>().having(
+          (error) => error.field,
+          'field',
+          'invoice.network',
+        ),
+      ),
+    );
+    hostApi.decodedRgbNetwork = 'regtest';
+    hostApi.decodedRgbExpiry = 1;
+    await expectLater(
+      wallet.onchainSend(omitted),
+      throwsA(
+        isA<WalletValidationException>().having(
+          (error) => error.field,
+          'field',
+          'invoice.expirationTimestamp',
+        ),
+      ),
+    );
+    expect(hostApi.lastSendRgb, isNull);
+  });
 
   test('fails fast instead of ignoring RGB send skipSync', () async {
     final hostApi = FakeRlnHostApi();
@@ -2500,7 +2615,7 @@ void main() {
   test(
     'matches RN-shaped defaults and return values for utility helpers',
     () async {
-      final hostApi = FakeRlnHostApi();
+      final hostApi = FakeRlnHostApi()..createdUtxoCounts.add(2);
       final wallet = walletWith(hostApi);
       await unlockWallet(wallet);
 
@@ -2509,18 +2624,157 @@ void main() {
       final rawFeeRate = await wallet.estimateFeeRateRaw(6);
       final btcTxid = await wallet.sendBtc(amount: 10, address: 'bcrt1dest');
 
-      expect(created, 3);
+      expect(created, 2);
       expect(DEFAULT_API_TIMEOUT, 120000);
       expect(DEFAULT_LOG_LEVEL, 3);
       expect(hostApi.lastCreateUtxosUpTo, true);
       expect(hostApi.lastCreateUtxosNum, 3);
       expect(hostApi.lastCreateUtxosFeeRate, 1);
       expect(feeRate, isA<FeeEstimationResponse>());
-      expect(feeRate.feeRate, 2.25);
+      expect(feeRate.feeRate, 3);
       expect(rawFeeRate, isA<RlnFeeRate>());
+      expect(rawFeeRate.feeRate, 2.25);
       expect(hostApi.lastEstimateFeeBlocks, 6);
       expect(btcTxid, 'btc-txid');
       expect(hostApi.lastSendBtc?['feeRate'], 1);
+    },
+  );
+
+  test(
+    'counts concurrent UTXO creations from separate serialized snapshots',
+    () async {
+      final hostApi = FakeRlnHostApi()..createdUtxoCounts.addAll([2, 1]);
+      final wallet = walletWith(hostApi);
+      await unlockWallet(wallet);
+      expect(
+        await Future.wait([
+          wallet.createUtxos(num: 3),
+          wallet.createUtxos(num: 2, skipSync: true),
+        ]),
+        [2, 1],
+      );
+      expect(hostApi.utxoOperations, [
+        'read:false',
+        'create:true',
+        'read:true',
+        'read:true',
+        'create:true',
+        'read:true',
+      ]);
+    },
+  );
+
+  test(
+    'a deadline during UTXO baseline inspection prevents late mutation',
+    () async {
+      final gate = Completer<void>();
+      final hostApi = FakeRlnHostApi()..unspentReadGate = gate.future;
+      final wallet = walletWith(
+        hostApi,
+        operationTimeouts: const RlnOperationTimeoutPolicy(
+          sendTimeout: Duration(milliseconds: 25),
+        ),
+      );
+      await unlockWallet(wallet);
+      await expectLater(
+        wallet.createUtxos(num: 3),
+        throwsA(isA<RlnOperationTimeoutException>()),
+      );
+      gate.complete();
+      await wallet.destroy();
+      expect(hostApi.utxoOperations, ['read:false']);
+      expect(hostApi.lastCreateUtxosNum, isNull);
+    },
+  );
+
+  test(
+    'acknowledged UTXO creation never reports a guessed output count',
+    () async {
+      final hostApi = FakeRlnHostApi();
+      final wallet = walletWith(hostApi);
+      await unlockWallet(wallet);
+      await expectLater(
+        wallet.createUtxos(num: 3),
+        throwsA(
+          isA<WalletError>().having(
+            (error) => error.code,
+            'code',
+            'UTXO_CREATION_COUNT_UNAVAILABLE',
+          ),
+        ),
+      );
+      expect(hostApi.utxoOperations, [
+        'read:false',
+        'create:true',
+        'read:true',
+      ]);
+    },
+  );
+
+  test(
+    'forwards read options and validates the RN asset-schema filter',
+    () async {
+      final hostApi = FakeRlnHostApi();
+      final wallet = walletWith(hostApi);
+      await unlockWallet(wallet);
+      await wallet.getBtcBalance(skipSync: true);
+      await wallet.listUnspents(skipSync: true);
+      await wallet.listTransactions(skipSync: true);
+      await wallet.listAssets(filterAssetSchemas: ['Ifa', 'Bfa']);
+      expect(hostApi.lastBtcBalanceSkipSync, isTrue);
+      expect(hostApi.lastListUnspentsSkipSync, isTrue);
+      expect(hostApi.lastListTransactionsSkipSync, isTrue);
+      expect(hostApi.lastFilterAssetSchemas, ['Ifa', 'Bfa']);
+      final indexer = await wallet.checkIndexerUrl(
+        'ssl://electrum.example.com:50002',
+      );
+      expect(indexer.indexerProtocol, 'electrum');
+      await expectLater(
+        wallet.listAssets(filterAssetSchemas: ['unknown']),
+        throwsA(isA<WalletValidationException>()),
+      );
+      expect(hostApi.listAssetsCalls, 1);
+    },
+  );
+
+  test(
+    'routes supported explicit receive assignments without silent coercion',
+    () async {
+      final hostApi = FakeRlnHostApi();
+      final wallet = walletWith(hostApi);
+      await unlockWallet(wallet);
+      await wallet.onchainReceive(
+        const RgbInvoiceRequest(
+          assetId: 'asset',
+          assignmentKind: RgbReceiveAssignmentKind.inflationRight,
+          amount: 42,
+        ),
+      );
+      expect(hostApi.lastRgbInvoiceAssignmentKind, 'InflationRight');
+      await wallet.witnessReceive(
+        const RgbInvoiceRequest(
+          assetId: 'asset',
+          assignmentKind: RgbReceiveAssignmentKind.nonFungible,
+        ),
+      );
+      expect(hostApi.lastRgbInvoiceAssignmentKind, 'NonFungible');
+      await expectLater(
+        wallet.blindReceive(
+          const RgbInvoiceRequest(
+            assetId: 'asset',
+            assignmentKind: RgbReceiveAssignmentKind.any,
+            amount: 42,
+          ),
+        ),
+        throwsA(isA<WalletValidationException>()),
+      );
+      await expectLater(
+        wallet.witnessReceive(
+          const RgbInvoiceRequest(durationSeconds: 2592001),
+        ),
+        throwsA(isA<WalletValidationException>()),
+      );
+      expect(hostApi.rgbInvoiceCalls, 2);
     },
   );
 

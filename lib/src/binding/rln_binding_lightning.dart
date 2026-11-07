@@ -116,6 +116,7 @@ mixin _RlnBindingLightning on _RlnBindingInternals {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   }) async {
     return RlnLnInvoice.fromMap(
       await _withNodeOperation(
@@ -129,6 +130,7 @@ mixin _RlnBindingLightning on _RlnBindingInternals {
           paymentHash: paymentHash,
           minFinalCltvExpiryDelta: minFinalCltvExpiryDelta,
           descriptionHash: descriptionHash,
+          description: description,
         ),
       ),
     );

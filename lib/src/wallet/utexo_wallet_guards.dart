@@ -121,11 +121,6 @@ mixin _UtexoWalletGuards on _UtexoWalletInternals {
   }
 
   @override
-  void _requireNonNegativeList(List<int> values, String field) {
-    WalletInputPolicy.requireNonNegativeList(values, field);
-  }
-
-  @override
   void _requireUInt8(int value, String field) {
     WalletInputPolicy.requireUInt8(value, field);
   }

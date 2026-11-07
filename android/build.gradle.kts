@@ -19,6 +19,13 @@ require(rlnAndroidParts.size == 3 && rlnAndroidParts.all { it.isNotBlank() }) {
 val rlnAndroidArtifactDirectory = providers.environmentVariable("RGB_SDK_ANDROID_ARTIFACT_DIR")
 val rlnAndroidExpectedSha256 = rlnAndroidBaseline["archiveSha256"] as String
 val rlnAndroidExpectedSize = (rlnAndroidBaseline["archiveSizeBytes"] as Number).toLong()
+val rgbLibBaselineFile = file("../tool/rgb_lib_native_baseline.json")
+val rgbLibBaseline = JsonSlurper().parse(rgbLibBaselineFile) as Map<*, *>
+val rgbLibAndroid = rgbLibBaseline["android"] as Map<*, *>
+val rgbLibVersion = rgbLibBaseline["version"] as String
+val rgbLibCoordinate = rgbLibAndroid["mavenCoordinate"] as String
+val rgbLibExpectedSize = (rgbLibAndroid["archiveSizeBytes"] as Number).toLong()
+val rgbLibExpectedSha256 = rgbLibAndroid["archiveSha256"] as String
 val buildRequirements = releaseBaseline["buildRequirements"] as Map<*, *>
 val androidBuildRequirements = buildRequirements["android"] as Map<*, *>
 val baselineCompileSdk =
@@ -132,15 +139,27 @@ val rlnNativeArtifact = configurations.create("rlnNativeArtifact") {
     isTransitive = false
 }
 
-val verifyRlnNativeArtifact = tasks.register("verifyRlnNativeArtifact") {
+val rgbLibNativeArtifact = configurations.create("rgbLibNativeArtifact") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
+
+fun registerNativeArtifactCheck(
+    taskName: String,
+    artifactConfiguration: Configuration,
+    pin: File,
+    expectedSize: Long,
+    expectedSha256: String
+) = tasks.register(taskName) {
     group = "verification"
-    description = "Verify the resolved RLN AAR against the immutable SDK baseline"
-    inputs.files(rlnNativeArtifact)
-    inputs.file(releaseBaselineFile)
+    description = "Verify the resolved native AAR against ${pin.name}"
+    inputs.files(artifactConfiguration)
+    inputs.file(pin)
     doLast {
-        val artifact = rlnNativeArtifact.singleFile
-        require(artifact.length() == rlnAndroidExpectedSize) {
-            "RLN AAR size differs from tool/release_baseline.json"
+        val artifact = artifactConfiguration.singleFile
+        require(artifact.length() == expectedSize) {
+            "Native AAR size differs from ${pin.name}"
         }
         val digest = MessageDigest.getInstance("SHA-256")
         artifact.inputStream().use { input ->
@@ -152,16 +171,33 @@ val verifyRlnNativeArtifact = tasks.register("verifyRlnNativeArtifact") {
             }
         }
         val actual = digest.digest().joinToString("") { "%02x".format(it) }
-        require(actual == rlnAndroidExpectedSha256) {
-            "RLN AAR SHA-256 differs from tool/release_baseline.json"
+        require(actual == expectedSha256) {
+            "Native AAR SHA-256 differs from ${pin.name}"
         }
     }
 }
+
+val verifyRlnNativeArtifact = registerNativeArtifactCheck(
+    "verifyRlnNativeArtifact", rlnNativeArtifact,
+    releaseBaselineFile, rlnAndroidExpectedSize, rlnAndroidExpectedSha256
+)
+val verifyRgbLibNativeArtifact = registerNativeArtifactCheck(
+    "verifyRgbLibNativeArtifact", rgbLibNativeArtifact,
+    rgbLibBaselineFile, rgbLibExpectedSize, rgbLibExpectedSha256
+)
 tasks.matching { it.name == "preBuild" }.configureEach {
-    dependsOn(verifyRlnNativeArtifact)
+    dependsOn(verifyRlnNativeArtifact, verifyRgbLibNativeArtifact)
 }
 
 dependencies {
+    add(rgbLibNativeArtifact.name, "$rgbLibCoordinate@aar") {
+        version { strictly(rgbLibVersion) }
+    }
+    // The pinned AAR's classes depend on JNA and Kotlin. The shared
+    // dependencies below already provide both.
+    implementation("$rgbLibCoordinate@aar") {
+        version { strictly(rgbLibVersion) }
+    }
     add(rlnNativeArtifact.name, "$rlnAndroidCoordinate@aar") {
         version { strictly(rlnAndroidParts[2]) }
     }

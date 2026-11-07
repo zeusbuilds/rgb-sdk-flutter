@@ -22,14 +22,19 @@ Future<T> webRgbWalletCall<T>(Future<T> Function() action) async {
     if (error is RgbSdkException && error.cause is NativeBridgeFailure) {
       code = (error.cause! as NativeBridgeFailure).nativeCode;
     }
-    if (code == 'AssetNotFound' || code == 'UnknownAsset') {
+    if (code == 'AssetNotFound' ||
+        code == 'UnknownAsset' ||
+        code == 'ASSET_NOT_FOUND') {
       throw const WebRgbError('ASSET_NOT_FOUND', 'Asset was not found.');
     }
     if (error is WalletValidationException ||
         error is BadRequestError ||
         code == 'InvalidAssetId' ||
         code == 'InvalidInvoice' ||
-        code == 'InvalidAmount') {
+        code == 'InvalidAmount' ||
+        code == 'INVALID_PARAMS' ||
+        code == 'INVALID_AMOUNT' ||
+        code == 'AMOUNT_OVERFLOW') {
       throw const WebRgbError(
         'INVALID_PARAMS',
         'Invalid wallet operation parameters.',
@@ -37,6 +42,7 @@ Future<T> webRgbWalletCall<T>(Future<T> Function() action) async {
     }
     if (error is UnsupportedWalletFeatureException ||
         code == 'UnsupportedInExternalSignerMode' ||
+        code == 'UNSUPPORTED_CAPABILITY' ||
         code == 'METHOD_NOT_SUPPORTED') {
       throw const WebRgbError(
         'METHOD_NOT_SUPPORTED',

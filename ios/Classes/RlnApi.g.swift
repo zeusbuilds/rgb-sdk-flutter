@@ -471,7 +471,7 @@ protocol RlnHostApi {
   func rlnListTransfers(nodeId: Int64, assetId: String) throws -> [RlnWireResponse]
   func rlnListTransfersByTxid(nodeId: Int64, txid: String) throws -> [RlnWireResponse]
   func rlnListUnspents(nodeId: Int64, skipSync: Bool) throws -> [RlnWireResponse]
-  func rlnLnInvoice(nodeId: Int64, amtMsat: Int64?, expirySec: Int64, assetId: String?, assetAmount: Int64?, paymentHash: String?, minFinalCltvExpiryDelta: Int64?, descriptionHash: String?) throws -> RlnWireResponse
+  func rlnLnInvoice(nodeId: Int64, amtMsat: Int64?, expirySec: Int64, assetId: String?, assetAmount: Int64?, paymentHash: String?, minFinalCltvExpiryDelta: Int64?, descriptionHash: String?, description: String?) throws -> RlnWireResponse
   func rlnClaimHodlInvoice(nodeId: Int64, paymentHash: String, paymentPreimage: String) throws -> RlnWireResponse
   func rlnCancelHodlInvoice(nodeId: Int64, paymentHash: String) throws
   func rlnApayNew(nodeId: Int64, hostNodeId: String) throws -> RlnWireResponse
@@ -487,6 +487,8 @@ protocol RlnHostApi {
   func rlnSendRgb(nodeId: Int64, donation: Bool, feeRate: Double, minConfirmations: Int64, skipSync: Bool, assetId: String, recipientId: String, amount: Int64, transportEndpoints: [String], witnessAmountSat: Int64?, witnessBlinding: Int64?) throws -> RlnWireResponse
   func rlnShutdown(nodeId: Int64) throws
   func rlnSync(nodeId: Int64) throws
+  func rlnAssetMetadata(nodeId: Int64, assetId: String) throws -> RlnWireResponse
+  func rlnPostAssetMedia(nodeId: Int64, bytes: FlutterStandardTypedData) throws -> RlnWireResponse
   func rlnIssueAssetNia(nodeId: Int64, ticker: String, name: String, precision: Int64, amounts: [Int64]) throws -> RlnWireResponse
   func rlnIssueAssetCfa(nodeId: Int64, name: String, details: String?, precision: Int64, amounts: [Int64], fileDigest: String?) throws -> RlnWireResponse
   func rlnIssueAssetIfa(nodeId: Int64, ticker: String, name: String, precision: Int64, amounts: [Int64], inflationAmounts: [Int64], rejectListUrl: String?) throws -> RlnWireResponse
@@ -1459,8 +1461,9 @@ class RlnHostApiSetup {
         let paymentHashArg: String? = nilOrValue(args[5])
         let minFinalCltvExpiryDeltaArg: Int64? = nilOrValue(args[6])
         let descriptionHashArg: String? = nilOrValue(args[7])
+        let descriptionArg: String? = nilOrValue(args[8])
         do {
-          let result = try api.rlnLnInvoice(nodeId: nodeIdArg, amtMsat: amtMsatArg, expirySec: expirySecArg, assetId: assetIdArg, assetAmount: assetAmountArg, paymentHash: paymentHashArg, minFinalCltvExpiryDelta: minFinalCltvExpiryDeltaArg, descriptionHash: descriptionHashArg)
+          let result = try api.rlnLnInvoice(nodeId: nodeIdArg, amtMsat: amtMsatArg, expirySec: expirySecArg, assetId: assetIdArg, assetAmount: assetAmountArg, paymentHash: paymentHashArg, minFinalCltvExpiryDelta: minFinalCltvExpiryDeltaArg, descriptionHash: descriptionHashArg, description: descriptionArg)
           reply(wrapResult(result))
         } catch {
           reply(wrapError(error))
@@ -1759,6 +1762,42 @@ class RlnHostApiSetup {
       }
     } else {
       rlnSyncChannel.setMessageHandler(nil)
+    }
+    let rlnAssetMetadataChannel = taskQueue == nil
+      ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnAssetMetadata\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+      : FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnAssetMetadata\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec, taskQueue: taskQueue)
+    if let api = api {
+      rlnAssetMetadataChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let nodeIdArg = args[0] as! Int64
+        let assetIdArg = args[1] as! String
+        do {
+          let result = try api.rlnAssetMetadata(nodeId: nodeIdArg, assetId: assetIdArg)
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      rlnAssetMetadataChannel.setMessageHandler(nil)
+    }
+    let rlnPostAssetMediaChannel = taskQueue == nil
+      ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnPostAssetMedia\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+      : FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnPostAssetMedia\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec, taskQueue: taskQueue)
+    if let api = api {
+      rlnPostAssetMediaChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let nodeIdArg = args[0] as! Int64
+        let bytesArg = args[1] as! FlutterStandardTypedData
+        do {
+          let result = try api.rlnPostAssetMedia(nodeId: nodeIdArg, bytes: bytesArg)
+          reply(wrapResult(result))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      rlnPostAssetMediaChannel.setMessageHandler(nil)
     }
     let rlnIssueAssetNiaChannel = taskQueue == nil
       ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnIssueAssetNia\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)

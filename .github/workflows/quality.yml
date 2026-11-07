@@ -45,6 +45,9 @@ jobs:
       - name: Validate release package metadata
         run: dart run tool/validate_release_package.dart
 
+      - name: Verify published React Native beta.40 reference
+        run: python3 tool/validate_rn_beta40_reference.py --check-latest
+
       - name: Check generated release baseline
         run: dart run tool/generate_release_baseline.dart --check
 

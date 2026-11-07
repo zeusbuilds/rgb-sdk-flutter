@@ -637,6 +637,7 @@ class _RecordingRlnHostApi extends RlnHostApi {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   ) async {
     _record('rlnLnInvoice', <Object?>[
       nodeId,
@@ -647,6 +648,7 @@ class _RecordingRlnHostApi extends RlnHostApi {
       paymentHash,
       minFinalCltvExpiryDelta,
       descriptionHash,
+      description,
     ]);
     return _wire('rlnLnInvoice');
   }
@@ -797,6 +799,18 @@ class _RecordingRlnHostApi extends RlnHostApi {
   @override
   Future<void> rlnSync(int nodeId) async {
     _record('rlnSync', <Object?>[nodeId]);
+  }
+
+  @override
+  Future<RlnWireResponse> rlnAssetMetadata(int nodeId, String assetId) async {
+    _record('rlnAssetMetadata', <Object?>[nodeId, assetId]);
+    return _wire('rlnAssetMetadata');
+  }
+
+  @override
+  Future<RlnWireResponse> rlnPostAssetMedia(int nodeId, Uint8List bytes) async {
+    _record('rlnPostAssetMedia', <Object?>[nodeId, bytes]);
+    return _wire('rlnPostAssetMedia');
   }
 
   @override
@@ -1556,7 +1570,7 @@ void main() {
         assetAmount: 50,
         paymentHash: 'payment-hash',
         minFinalCltvExpiryDelta: 144,
-        descriptionHash: 'description-hash',
+        description: 'invoice description',
       ),
       method: 'rlnLnInvoice',
       args: const <Object?>[
@@ -1567,7 +1581,8 @@ void main() {
         50,
         'payment-hash',
         144,
-        'description-hash',
+        null,
+        'invoice description',
       ],
     ),
     _ContractCase(
@@ -1714,6 +1729,25 @@ void main() {
       args: const <Object?>[nodeId],
     ),
     _ContractCase(
+      name: 'assetMetadata',
+      invoke: (client) =>
+          client.assetMetadata(nodeId: nodeId, assetId: 'rgb:asset'),
+      method: 'rlnAssetMetadata',
+      args: const <Object?>[nodeId, 'rgb:asset'],
+    ),
+    _ContractCase(
+      name: 'postAssetMedia',
+      invoke: (client) => client.postAssetMedia(
+        nodeId: nodeId,
+        bytes: Uint8List.fromList([1, 2, 3]),
+      ),
+      method: 'rlnPostAssetMedia',
+      args: <Object?>[
+        nodeId,
+        Uint8List.fromList([1, 2, 3]),
+      ],
+    ),
+    _ContractCase(
       name: 'issueAssetNia',
       invoke: (client) => client.issueAssetNia(
         nodeId: nodeId,
@@ -1819,6 +1853,22 @@ void main() {
   ];
 
   group('RlnClient bridge contract', () {
+    test(
+      'invoice description and hash are mutually exclusive before dispatch',
+      () {
+        final host = _RecordingRlnHostApi();
+        expect(
+          () => RlnClient(hostApi: host).lnInvoice(
+            nodeId: nodeId,
+            expirySec: 3600,
+            description: 'description',
+            descriptionHash: 'description-hash',
+          ),
+          throwsA(isA<WalletValidationException>()),
+        );
+      },
+    );
+
     test(
       'listUnspents preserves native blinded reservations through JSON',
       () async {

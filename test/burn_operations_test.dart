@@ -67,6 +67,15 @@ class BurnTestWallet implements BurnWallet {
   ];
 }
 
+class CapabilityBurnTestWallet extends BurnTestWallet
+    implements BurnCapabilityWallet {
+  bool supportsBurn = false;
+
+  @override
+  Future<BfaCapabilities> getBfaCapabilities() async =>
+      BfaCapabilities(burn: supportsBurn, consignment: true, bfa: true);
+}
+
 void main() {
   late BurnTestWallet wallet;
   late MemoryBurnStore store;
@@ -146,6 +155,40 @@ void main() {
     expect(wallet.calls, 1);
     expect(restarted.calls, 0);
   });
+
+  test(
+    'a capability refusal before journaling or in the backend is definitive',
+    () async {
+      final watchOnly = CapabilityBurnTestWallet();
+      final journal = BurnOperations(watchOnly, store);
+      await expectLater(
+        journal.execute(params, metadata, () {}),
+        throwsA(isA<UnsupportedWalletFeatureException>()),
+      );
+      expect(watchOnly.calls, 0);
+      expect(store.writes, isEmpty);
+
+      watchOnly.supportsBurn = true;
+      watchOnly.onBurn = () async => throw const RgbLibWalletException(
+        'Fixture capability refusal.',
+        code: 'UNSUPPORTED_CAPABILITY',
+      );
+      await expectLater(
+        journal.execute(params, metadata, () {}),
+        throwsA(isA<RgbLibWalletException>()),
+      );
+      expect(
+        (await journal.records()).single.state,
+        BurnOperationState.cancelled,
+      );
+      watchOnly.onBurn = null;
+      expect(
+        (await journal.execute(params, metadata, () {})).state,
+        BurnOperationState.complete,
+      );
+      expect(watchOnly.calls, 2);
+    },
+  );
 
   for (final code in ['InsufficientFunds', 'NoAvailableUtxos']) {
     test('$code survives actual native exception mapping', () async {

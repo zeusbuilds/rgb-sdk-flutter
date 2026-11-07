@@ -121,6 +121,7 @@ extension UtexoWalletRawApi on UtexoWallet {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   }) {
     return _createRlnLightningInvoice(
       amtMsat: amtMsat,
@@ -130,6 +131,7 @@ extension UtexoWalletRawApi on UtexoWallet {
       paymentHash: paymentHash,
       minFinalCltvExpiryDelta: minFinalCltvExpiryDelta,
       descriptionHash: descriptionHash,
+      description: description,
     );
   }
 

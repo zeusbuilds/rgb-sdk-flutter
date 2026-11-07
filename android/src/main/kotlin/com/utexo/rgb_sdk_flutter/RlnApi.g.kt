@@ -498,7 +498,7 @@ interface RlnHostApi {
   fun rlnListTransfers(nodeId: Long, assetId: String): List<RlnWireResponse>
   fun rlnListTransfersByTxid(nodeId: Long, txid: String): List<RlnWireResponse>
   fun rlnListUnspents(nodeId: Long, skipSync: Boolean): List<RlnWireResponse>
-  fun rlnLnInvoice(nodeId: Long, amtMsat: Long?, expirySec: Long, assetId: String?, assetAmount: Long?, paymentHash: String?, minFinalCltvExpiryDelta: Long?, descriptionHash: String?): RlnWireResponse
+  fun rlnLnInvoice(nodeId: Long, amtMsat: Long?, expirySec: Long, assetId: String?, assetAmount: Long?, paymentHash: String?, minFinalCltvExpiryDelta: Long?, descriptionHash: String?, description: String?): RlnWireResponse
   fun rlnClaimHodlInvoice(nodeId: Long, paymentHash: String, paymentPreimage: String): RlnWireResponse
   fun rlnCancelHodlInvoice(nodeId: Long, paymentHash: String)
   fun rlnApayNew(nodeId: Long, hostNodeId: String): RlnWireResponse
@@ -514,6 +514,8 @@ interface RlnHostApi {
   fun rlnSendRgb(nodeId: Long, donation: Boolean, feeRate: Double, minConfirmations: Long, skipSync: Boolean, assetId: String, recipientId: String, amount: Long, transportEndpoints: List<String>, witnessAmountSat: Long?, witnessBlinding: Long?): RlnWireResponse
   fun rlnShutdown(nodeId: Long)
   fun rlnSync(nodeId: Long)
+  fun rlnAssetMetadata(nodeId: Long, assetId: String): RlnWireResponse
+  fun rlnPostAssetMedia(nodeId: Long, bytes: ByteArray): RlnWireResponse
   fun rlnIssueAssetNia(nodeId: Long, ticker: String, name: String, precision: Long, amounts: List<Long>): RlnWireResponse
   fun rlnIssueAssetCfa(nodeId: Long, name: String, details: String?, precision: Long, amounts: List<Long>, fileDigest: String?): RlnWireResponse
   fun rlnIssueAssetIfa(nodeId: Long, ticker: String, name: String, precision: Long, amounts: List<Long>, inflationAmounts: List<Long>, rejectListUrl: String?): RlnWireResponse
@@ -1496,8 +1498,9 @@ interface RlnHostApi {
             val paymentHashArg = args[5] as String?
             val minFinalCltvExpiryDeltaArg = args[6] as Long?
             val descriptionHashArg = args[7] as String?
+            val descriptionArg = args[8] as String?
             val wrapped: List<Any?> = try {
-              listOf(api.rlnLnInvoice(nodeIdArg, amtMsatArg, expirySecArg, assetIdArg, assetAmountArg, paymentHashArg, minFinalCltvExpiryDeltaArg, descriptionHashArg))
+              listOf(api.rlnLnInvoice(nodeIdArg, amtMsatArg, expirySecArg, assetIdArg, assetAmountArg, paymentHashArg, minFinalCltvExpiryDeltaArg, descriptionHashArg, descriptionArg))
             } catch (exception: Throwable) {
               RlnApiPigeonUtils.wrapError(exception)
             }
@@ -1792,6 +1795,42 @@ interface RlnHostApi {
             val wrapped: List<Any?> = try {
               api.rlnSync(nodeIdArg)
               listOf(null)
+            } catch (exception: Throwable) {
+              RlnApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnAssetMetadata$separatedMessageChannelSuffix", codec, taskQueue)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val nodeIdArg = args[0] as Long
+            val assetIdArg = args[1] as String
+            val wrapped: List<Any?> = try {
+              listOf(api.rlnAssetMetadata(nodeIdArg, assetIdArg))
+            } catch (exception: Throwable) {
+              RlnApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnPostAssetMedia$separatedMessageChannelSuffix", codec, taskQueue)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val nodeIdArg = args[0] as Long
+            val bytesArg = args[1] as ByteArray
+            val wrapped: List<Any?> = try {
+              listOf(api.rlnPostAssetMedia(nodeIdArg, bytesArg))
             } catch (exception: Throwable) {
               RlnApiPigeonUtils.wrapError(exception)
             }

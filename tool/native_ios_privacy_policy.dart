@@ -35,6 +35,34 @@ Map<String, Object?> nativeIosPrivacyDisposition({
   };
 }
 
+/// Independent review of the second native runtime linked by this SDK.
+Map<String, Object?> rgbLibIosPrivacyDisposition() {
+  final manifest = File('tool/rgb_lib_native_baseline.json');
+  final data = manifest.existsSync()
+      ? jsonDecode(manifest.readAsStringSync()) as Map<String, Object?>
+      : const <String, Object?>{};
+  final ios = data['ios'] as Map<String, Object?>?;
+  final source = data['sourceRevision'];
+  final archive = ios?['sha256'];
+  final known =
+      source == '0a9d352f2690902df2b6fae9bca1a6c13c3354d4' &&
+      archive ==
+          '44890e57b78935a2c7842d9baeed5172bbd99e9b2b91c6a599fbc2c745760669';
+  return {
+    'scope': 'rgb-l1-native-ios-required-reason-api',
+    'sourceCommit': source,
+    'archiveSha256': archive,
+    'status': known ? 'blocked-known-unresolved' : 'unreviewed',
+    'productionReady': false,
+    'blockers': [
+      if (known)
+        'iOS privacy: RGB_L1 BFA.5 imports statfs/fstatfs. Review the linked call paths and signed archive before selecting a DiskSpace reason.'
+      else
+        'iOS privacy: RGB_L1 has no approved required-reason API disposition for its exact source and archive.',
+    ],
+  };
+}
+
 /// A dependency-free production preflight, before builds or supplied evidence.
 void main(List<String> args) {
   if (args.isNotEmpty && (args.length != 1 || args.single != '--production')) {
@@ -53,13 +81,19 @@ void main(List<String> args) {
       sourceCommit: rln is Map<String, Object?> ? rln['commit'] : null,
       archiveSha256: ios is Map<String, Object?> ? ios['archiveSha256'] : null,
     );
+    final rgbLib = rgbLibIosPrivacyDisposition();
+    final ready =
+        disposition['productionReady'] == true &&
+        rgbLib['productionReady'] == true;
     stdout.writeln(
       jsonEncode({
         ...disposition,
+        'productionReady': ready,
+        'rgbLib': rgbLib,
         'mode': production ? 'production' : 'internal-beta',
       }),
     );
-    if (production && disposition['productionReady'] != true) exitCode = 1;
+    if (production && !ready) exitCode = 1;
   } on Object {
     stderr.writeln('Native iOS privacy input validation failed.');
     exitCode = 1;

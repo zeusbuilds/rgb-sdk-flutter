@@ -1351,6 +1351,7 @@ class RlnDecodedLnInvoice {
     required this.paymentSecret,
     this.payeePubkey,
     required this.network,
+    this.minFinalCltvExpiryDelta,
   });
 
   factory RlnDecodedLnInvoice.fromMap(RlnMap map) {
@@ -1375,6 +1376,9 @@ class RlnDecodedLnInvoice {
       ),
       payeePubkey: _stringOrNull(map['payeePubkey']),
       network: _requiredString(map, 'network', 'RlnDecodedLnInvoice'),
+      minFinalCltvExpiryDelta: map['minFinalCltvExpiryDelta'] == null
+          ? null
+          : _requiredInt(map, 'minFinalCltvExpiryDelta', 'RlnDecodedLnInvoice'),
     );
   }
 
@@ -1397,6 +1401,7 @@ class RlnDecodedLnInvoice {
   final String paymentSecret;
   final String? payeePubkey;
   final String network;
+  final int? minFinalCltvExpiryDelta;
 }
 
 /// BOLT11 invoice created by RLN.

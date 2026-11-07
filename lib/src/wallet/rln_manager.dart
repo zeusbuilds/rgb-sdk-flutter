@@ -122,6 +122,7 @@ class RLNManager {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   }) {
     return rlnBinding.rlnLnInvoice(
       amtMsat,
@@ -131,6 +132,7 @@ class RLNManager {
       paymentHash: paymentHash,
       minFinalCltvExpiryDelta: minFinalCltvExpiryDelta,
       descriptionHash: descriptionHash,
+      description: description,
     );
   }
 

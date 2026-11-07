@@ -663,6 +663,7 @@ class CreateHodlInvoiceParams {
     this.assetAmount,
     this.minFinalCltvExpiryDelta,
     this.descriptionHash,
+    this.description,
   });
 
   final String paymentHash;
@@ -672,6 +673,7 @@ class CreateHodlInvoiceParams {
   final int? assetAmount;
   final int? minFinalCltvExpiryDelta;
   final String? descriptionHash;
+  final String? description;
 }
 
 class HodlInvoice {
@@ -684,6 +686,7 @@ class HodlInvoice {
     this.assetAmount,
     this.minFinalCltvExpiryDelta,
     this.descriptionHash,
+    this.description,
   });
 
   final String bolt11;
@@ -697,6 +700,7 @@ class HodlInvoice {
   final int? assetAmount;
   final int? minFinalCltvExpiryDelta;
   final String? descriptionHash;
+  final String? description;
 }
 
 class HodlInvoiceResult {

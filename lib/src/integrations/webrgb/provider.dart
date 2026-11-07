@@ -1,10 +1,12 @@
 import '../../models/utexo_core_models.dart';
+import '../../wallet/rgb_lib/rgb_lib_wallet.dart';
 import '../../wallet/utexo_wallet.dart';
 import '../../wallet/utexo_wallet_types.dart';
 import 'burn.dart';
 import 'errors.dart';
 import 'session.dart';
 import 'types.dart';
+import 'wallet.dart';
 
 /// Receiving/read subset actually implemented by RN, not the entire WebRGB spec.
 const webRgbReadMethods = <String>[
@@ -28,6 +30,13 @@ const webRgbReadMethods = <String>[
 /// for a different origin. Every async boundary rechecks session authorization.
 class WebRgbProvider {
   WebRgbProvider(UtexoWallet wallet, WebRgbOptions options)
+    : this._(WebRgbWallet.rln(wallet), options);
+
+  /// Opens a WebRGB session for an on-chain wallet without message signing.
+  WebRgbProvider.rgbLib(RgbLibWallet wallet, WebRgbOptions options)
+    : this._(WebRgbWallet.rgbLib(wallet), options);
+
+  WebRgbProvider._(WebRgbWallet wallet, WebRgbOptions options)
     : _wallet = wallet,
       _session = WebRgbSession(wallet, options),
       _floor = webRgbInteger(
@@ -42,7 +51,7 @@ class WebRgbProvider {
     }
   }
 
-  final UtexoWallet _wallet;
+  final WebRgbWallet _wallet;
   final WebRgbSession _session;
   int _floor;
   WebRgbBurnController? _burn;
@@ -61,10 +70,18 @@ class WebRgbProvider {
       final burnMethods = await _burn?.methods(revision) ?? const <String>[];
       return WebRgbInfo(
         network: _wallet.getNetwork(),
-        methods: [...webRgbReadMethods, 'signMessage', ...burnMethods],
+        protocol: _wallet.protocol,
+        methods: [
+          ...webRgbReadMethods,
+          if (_wallet.signMessage != null) 'signMessage',
+          ...burnMethods,
+        ],
         burnRecipientNamespaces: burnMethods.contains('burnAsset')
             ? _burn!.recipientNamespaces
             : null,
+        burnDestinationRoutes: burnMethods.contains('burnAsset')
+            ? _burn!.destinationRoutes
+            : const [],
       );
     });
   }
@@ -90,6 +107,13 @@ class WebRgbProvider {
   /// are rejected rather than silently replaced during native UTF-8 encoding.
   Future<WebRgbSignMessageResult> signMessage(String message) async {
     _session.check();
+    final sign = _wallet.signMessage;
+    if (sign == null) {
+      throw const WebRgbError(
+        'METHOD_NOT_SUPPORTED',
+        'Signing is unavailable.',
+      );
+    }
     for (var index = 0; index < message.length; index++) {
       final unit = message.codeUnitAt(index);
       if (unit < 0xd800 || unit > 0xdfff) continue;
@@ -107,10 +131,7 @@ class WebRgbProvider {
     }
     final revision = _session.revision;
     await _session.confirm(revision, 'signMessage', {'message': message});
-    final signature = await _session.call(
-      revision,
-      () => _wallet.signMessage(message),
-    );
+    final signature = await _session.call(revision, () => sign(message));
     return WebRgbSignMessageResult(signature: signature);
   }
 
@@ -214,7 +235,7 @@ class WebRgbProvider {
     webRgbAsset(assetId);
     final transfers = await _session.call(
       _session.revision,
-      () => _wallet.listTransfers(assetId: assetId),
+      () => _wallet.burnWallet.listTransfers(assetId: assetId),
     );
     return List.unmodifiable(
       transfers.map((transfer) {

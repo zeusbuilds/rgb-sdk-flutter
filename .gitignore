@@ -1,4 +1,5 @@
 .dart_tool/
+.buildlog/
 .idea/
 .packages
 .pub-cache/
@@ -19,3 +20,5 @@ example/build/
 *.iml
 *.log
 tool/regtest/data/
+ios/RgbLibBindings/
+ios/.rgb-lib-install.*

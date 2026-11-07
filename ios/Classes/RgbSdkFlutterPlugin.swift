@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 
 public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
+  private var rgbLibChannel: RgbLibChannel?
   let nodeStore = RlnNodeStore()
   private let operationQueue = DispatchQueue(label: "com.utexo.rgb_sdk_flutter.engine")
   private let closingLock = NSLock()
@@ -10,11 +11,14 @@ public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
   public static func register(with registrar: FlutterPluginRegistrar) {
     let instance = RgbSdkFlutterPlugin()
     RlnHostApiSetup.setUp(binaryMessenger: registrar.messenger(), api: instance)
+    instance.rgbLibChannel = RgbLibChannel(messenger: registrar.messenger())
     registrar.publish(instance)
   }
 
   public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
     RlnHostApiSetup.setUp(binaryMessenger: registrar.messenger(), api: nil)
+    rgbLibChannel?.close()
+    rgbLibChannel = nil
     closeEngine()
   }
 
@@ -119,6 +123,10 @@ public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
   private func prepareStorageDirectory(_ path: String, operation: String) throws {
     do {
       try RlnStorageDirectoryPolicy.prepare(path)
+      try RlnStorageClaim.claim(path)
+    } catch is RlnStorageClaimError {
+      throw PigeonError(code: "Conflict", message: "Wallet storage belongs to another backend.",
+                        details: bridgeErrorDetails(operation, category: "conflict", retryable: false))
     } catch let error as RlnStorageDirectoryPolicyError {
       throw invalidArgument(
         operation,
@@ -434,6 +442,7 @@ public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
       "paymentHash": invoice.paymentHash,
       "paymentSecret": invoice.paymentSecret,
       "payeePubkey": invoice.payeePubkey,
+      "minFinalCltvExpiryDelta": String(invoice.minFinalCltvExpiryDelta),
       "network": invoice.network,
     ]
   }
@@ -1115,7 +1124,8 @@ public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
     assetAmount: Int64?,
     paymentHash: String?,
     minFinalCltvExpiryDelta: Int64?,
-    descriptionHash: String?
+    descriptionHash: String?,
+    description: String?
   ) throws -> RlnWireResponse {
     try runRlnWire("rlnLnInvoice") {
       let request = LnInvoiceRequest(
@@ -1124,6 +1134,7 @@ public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
         assetId: assetId,
         assetAmount: try optionalUInt64(assetAmount, field: "assetAmount", operation: "rlnLnInvoice"),
         paymentHash: paymentHash,
+        description: description,
         descriptionHash: descriptionHash,
         minFinalCltvExpiryDelta: try optionalUInt16(minFinalCltvExpiryDelta, field: "minFinalCltvExpiryDelta", operation: "rlnLnInvoice")
       )
@@ -1369,6 +1380,18 @@ public class RgbSdkFlutterPlugin: NSObject, FlutterPlugin, RlnHostApi {
         precision: try requireUInt8(precision, field: "precision", operation: "rlnIssueAssetNia")
       ))
       return RlnAssetMapper.assetNiaMap(asset)
+    }
+  }
+
+  func rlnAssetMetadata(nodeId: Int64, assetId: String) throws -> RlnWireResponse {
+    try runRlnWire("rlnAssetMetadata") {
+      try RlnAssetMedia.metadata(nodeStore.get(id: nodeId), assetId: assetId)
+    }
+  }
+
+  func rlnPostAssetMedia(nodeId: Int64, bytes: FlutterStandardTypedData) throws -> RlnWireResponse {
+    try runRlnWire("rlnPostAssetMedia") {
+      try RlnAssetMedia.upload(nodeStore.get(id: nodeId), data: bytes.data)
     }
   }
 

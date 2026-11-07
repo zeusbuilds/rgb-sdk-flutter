@@ -17,4 +17,11 @@ void main() {
     expect(blockers, hasLength(1));
     expect(blockers.single, contains('no approved production'));
   });
+  test('RGB_L1 has a separate fail-closed native lock disposition', () {
+    final blockers = rgbLibProductionBlockers(
+      '68a48cc0d37e0c6777871d7c5780e92752a3abdaf5b9cae9b0e16807888bb290',
+    );
+    expect(blockers.single, contains('nine RustSec advisories'));
+    expect(rgbLibProductionBlockers('1' * 64).single, contains('no approved'));
+  });
 }

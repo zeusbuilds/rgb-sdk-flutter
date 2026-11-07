@@ -288,6 +288,7 @@ required = {
     "lib/arm64-v8a/libflutter.so",
     "lib/arm64-v8a/libjnidispatch.so",
     "lib/arm64-v8a/librgb_lightning_node.so",
+    "lib/arm64-v8a/librgblibuniffi.so",
 }
 failures = []
 native_entries = []
@@ -304,7 +305,7 @@ try:
         failures.append("Arm64 consumer APK contains an unexpected native path or ABI")
     missing = sorted(required - set(native_entries))
     if missing:
-        failures.append("Missing required Flutter/RLN/JNA libraries: " + ", ".join(missing))
+        failures.append("Missing required Flutter/RLN/RGB Lib/JNA libraries: " + ", ".join(missing))
 except (OSError, zipfile.BadZipFile) as error:
     failures.append("Cannot inspect consumer APK: " + str(error))
 
@@ -356,6 +357,13 @@ build_consumer() {
           echo "iOS consumer did not prepare the RLN FFI header." >&2
           exit 1
         }
+      local app="build/ios/iphoneos/Runner.app/Frameworks"
+      for framework in RGBLib rgb_libFFI; do
+        test -f "${app}/${framework}.framework/${framework}" || {
+          echo "iOS consumer did not embed ${framework}.framework." >&2
+          exit 1
+        }
+      done
       (
         cd ios
         pod install --deployment --no-repo-update

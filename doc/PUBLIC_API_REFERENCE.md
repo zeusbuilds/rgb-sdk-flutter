@@ -479,6 +479,67 @@ closed. A zero count alone does not prove a free allocation slot: hosts must
 also check the output and allocation state, and native reservation remains
 authoritative.
 
+## RGB_L1 configuration and compatibility
+
+`RgbLibWallet` is the explicit on-chain facade. Construct it with
+`RgbLibWalletParams` and `RgbLibKeys`, then call `init` before reading or
+mutating wallet state. The parameters bind the Bitcoin network, dedicated
+absolute storage directory, witness scheme, allocation limit and address reuse
+policy. Storage belongs to one backend and profile. `shutdown` closes a
+session for a later `reinit`; `destroy` and `dispose` close the object permanently.
+Operations are serialized and an uncertain payment is never retried by the SDK.
+The Aster activation and production gates are described in
+[the beta.40 audit](UPSTREAM_PARITY_BETA40.md).
+
+`RgbLibKeys.mnemonic` holds signing material in memory. Prefer
+`RgbLibKeys.reader` with an app-owned secure store for persisted secrets.
+`RgbLibPublicKeys` contains the vanilla and colored account xpubs and master
+fingerprint. `RgbLibKeys.watchOnly` uses those public keys and rejects operations
+requiring signing. When both mnemonic and public keys are supplied, native
+validates that they describe the same wallet. Keys and read failures must stay
+out of logs and user-facing diagnostics.
+
+`RgbLibIndexer` selects Electrum, Esplora or authenticated bitcoind access.
+`RgbLibUnlockParams` supplies an explicit indexer or indexer URL, a proxy
+endpoint, EVM RPC endpoints keyed by decimal chain ID and optional proxy auth
+keys. `goOnline` applies this configuration. The first network operation can
+connect using defaults on supported public networks. Regtest requires an
+explicit online configuration.
+
+`RgbLibWalletIdentity` exposes the persistent profile ID, network and master
+fingerprint. `RgbLibRuntimeInfo` describes the native artifact version, source
+revision, bridge version and BFA capabilities. The wallet verifies the pinned
+runtime identity before reading keys. `RgbLibWalletException` carries a stable
+sanitized failure code for configuration, lifecycle, native availability and
+operation failures.
+
+`RgbLibAssetMetadata` preserves exact `BigInt` supplies, schema, precision,
+timestamp, optional ticker/details/reject-list URL and linked contract IDs.
+`RgbLibMedia` extends the shared media representation with the native content
+digest. Media paths belong to the app's private storage.
+
+`RgbLibReceiveData` extends the shared invoice result with the transport public
+key. `RgbLibInvoiceData` preserves decoded assignment, expiry and transport
+fields together with encryption policy, optional public key and unknown query
+parameters. Decode and receive results do not authorize a send. Callers must
+validate the requested network, asset, amount, recipient and fees separately.
+`RgbLibTransfer` preserves shared transfer history plus the complete invoice
+and local consignment path when available. Transfer amounts remain exact base
+units and unresolved amounts remain absent.
+
+`RgbLibWitnessVersion` selects the address derivation scheme for a new
+profile. `RgbLibMnemonicReader` reads key material per native session.
+`RgbLibIndexerKind` identifies the Electrum, Esplora or bitcoind transport.
+`getRgbLibNetworkDefaults` returns backend-specific public endpoints.
+Regtest needs an explicit configuration.
+
+`RgbLibAssetSchema` filters asset reads. `RgbLibReceiveAssignment` selects
+the exact invoice assignment and `RgbReceiveAssignmentKind` exposes the
+supported legacy RLN subset. `RgbLibNetworkInfo` reports the chain with
+optional native height. `RgbLibIndexerCheck` describes the protocol
+detected by the native engine. `BurnCapabilityWallet` lets a wallet reject
+unsupported burn operations before an irreversible journal entry is written.
+
 ## Symbol Coverage Checklist
 
 - `RecoverableOnchainSendCommand`, `RecoverableOnchainSendKind`, `RecoverableOnchainSendPhase`, `RecoverableOnchainSendStatus`
@@ -530,6 +591,13 @@ root checklist and are snapshotted by `tool/api_snapshot.json`.
 - `ReceiveSettlementOutcome`, `RefreshFailure`, `RefreshTransfersResult`, `RefreshedTransfer`
 - `ReceiveSettlementOutcomes`, `ReceiveStatus`, `ReceiveStatuses`, `RgbInvoiceRequest`
 - `RgbNodeError`, `RgbSdkException`, `RgbSdkFlutter`, `RgbSendRequest`
+- `RgbLibWallet`, `RgbLibWalletParams`, `RgbLibWalletException`, `RgbLibWalletIdentity`
+- `RgbLibKeys`, `RgbLibPublicKeys`, `RgbLibMnemonicReader`, `RgbLibRuntimeInfo`
+- `RgbLibIndexer`, `RgbLibIndexerKind`, `RgbLibIndexerCheck`, `RgbLibUnlockParams`
+- `RgbLibWitnessVersion`, `RgbLibAssetSchema`, `RgbLibAssetMetadata`, `RgbLibMedia`
+- `RgbLibReceiveAssignment`, `RgbLibReceiveData`, `RgbLibInvoiceData`, `RgbLibTransfer`
+- `RgbLibNetworkInfo`, `RgbReceiveAssignmentKind`, `getRgbLibNetworkDefaults`
+- `BurnCapabilityWallet`
 - `RlnInvoiceStatusValue`, `RlnInvoiceStatuses`, `RlnKeyMaterial`, `RlnMnemonicKeyMaterial`
 - `RlnOperationTimeoutException`, `RlnOperationTimeoutPolicy`, `RlnPaymentStatusValue`, `RlnPaymentStatuses`
 - `RlnSeedBytesKeyMaterial`, `RlnSeedHexKeyMaterial`, `RlnSigner`, `RlnSignerHost`, `SDKError`

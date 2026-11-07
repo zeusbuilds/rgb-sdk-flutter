@@ -28,7 +28,7 @@ BigInt? _transferAmount(
   List<Assignment> allocations,
 ) {
   final source = switch (kind) {
-    'Send' || 'Burn' || 'Inflation' => [?requested],
+    'Send' || 'Burn' || 'Inflation' || 'Mint' => [?requested],
     'ReceiveBlind' || 'ReceiveWitness' || 'Issuance' => allocations,
     _ => const <Assignment>[],
   };

@@ -4,13 +4,20 @@ import '../errors/native_bridge_error_mapper.dart';
 import '../errors/rgb_sdk_exception.dart';
 import '../models/burn_models.dart';
 import '../models/utexo_core_models.dart';
+import 'burn_destination.dart';
 import 'burn_recipient.dart';
+import 'rgb_lib/config.dart' show RgbLibWalletException;
 
 /// Narrow wallet boundary for irreversible burn execution and proof recovery.
 abstract interface class BurnWallet {
   Future<BurnResult> burn(BurnParams params);
   Future<List<CoreTransfer>> listTransfers({String? assetId});
   Future<String> getConsignment(String assetId, String txid);
+}
+
+/// A wallet that can reject unsupported burns before creating a journal entry.
+abstract interface class BurnCapabilityWallet implements BurnWallet {
+  Future<BfaCapabilities> getBfaCapabilities();
 }
 
 /// Durable journal states, not RGB transfer or external payout statuses.
@@ -29,10 +36,12 @@ class BurnOperationMetadata {
     required this.origin,
     required this.network,
     required this.payout,
+    this.burnDestination,
   });
   final String origin;
   final String network;
   final BurnPayout payout;
+  final BurnDestination? burnDestination;
 }
 
 /// Immutable v2 journal record. IDs are private wallet identities, not dApp IDs.
@@ -86,6 +95,8 @@ class BurnOperationRecord {
         'chainId': metadata.payout.chainId,
         'address': metadata.payout.address,
       },
+      if (metadata.burnDestination case final destination?)
+        'burnDestination': destination.toJson(),
     },
     'state': state.name,
     if (error != null) 'error': error,
@@ -157,7 +168,12 @@ BurnOperationRecord normalizeBurnRecord(Object? value) {
   final payout = _object(legacy ? params['burnRecipient'] : metadata['payout']);
   final chainId = _string(payout['chainId']);
   final address = _string(payout['address']);
-  final encoded = encodeBurnRecipient(chainId, address);
+  final destination = !legacy && metadata.containsKey('burnDestination')
+      ? BurnDestination.fromJson(metadata['burnDestination'])
+      : null;
+  destination?.validatePayout(chainId, address);
+  final encoded =
+      destination?.commitment ?? encodeBurnRecipient(chainId, address);
   final request = BurnParams(
     assetId: _string(params['assetId']),
     amount: _string(params['amount']),
@@ -199,6 +215,7 @@ BurnOperationRecord normalizeBurnRecord(Object? value) {
       origin: _string(metadata['origin']),
       network: _string(legacy ? params['network'] : metadata['network']),
       payout: BurnPayout(chainId: chainId, address: address),
+      burnDestination: destination,
     ),
     state: states.single,
     result: result,
@@ -300,6 +317,15 @@ class BurnOperations {
       );
     }
     assertAuthorized();
+    final wallet = _wallet;
+    if (wallet is BurnCapabilityWallet &&
+        !(await wallet.getBfaCapabilities()).burn) {
+      throw const UnsupportedWalletFeatureException(
+        'Burn is unsupported by this native build or signer.',
+        feature: 'burn',
+      );
+    }
+    assertAuthorized();
     final random = Random.secure();
     final id = List.generate(
       16,
@@ -329,7 +355,7 @@ class BurnOperations {
       await _save(record);
       return record;
     } catch (error, stack) {
-      // Only these native errors prove that PSBT funding failed before broadcast.
+      // Only recognized funding or capability refusals prove non-submission.
       // An invalid returned result or timeout is still an uncertain mutation.
       final cause = error is RgbSdkException ? error.cause : null;
       final nativeCode = cause is NativeBridgeFailure
@@ -339,11 +365,18 @@ class BurnOperations {
           : error is RgbSdkException
           ? error.code
           : null;
-      final unfunded =
+      final refusedBeforeBroadcast =
           !nativeReturned &&
-          const {'InsufficientFunds', 'NoAvailableUtxos'}.contains(nativeCode);
+          (const {
+                'InsufficientFunds',
+                'NoAvailableUtxos',
+              }.contains(nativeCode) ||
+              (error is RgbLibWalletException &&
+                  nativeCode == 'UNSUPPORTED_CAPABILITY') ||
+              (error is UnsupportedWalletFeatureException &&
+                  error.feature == 'burn'));
       if (record.state != BurnOperationState.complete) {
-        final cancelled = !invoked || unfunded;
+        final cancelled = !invoked || refusedBeforeBroadcast;
         try {
           await _save(
             record.withState(
@@ -351,7 +384,7 @@ class BurnOperations {
                   ? BurnOperationState.cancelled
                   : BurnOperationState.pending,
               error: invoked
-                  ? unfunded
+                  ? refusedBeforeBroadcast
                         ? nativeCode
                         : 'BURN_OUTCOME_UNRESOLVED'
                   : null,

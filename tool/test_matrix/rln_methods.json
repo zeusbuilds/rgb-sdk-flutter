@@ -857,6 +857,30 @@
       "hostApi": "rlnCancelOnchainSend",
       "ios": "required",
       "android": "required"
+    },
+    {
+      "id": "assetMetadata",
+      "hostApi": "rlnAssetMetadata",
+      "group": "rgb",
+      "support": "supported",
+      "fixture": "funded_rgb_asset_types",
+      "contract": "implemented",
+      "ios": "required",
+      "android": "required",
+      "implementation": "lib/src/client/rln_client.dart::RlnClient.assetMetadata",
+      "evidenceBucket": "funded_rgb_asset_types"
+    },
+    {
+      "id": "postAssetMedia",
+      "hostApi": "rlnPostAssetMedia",
+      "group": "rgb",
+      "support": "supported",
+      "fixture": "funded_rgb_asset_types",
+      "contract": "implemented",
+      "ios": "required",
+      "android": "required",
+      "implementation": "lib/src/client/rln_client.dart::RlnClient.postAssetMedia",
+      "evidenceBucket": "funded_rgb_asset_types"
     }
   ]
 }

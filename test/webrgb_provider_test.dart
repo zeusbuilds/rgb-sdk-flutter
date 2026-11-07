@@ -67,7 +67,9 @@ class _Wallet implements UtexoWallet {
     bfa: true,
   );
   @override
-  Future<CoreListAssets> listAssets() async => CoreListAssets(
+  Future<CoreListAssets> listAssets({
+    List<String> filterAssetSchemas = const [],
+  }) async => CoreListAssets(
     bfa: [
       if (hasBfa)
         CoreAssetBfa(

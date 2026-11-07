@@ -14,3 +14,16 @@ List<String> nativeProductionBlockers(String sourceCommit) {
     'Native TLS: selected minreq 2.14.1 -> rustls 0.21.12 -> rustls-webpki 0.101.7 has unresolved RUSTSEC-2026-0098/0099 certificate name-constraint advisories. RUSTSEC-2026-0104 CRL reachability is unproven; no-CRL callers are unaffected. Adopt a fixed native graph or an independently reviewed security disposition.',
   ];
 }
+
+/// RGB_L1 is a separate Rust graph and cannot inherit RLN's disposition.
+List<String> rgbLibProductionBlockers(Object? lockSha256) {
+  if (lockSha256 !=
+      '68a48cc0d37e0c6777871d7c5780e92752a3abdaf5b9cae9b0e16807888bb290') {
+    return const [
+      'RGB_L1 native source lock has no approved production security disposition.',
+    ];
+  }
+  return const [
+    'RGB_L1 BFA.5: the exact UniFFI lock has nine RustSec advisories, including legacy TLS, ctutils and Tokio. Patch the dependency graph or approve reachability evidence for the exact artifacts before production.',
+  ];
+}

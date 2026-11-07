@@ -1,6 +1,6 @@
-import '../../wallet/utexo_wallet.dart';
 import 'errors.dart';
 import 'types.dart';
+import 'wallet.dart';
 
 /// Internal authorization owner. Revision checks also reject revoke/re-enable
 /// races, not just the simpler disconnected-at-completion case.
@@ -22,7 +22,7 @@ class WebRgbSession {
       );
     }
   }
-  final UtexoWallet wallet;
+  final WebRgbWallet wallet;
   final WebRgbOptions options;
   bool authorized;
   int revision = 0;

@@ -3210,7 +3210,9 @@ void main() {
       await expectLater(
         _lsp(wallet, _FakeLspClient()).waitForOutboundLiquidity(
           100,
-          options: const WaitOptions(timeoutMs: 20, pollIntervalMs: 50),
+          // Leave enough time for the observation even when other tests or a
+          // native build contend for the host. The poll still expires.
+          options: const WaitOptions(timeoutMs: 500, pollIntervalMs: 50),
         ),
         throwsA(
           isA<LspLiquidityTimeoutException>().having(

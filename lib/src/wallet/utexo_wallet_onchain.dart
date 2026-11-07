@@ -238,8 +238,8 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     return _binding.rlnBtcBalance(skipSync);
   }
 
-  Future<CoreBtcBalance> getBtcBalance() async {
-    return (await _getBtcBalanceRaw()).toCore();
+  Future<CoreBtcBalance> getBtcBalance({bool skipSync = false}) async {
+    return (await _getBtcBalanceRaw(skipSync: skipSync)).toCore();
   }
 
   Future<String> getAddress() async {
@@ -252,28 +252,30 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     return _binding.rlnListUnspents(skipSync);
   }
 
-  Future<List<CoreUnspent>> listUnspents() async {
-    return (await _listUnspentsRaw())
-        .map((unspent) => unspent.toCore())
-        .toList(growable: false);
+  Future<List<CoreUnspent>> listUnspents({bool skipSync = false}) async {
+    return (await _listUnspentsRaw(
+      skipSync: skipSync,
+    )).map((unspent) => unspent.toCore()).toList(growable: false);
   }
 
-  /// Creates UTXOs and returns the requested count (or zero when unspecified).
-  /// The native API acknowledges completion but reports no created count. This
-  /// matches RN; inspect listUnspents to observe resulting wallet state.
+  /// Creates UTXOs and returns the observed number of new colorable outputs.
+  /// An unavailable post-create count means creation was acknowledged. Check
+  /// history and output inventory before considering another creation.
   Future<int> createUtxos({
     bool upTo = true,
     int? num,
     int? size,
     double feeRate = 1,
+    bool skipSync = false,
   }) async {
     _requireUInt8Optional(num, 'num');
     _requireUInt32Optional(size, 'size');
+    if (num != null) _requirePositive(num, 'num');
+    if (size != null) _requirePositive(size, 'size');
     _requireFeeRate(feeRate, 'feeRate');
     _ensureRgbUtxoCreationSupported();
     _requireUnlockedNode();
-    await _binding.rlnCreateUtxos(upTo, num, size, feeRate, false);
-    return num ?? 0;
+    return _binding.rlnCreateUtxosCounted(upTo, num, size, feeRate, skipSync);
   }
 
   Future<RlnAssets> _listAssetsRaw({
@@ -283,8 +285,19 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     return _binding.rlnListAssets(filterAssetSchemas);
   }
 
-  Future<CoreListAssets> listAssets() async {
-    return (await _listAssetsRaw()).toCore();
+  Future<CoreListAssets> listAssets({
+    List<String> filterAssetSchemas = const [],
+  }) async {
+    final schemas = List<String>.unmodifiable(filterAssetSchemas);
+    if (schemas.any(
+      (schema) => !const {'Nia', 'Cfa', 'Uda', 'Ifa', 'Bfa'}.contains(schema),
+    )) {
+      throw const WalletValidationException(
+        'Asset schema filter contains an unsupported schema.',
+        field: 'filterAssetSchemas',
+      );
+    }
+    return (await _listAssetsRaw(filterAssetSchemas: schemas)).toCore();
   }
 
   Future<RlnAssetBalance> _getAssetBalanceRaw(String assetId) async {
@@ -310,13 +323,14 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
   }) async {
     _requireNonEmpty(ticker, 'ticker');
     _requireNonEmpty(name, 'name');
-    _requireUInt8(precision, 'precision');
-    _requireNonNegativeList(amounts, 'amounts');
+    WalletInputPolicy.requireAssetPrecision(precision);
+    final issued = List<int>.unmodifiable(amounts);
+    WalletInputPolicy.requireAssetSupply(issued);
     _ensureRgbAssetIssuanceSupported('issueAssetNia');
     _requireUnlockedNode();
     return RlnAssetNia.fromMap(
       _asRlnMap(
-        await _binding.rlnIssueAssetNia(ticker, name, precision, amounts),
+        await _binding.rlnIssueAssetNia(ticker, name, precision, issued),
       ),
     );
   }
@@ -345,9 +359,10 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
   }) async {
     _requireNonEmpty(ticker, 'ticker');
     _requireNonEmpty(name, 'name');
-    _requireUInt8(precision, 'precision');
-    _requireNonNegativeList(amounts, 'amounts');
-    _requireNonNegativeList(inflationAmounts, 'inflationAmounts');
+    WalletInputPolicy.requireAssetPrecision(precision);
+    final issued = List<int>.unmodifiable(amounts);
+    final inflatable = List<int>.unmodifiable(inflationAmounts);
+    WalletInputPolicy.requireAssetSupply(issued, inflationAmounts: inflatable);
     _ensureRgbAssetIssuanceSupported('issueAssetIfa');
     _requireUnlockedNode();
     return RlnAssetIfa.fromMap(
@@ -356,8 +371,8 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
           ticker,
           name,
           precision,
-          amounts,
-          inflationAmounts,
+          issued,
+          inflatable,
           rejectListUrl,
         ),
       ),
@@ -411,81 +426,132 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
   }
 
   @override
-  Future<RlnSendResult> _sendRgb(RgbSendRequest request) async {
-    _requireNonEmpty(request.invoice, 'invoice');
-    final decoded = await _decodeRgbInvoiceRaw(request.invoice);
-    final assetId = request.assetId ?? decoded.assetId;
-    final recipientId = decoded.recipientId;
-    final amount = request.amount;
-    final transportEndpoints = decoded.transportEndpoints;
+  Future<RlnSendResult> _sendRgb(RgbSendRequest request) {
+    final invoice = request.invoice;
+    final requestedAssetId = request.assetId;
+    final requestedAmount = request.amount;
+    final donation = request.donation;
+    final feeRate = request.feeRate;
+    final minConfirmations = request.minConfirmations;
+    final skipSync = request.skipSync;
+    final witnessAmountSat = request.witnessAmountSat;
+    final witnessBlinding = request.witnessBlinding;
 
-    if (assetId == null || assetId.isEmpty) {
-      throw const WalletValidationException(
-        'Asset ID is required for RGB send.',
-        field: 'assetId',
-      );
-    }
-    if (recipientId.isEmpty) {
-      throw const WalletValidationException(
-        'Recipient ID is required for RGB send.',
-        field: 'recipientId',
-      );
-    }
-    if (amount == null) {
-      throw const WalletValidationException(
-        'Amount is required for RGB send.',
-        field: 'amount',
-      );
-    }
-    _requireNonNegative(amount, 'amount');
-    _requireFeeRate(request.feeRate, 'feeRate');
-    _requireUInt8(request.minConfirmations, 'minConfirmations');
-    _requireNonNegativeOptional(request.witnessAmountSat, 'witnessAmountSat');
-    _requireNonNegativeOptional(request.witnessBlinding, 'witnessBlinding');
-    _requireSupportedRgbSendSkipSync(request.skipSync);
+    return _withLifecycle(() async {
+      _requireNonEmpty(invoice, 'invoice');
+      if (requestedAssetId != null) {
+        _requireNonEmpty(requestedAssetId, 'assetId');
+      }
+      if (requestedAmount != null) _requirePositive(requestedAmount, 'amount');
+      if (witnessAmountSat != null) {
+        _requirePositive(witnessAmountSat, 'witnessAmountSat');
+      }
+      _requireFeeRate(feeRate, 'feeRate');
+      _requireUInt8(minConfirmations, 'minConfirmations');
+      _requireNonNegativeOptional(witnessBlinding, 'witnessBlinding');
+      if (witnessBlinding != null && witnessAmountSat == null) {
+        throw const WalletValidationException(
+          'Witness blinding requires a Bitcoin output amount.',
+          field: 'witnessAmountSat',
+        );
+      }
+      _requireSupportedRgbSendSkipSync(skipSync);
 
-    _requireUnlockedNode();
-    return _binding.rlnSendRgb(
-      request.donation,
-      request.feeRate,
-      request.minConfirmations,
-      request.skipSync,
-      assetId,
-      recipientId,
-      amount,
-      transportEndpoints,
-      request.witnessAmountSat == null
-          ? null
-          : RlnWitnessData(
-              amountSat: request.witnessAmountSat!,
-              blinding: request.witnessBlinding,
-            ),
-    );
+      final decoded = await _decodeRgbInvoiceRaw(invoice);
+      if (normalizeNativeRlnNetwork(decoded.network) !=
+          normalizeNativeRlnNetwork(_config.network)) {
+        throw const WalletValidationException(
+          'RGB invoice network does not match the wallet.',
+          field: 'invoice.network',
+        );
+      }
+      if (decoded.expirationTimestamp case final expiry?
+          when expiry <= DateTime.now().millisecondsSinceEpoch ~/ 1000) {
+        throw const WalletValidationException(
+          'RGB invoice has expired.',
+          field: 'invoice.expirationTimestamp',
+        );
+      }
+      final assetId = requestedAssetId ?? decoded.assetId;
+      if (assetId == null ||
+          assetId.isEmpty ||
+          (decoded.assetId != null && decoded.assetId != assetId)) {
+        throw const WalletValidationException(
+          'The RGB asset must match the invoice.',
+          field: 'assetId',
+        );
+      }
+      _requireNonEmpty(decoded.recipientId, 'recipientId');
+      final assignment = parseCoreAssignment(decoded.assignment);
+      if (assignment.type != 'Fungible' && assignment.type != 'Any') {
+        throw const WalletValidationException(
+          'RGB send requires a fungible invoice assignment.',
+          field: 'invoice.assignment',
+        );
+      }
+      final invoiceAmount = assignment.amount;
+      if (invoiceAmount != null &&
+          (invoiceAmount <= BigInt.zero ||
+              invoiceAmount > BigInt.from(rlnPigeonMaxSignedInt64) ||
+              (requestedAmount != null &&
+                  BigInt.from(requestedAmount) != invoiceAmount))) {
+        throw const WalletValidationException(
+          'The send amount must match the supported invoice amount.',
+          field: 'amount',
+        );
+      }
+      final amount = requestedAmount ?? invoiceAmount?.toInt();
+      if (amount == null) {
+        throw const WalletValidationException(
+          'Amount is required for RGB send.',
+          field: 'amount',
+        );
+      }
+
+      return _binding.rlnSendRgb(
+        donation,
+        feeRate,
+        minConfirmations,
+        skipSync,
+        assetId,
+        decoded.recipientId,
+        amount,
+        decoded.transportEndpoints,
+        witnessAmountSat == null
+            ? null
+            : RlnWitnessData(
+                amountSat: witnessAmountSat,
+                blinding: witnessBlinding,
+              ),
+      );
+    });
   }
 
   Future<RlnInflateResult> _inflateRaw(InflateAssetIfaRequest request) async {
-    _requireNonEmpty(request.assetId, 'assetId');
-    if (request.inflationAmounts.isEmpty) {
+    final assetId = request.assetId;
+    final inflationAmounts = List<int>.unmodifiable(request.inflationAmounts);
+    final feeRate = request.feeRate;
+    final minConfirmations = request.minConfirmations;
+    _requireNonEmpty(assetId, 'assetId');
+    if (inflationAmounts.isEmpty) {
       throw const WalletValidationException(
         'inflationAmounts must not be empty.',
         field: 'inflationAmounts',
       );
     }
-    for (var index = 0; index < request.inflationAmounts.length; index++) {
-      _requireNonNegative(
-        request.inflationAmounts[index],
-        'inflationAmounts[$index]',
-      );
-    }
-    _requireFeeRate(request.feeRate, 'feeRate');
-    _requireUInt8(request.minConfirmations, 'minConfirmations');
+    WalletInputPolicy.requireAssetSupply(
+      const [],
+      inflationAmounts: inflationAmounts,
+    );
+    _requireFeeRate(feeRate, 'feeRate');
+    _requireUInt8(minConfirmations, 'minConfirmations');
     _ensureRgbAssetIssuanceSupported('inflate');
     _requireUnlockedNode();
     return _binding.rlnInflate(
-      request.assetId,
-      request.inflationAmounts,
-      request.feeRate,
-      request.minConfirmations,
+      assetId,
+      inflationAmounts,
+      feeRate,
+      minConfirmations,
     );
   }
 
@@ -522,10 +588,12 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     return _binding.rlnListTransactions(skipSync);
   }
 
-  Future<List<CoreTransaction>> listTransactions() async {
-    return (await _listTransactionsRaw())
-        .map((transaction) => transaction.toCore())
-        .toList(growable: false);
+  Future<List<CoreTransaction>> listTransactions({
+    bool skipSync = false,
+  }) async {
+    return (await _listTransactionsRaw(
+      skipSync: skipSync,
+    )).map((transaction) => transaction.toCore()).toList(growable: false);
   }
 
   Future<List<RlnTransaction>> _listTransactionsByTxidRaw(
@@ -576,6 +644,12 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     bool skipSync = false,
   }) async {
     _requireNonNegativeOptional(batchTransferIdx, 'batchTransferIdx');
+    if (batchTransferIdx != null && batchTransferIdx > 0x7fffffff) {
+      throw const WalletValidationException(
+        'batchTransferIdx must fit in Int32.',
+        field: 'batchTransferIdx',
+      );
+    }
     _requireUnlockedNode();
     final response = await _binding.rlnFailTransfers(
       batchTransferIdx,
@@ -632,6 +706,7 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
   }
 
   Future<RlnFeeRate> _estimateFeeRateRaw(int blocks) async {
+    _requirePositive(blocks, 'blocks');
     _requireUInt16(blocks, 'blocks');
     _requireUnlockedNode();
     return _binding.rlnEstimateFee(blocks);
@@ -639,7 +714,16 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
 
   Future<FeeEstimationResponse> estimateFeeRate(int blocks) async {
     final result = await _estimateFeeRateRaw(blocks);
-    return FeeEstimationResponse(feeRate: result.feeRate);
+    final rate = result.feeRate;
+    if (!rate.isFinite ||
+        rate <= 0 ||
+        rate >= rlnPigeonMaxSignedInt64.toDouble()) {
+      throw const NativeProtocolException(
+        'Native fee estimate is outside the supported range.',
+        field: 'RlnFeeRate.feeRate',
+      );
+    }
+    return FeeEstimationResponse(feeRate: rate.ceilToDouble());
   }
 
   Future<RlnIndexerCheck> _checkIndexerUrlRaw(String url) async {
@@ -650,7 +734,9 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
 
   Future<IndexerCheckResponse> checkIndexerUrl(String url) async {
     final result = await _checkIndexerUrlRaw(url);
-    return IndexerCheckResponse(indexerProtocol: result.indexerProtocol);
+    return IndexerCheckResponse(
+      indexerProtocol: result.indexerProtocol.toLowerCase(),
+    );
   }
 
   Future<void> checkProxyEndpoint(String endpoint) {
@@ -701,19 +787,41 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     RgbInvoiceRequest request, {
     required bool witness,
   }) async {
-    _requireNonNegativeOptional(request.amount, 'amount');
-    _requireUInt32Optional(request.durationSeconds, 'durationSeconds');
+    final amount = request.amount;
+    final kind = switch (request.assignmentKind) {
+      RgbReceiveAssignmentKind.fungible => RlnAssignmentKind.fungible,
+      RgbReceiveAssignmentKind.nonFungible => RlnAssignmentKind.nonFungible,
+      RgbReceiveAssignmentKind.inflationRight =>
+        RlnAssignmentKind.inflationRight,
+      RgbReceiveAssignmentKind.any => RlnAssignmentKind.any,
+      null => amount == null ? null : RlnAssignmentKind.fungible,
+    };
+    final requiresAmount =
+        kind == RlnAssignmentKind.fungible ||
+        kind == RlnAssignmentKind.inflationRight;
+    if (requiresAmount != (amount != null)) {
+      throw const WalletValidationException(
+        'Amount does not match the selected assignment kind.',
+        field: 'amount',
+      );
+    }
+    if (amount != null) _requirePositive(amount, 'amount');
+    final duration = request.durationSeconds;
+    if (duration != null && (duration < 1 || duration > 2592000)) {
+      throw const WalletValidationException(
+        'Duration must be between 1 second and 30 days.',
+        field: 'durationSeconds',
+      );
+    }
     _requireUInt8(request.minConfirmations, 'minConfirmations');
     _requireUnlockedNode();
     return _binding.rlnRgbInvoice(
       request.assetId,
-      request.amount,
-      request.durationSeconds,
+      amount,
+      duration,
       request.minConfirmations,
       witness,
-      assignmentKind: request.amount == null
-          ? null
-          : RlnAssignmentKind.fungible,
+      assignmentKind: kind,
     );
   }
 

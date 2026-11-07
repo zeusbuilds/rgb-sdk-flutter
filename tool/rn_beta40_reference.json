@@ -1,0 +1,30 @@
+{
+  "package": "@utexo/rgb-sdk-rn",
+  "version": "1.0.0-beta.40",
+  "repository": "https://github.com/UTEXO-Protocol/rgb-sdk-rn",
+  "legacy": {
+    "version": "1.0.0-beta.39",
+    "commit": "41ff170f794edff2a1822a672ddab37e29505f14",
+    "fileCount": 87,
+    "filesSha256": "f30f3f314e6a825aeb11385bfc067a50fc46ac01b9d4747e4008b5510620e8b2"
+  },
+  "source": {
+    "commit": "5c8b2dfc79844c73e061a3df1ccbfdc1278d3ca7",
+    "fileCount": 132,
+    "filesSha256": "ed426b1537383b21ffc2c4d8fd738fcc757417c921d9d9d9d757cb383fd6401a"
+  },
+  "registry": {
+    "url": "https://registry.npmjs.org/@utexo/rgb-sdk-rn/-/rgb-sdk-rn-1.0.0-beta.40.tgz",
+    "sizeBytes": 302390,
+    "archiveSha256": "2cd95d4a66ce90cb280d1943acb7789309820fdcf33aaa9442544c357ebb0664",
+    "integritySha512": "sha512-jHRCapvbXgojaBVXNfR9VZwQMYYsRJoB15+Zf9GBqLCkNGYZ+MWyJymPfs6SR5hBlwdSeOULOqD57wavFmxXyQ==",
+    "fileCount": 250,
+    "sharedSourceFileCount": 76
+  },
+  "delta": {
+    "added": 67,
+    "removed": 22,
+    "modified": 30,
+    "pathsSha256": "c4b82e7b0a785e58439030bd88b5a436ad0ae75d0733ee53c9edd948af714ac5"
+  }
+}

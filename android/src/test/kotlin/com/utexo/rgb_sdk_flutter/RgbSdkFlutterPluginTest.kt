@@ -406,7 +406,8 @@ internal class RgbSdkFlutterPluginTest {
                 assetAmount = null,
                 paymentHash = null,
                 minFinalCltvExpiryDelta = null,
-                descriptionHash = "description-hash"
+                descriptionHash = "description-hash",
+                description = null
             )
         }
         assertInvalidArgument(invoice, operation = "rlnLnInvoice", field = "expirySec")

@@ -6,7 +6,9 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:pointycastle/digests/keccak.dart';
 
+import '../../wallet/burn_destination.dart';
 import '../../wallet/burn_operations.dart';
+import '../../wallet/rgb_lib/rgb_lib_wallet.dart';
 import '../../wallet/utexo_wallet.dart';
 import 'errors.dart';
 import 'provider.dart';
@@ -76,6 +78,42 @@ class WebRgbWalletConnectSession {
     required Future<bool> Function(WebRgbApproval) confirm,
     WebRgbBurnOptions? burn,
     DateTime Function()? clock,
+  }) : this._(
+         network: wallet.getNetwork(),
+         provider: (options) => WebRgbProvider(wallet, options),
+         grant: grant,
+         currentGrant: currentGrant,
+         confirm: confirm,
+         burn: burn,
+         clock: clock,
+       );
+
+  /// Routes the same authorized WebRGB methods to a native on-chain wallet.
+  WebRgbWalletConnectSession.rgbLib({
+    required RgbLibWallet wallet,
+    required WebRgbWalletConnectGrant grant,
+    required WebRgbWalletConnectGrant? Function() currentGrant,
+    required Future<bool> Function(WebRgbApproval) confirm,
+    WebRgbBurnOptions? burn,
+    DateTime Function()? clock,
+  }) : this._(
+         network: wallet.getNetwork(),
+         provider: (options) => WebRgbProvider.rgbLib(wallet, options),
+         grant: grant,
+         currentGrant: currentGrant,
+         confirm: confirm,
+         burn: burn,
+         clock: clock,
+       );
+
+  WebRgbWalletConnectSession._({
+    required String network,
+    required WebRgbProvider Function(WebRgbOptions) provider,
+    required WebRgbWalletConnectGrant grant,
+    required WebRgbWalletConnectGrant? Function() currentGrant,
+    required Future<bool> Function(WebRgbApproval) confirm,
+    WebRgbBurnOptions? burn,
+    DateTime Function()? clock,
   }) : _grant = grant,
        _currentGrant = currentGrant,
        _clock = clock ?? DateTime.now {
@@ -84,15 +122,14 @@ class WebRgbWalletConnectSession {
           '^rgb:${RegExp.escape(grant.network)}:[-.%a-zA-Z0-9]{1,128}\$',
         ).hasMatch(grant.account) ||
         grant.topic.isEmpty ||
-        wallet.getNetwork() != grant.network) {
+        network != grant.network) {
       throw const WebRgbError(
         'INVALID_PARAMS',
         'Invalid wallet session identity.',
       );
     }
     _check();
-    _provider = WebRgbProvider(
-      wallet,
+    _provider = provider(
       WebRgbOptions(
         origin: grant.origin,
         sessionApproved: true,
@@ -291,10 +328,14 @@ class WebRgbWalletConnectSession {
             .toList();
         return WebRgbInfo(
           network: info.network,
+          protocol: info.protocol,
           methods: methods,
           burnRecipientNamespaces: methods.contains('burnAsset')
               ? info.burnRecipientNamespaces
               : null,
+          burnDestinationRoutes: methods.contains('burnAsset')
+              ? info.burnDestinationRoutes
+              : const [],
         ).toJson();
       case 'getAddress':
         return (await _provider.getAddress()).toJson();
@@ -347,6 +388,12 @@ class WebRgbWalletConnectSession {
               chainId: _string(payout['chainId']),
               address: _string(payout['address']),
             ),
+            burnDestination: input.containsKey('burnDestination')
+                ? await webRgbWalletCall(
+                    () async =>
+                        BurnDestination.fromJson(input['burnDestination']),
+                  )
+                : null,
             feeRate: _optionalInteger(input['feeRate']) ?? 2,
             minConfirmations: _optionalInteger(input['minConfirmations']) ?? 3,
           ),

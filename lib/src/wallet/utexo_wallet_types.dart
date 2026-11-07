@@ -230,15 +230,19 @@ abstract interface class BeginEndWalletCarrier {
   Future<OnchainSendResponse> inflateEnd({required String signedPsbt});
 }
 
+/// Assignment supported by the RLN invoice format.
+enum RgbReceiveAssignmentKind { fungible, nonFungible, inflationRight, any }
+
 /// Request for a blinded or witness RGB invoice.
 ///
 /// [amount] is an RGB asset amount in the asset's smallest unit. [durationSeconds]
 /// is a wall-clock expiry duration in seconds. [minConfirmations] is the native
-/// RGB confirmation threshold and must fit the signed 64-bit Pigeon boundary.
+/// RGB confirmation threshold and must fit UInt8.
 class RgbInvoiceRequest {
   const RgbInvoiceRequest({
     this.assetId,
     this.amount,
+    this.assignmentKind,
     this.durationSeconds,
     this.minConfirmations = 0,
     this.witness = true,
@@ -249,6 +253,10 @@ class RgbInvoiceRequest {
 
   /// Optional asset amount in smallest units.
   final int? amount;
+
+  /// Defaults to a fungible assignment with [amount], or any assignment
+  /// when omitted. Inflation rights also require a positive amount.
+  final RgbReceiveAssignmentKind? assignmentKind;
 
   /// Optional invoice lifetime in seconds.
   final int? durationSeconds;
@@ -264,10 +272,10 @@ class RgbInvoiceRequest {
 
 /// Request for an atomic RGB on-chain transfer.
 ///
-/// [assetId] may be omitted when the invoice encodes it. [amount] is always
-/// required by the stable wallet facade, matching the current RN
-/// `UTEXOWallet.onchainSend` contract rather than falling back to the decoded
-/// invoice assignment. For asset-less donation invoices, pass [assetId] and
+/// [assetId] may be omitted when the invoice encodes it. An atomic
+/// `onchainSend` can take an omitted [amount] from a fungible invoice.
+/// Recoverable sends require an explicit reviewed amount. For asset-less
+/// donation invoices, pass [assetId] and
 /// [amount] explicitly and set [donation]. [feeRate] is sats/vbyte and must be
 /// integer-equivalent for the current native bridge. [skipSync] is fail-fast
 /// because the pinned native artifacts accept the RN argument but do not

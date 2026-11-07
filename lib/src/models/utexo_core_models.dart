@@ -627,6 +627,7 @@ class DecodedLightningInvoice {
     required this.paymentSecret,
     this.payeePubkey,
     required this.network,
+    this.minFinalCltvExpiryDelta,
   });
 
   /// Lightning invoice amount in millisats.
@@ -653,6 +654,7 @@ class DecodedLightningInvoice {
   /// Core-compatible spelling of [payeePubkey].
   String? get payee => payeePubkey;
   final String network;
+  final int? minFinalCltvExpiryDelta;
 }
 
 /// Stable wallet-facing stored Lightning payment.
@@ -764,6 +766,7 @@ extension RlnDecodedLightningInvoiceMapper on RlnDecodedLnInvoice {
       paymentHash: paymentHash,
       paymentSecret: paymentSecret,
       payeePubkey: payeePubkey,
+      minFinalCltvExpiryDelta: minFinalCltvExpiryDelta,
       network: UtexoDomainPolicy.normalizeNetwork(network),
     );
   }
@@ -1067,6 +1070,34 @@ extension RlnCoreDecodedRgbInvoiceMapper on RlnDecodedRgbInvoice {
   }
 }
 
+extension RlnCoreCfaMapper on RlnAssetCfa {
+  CoreAssetCfa toCore() => CoreAssetCfa(
+    assetId: assetId,
+    name: name,
+    details: details,
+    precision: precision,
+    timestamp: timestamp,
+    addedAt: addedAt,
+    balance: balance.toCore(),
+    media: media?.toCore(),
+    issuedSupply: issuedSupply,
+  );
+}
+
+extension RlnCoreUdaMapper on RlnAssetUda {
+  CoreAssetUda toCore() => CoreAssetUda(
+    assetId: assetId,
+    ticker: ticker,
+    name: name,
+    details: details,
+    precision: precision,
+    timestamp: timestamp,
+    addedAt: addedAt,
+    balance: balance.toCore(),
+    token: token?.toCore(),
+  );
+}
+
 extension RlnCoreAssetsMapper on RlnAssets {
   CoreListAssets toCore() {
     return CoreListAssets(
@@ -1088,37 +1119,9 @@ extension RlnCoreAssetsMapper on RlnAssets {
           )
           .toList(growable: false),
       nia: nia.map((source) => source.toCore()).toList(growable: false),
-      cfa: cfa
-          .map(
-            (source) => CoreAssetCfa(
-              assetId: source.assetId,
-              name: source.name,
-              details: source.details,
-              precision: source.precision,
-              timestamp: source.timestamp,
-              addedAt: source.addedAt,
-              balance: source.balance.toCore(),
-              media: source.media?.toCore(),
-              issuedSupply: source.issuedSupply,
-            ),
-          )
-          .toList(growable: false),
+      cfa: cfa.map((source) => source.toCore()).toList(growable: false),
       ifa: ifa.map((source) => source.toCore()).toList(growable: false),
-      uda: uda
-          .map(
-            (source) => CoreAssetUda(
-              assetId: source.assetId,
-              ticker: source.ticker,
-              name: source.name,
-              details: source.details,
-              precision: source.precision,
-              timestamp: source.timestamp,
-              addedAt: source.addedAt,
-              balance: source.balance.toCore(),
-              token: source.token?.toCore(),
-            ),
-          )
-          .toList(growable: false),
+      uda: uda.map((source) => source.toCore()).toList(growable: false),
     );
   }
 }

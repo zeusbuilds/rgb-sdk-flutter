@@ -19,13 +19,18 @@ Pod::Spec.new do |s|
     raise 'Failed to prepare verified iOS RLN artifacts. See the artifact diagnostics above.'
   end
 
+  rgb_lib_script = File.expand_path('../tool/install_rgb_lib_ios.py', __dir__)
+  unless system('python3', rgb_lib_script, :out => $stderr, :err => $stderr)
+    raise 'Failed to prepare verified iOS RGB Lib artifacts. See the artifact diagnostics above.'
+  end
+
   s.name             = 'rgb_sdk_flutter'
   s.version          = '0.2.0-beta.3'
   s.summary          = 'Flutter SDK bridge for Bitcoin RGB Protocol and RGB Lightning Node.'
   s.description      = <<-DESC
 Flutter SDK bridge for Bitcoin RGB Protocol and RGB Lightning Node. This
-package pins the same RLN source release as @utexo/rgb-sdk-rn and verifies
-the official iOS release artifacts against the SDK release baseline.
+package verifies its RGB Lib and legacy RLN native artifacts against the
+SDK release pins.
 Pinned RLN artifact: #{rln_version}.
                        DESC
   s.homepage         = 'https://github.com/UTEXO-Protocol/flutter-sdk'
@@ -38,6 +43,10 @@ Pinned RLN artifact: #{rln_version}.
     'RGBLightningNodeFFI.h'
   ]
   s.public_header_files = 'RGBLightningNodeFFI.h'
+  s.vendored_frameworks = [
+    'RgbLibBindings/RGBLib.xcframework',
+    'RgbLibBindings/rgb_libFFI.xcframework'
+  ]
   s.preserve_paths = [
     'RGBLightningNode.xcframework',
     'RGBLightningNode.swift',

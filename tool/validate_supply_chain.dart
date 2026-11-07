@@ -99,6 +99,37 @@ Future<void> main(List<String> args) async {
       message: blocker,
     );
   }
+  final rgbLibBaseline =
+      jsonDecode(File('tool/rgb_lib_native_baseline.json').readAsStringSync())
+          as Map<String, Object?>;
+  final rgbLibBlockers = rgbLibProductionBlockers(
+    rgbLibBaseline['sourceLockSha256'],
+  );
+  report['rgbLibNativeSecurityReview'] = {
+    'sourceCommit': rgbLibBaseline['sourceRevision'],
+    'sourceLockSha256': rgbLibBaseline['sourceLockSha256'],
+    'productionReady': rgbLibBlockers.isEmpty,
+    'blockers': rgbLibBlockers,
+  };
+  for (final blocker in rgbLibBlockers) {
+    _addProvenanceBlocker(
+      production: production,
+      failures: failures,
+      warnings: warnings,
+      message: blocker,
+    );
+  }
+  final rgbLibPrivacy = rgbLibIosPrivacyDisposition();
+  report['rgbLibIosPrivacyReview'] = rgbLibPrivacy;
+  for (final blocker in rgbLibPrivacy['blockers']! as List<String>) {
+    _addProvenanceBlocker(
+      production: production,
+      failures: failures,
+      warnings: warnings,
+      message: blocker,
+    );
+  }
+
   report['baseline'] = <String, Object?>{
     'reactNativeCommit': _at<Map<String, Object?>>(
       baseline,

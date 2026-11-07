@@ -51,12 +51,6 @@ abstract final class WalletInputPolicy {
     requireNonNegative(value, field);
   }
 
-  static void requireNonNegativeList(List<int> values, String field) {
-    for (var index = 0; index < values.length; index += 1) {
-      requireNonNegative(values[index], '$field[$index]');
-    }
-  }
-
   static void requireUInt8(int value, String field) {
     if (value < 0 || value > 255) {
       throw WalletValidationException(
@@ -102,13 +96,45 @@ abstract final class WalletInputPolicy {
   static void requireIntegerFeeRate(double value, String field) {
     if (value.isNaN ||
         value.isInfinite ||
-        value < 0 ||
+        value <= 0 ||
         value >= 9223372036854775808.0 ||
         value.truncateToDouble() != value) {
       throw WalletValidationException(
-        '$field must be a finite non-negative integer fee rate.',
+        '$field must be a finite positive integer fee rate.',
         field: field,
       );
+    }
+  }
+
+  static void requireAssetPrecision(int value) {
+    if (value < 0 || value > 18) {
+      throw const WalletValidationException(
+        'Asset precision must be between 0 and 18.',
+        field: 'precision',
+      );
+    }
+  }
+
+  static void requireAssetSupply(
+    List<int> amounts, {
+    List<int> inflationAmounts = const [],
+  }) {
+    var total = BigInt.zero;
+    for (final (values, field) in [
+      (amounts, 'amounts'),
+      (inflationAmounts, 'inflationAmounts'),
+    ]) {
+      for (var index = 0; index < values.length; index += 1) {
+        final value = values[index];
+        requirePositive(value, '$field[$index]');
+        total += BigInt.from(value);
+        if (total.bitLength > 64) {
+          throw WalletValidationException(
+            'Total asset supply must fit in UInt64.',
+            field: field,
+          );
+        }
+      }
     }
   }
 

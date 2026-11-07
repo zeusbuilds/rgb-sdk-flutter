@@ -310,7 +310,8 @@ main() {
   run_step "release language validation" "${DART_BIN}" run tool/validate_release_language.dart
   run_step "release governance validation" "${DART_BIN}" run tool/validate_release_governance.dart
   run_step "API and bridge snapshot validation" "${DART_BIN}" run tool/validate_api_snapshot.dart
-  run_step "RN dev source parity validation" "${DART_BIN}" run tool/validate_rn_parity.dart
+  run_step "RN beta.40 source and npm archive identity" python3 tool/validate_rn_beta40_reference.py --check-latest
+  run_step "RN pinned legacy source parity validation" "${DART_BIN}" run tool/validate_rn_parity.dart
   run_step "release package validation" "${DART_BIN}" run tool/validate_release_package.dart
   run_step "native artifact integrity and Android 16 KiB verification" ./tool/verify_native_artifacts.sh --require-android-16k
   if [[ "${RELEASE_PROFILE}" == mainnet-onchain ]]; then

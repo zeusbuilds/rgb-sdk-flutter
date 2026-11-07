@@ -26,7 +26,7 @@ void main() {
   if (!rnRoot.existsSync()) {
     errors.add(
       'RN reference repo not found at $rnPath. Set RGB_SDK_RN_PATH to the '
-      'rgb-sdk-rn dev checkout.',
+      'pinned legacy rgb-sdk-rn checkout.',
     );
     _finish(errors);
   }
@@ -50,7 +50,7 @@ void main() {
   stdout.writeln(
     'RN parity valid against ${_shortCommit(_nestedString(baseline, <String>['reactNative', 'commit']))}: '
     'NativeRgb methods, UTEXOWallet methods, and runtime package exports. '
-    'Upstream dev ${_shortCommit(upstreamCommit)} was checked for drift.',
+    'Pinned legacy tag ${_shortCommit(upstreamCommit)} was verified.',
   );
 }
 
@@ -560,10 +560,15 @@ String? _validateRnUpstreamBaseline(
     return null;
   }
 
+  final expectedVersion = _nestedString(baseline, ['reactNative', 'version']);
+  if (expectedVersion == null) {
+    errors.add('The legacy RN baseline must identify its published version.');
+    return null;
+  }
   final remoteRef =
       Platform.environment['RGB_SDK_RN_UPSTREAM_REF']?.trim().isNotEmpty == true
       ? Platform.environment['RGB_SDK_RN_UPSTREAM_REF']!.trim()
-      : 'refs/heads/dev';
+      : 'refs/tags/v$expectedVersion';
   final remoteName =
       Platform.environment['RGB_SDK_RN_REMOTE']?.trim().isNotEmpty == true
       ? Platform.environment['RGB_SDK_RN_REMOTE']!.trim()
@@ -928,6 +933,9 @@ void _validateLowLevelNativeMethods(
   };
   const flutterExtensions = <String>{
     'rlnImportRgbContract',
+    // Additions from beta.40 are checked independently of this legacy tag.
+    'rlnAssetMetadata',
+    'rlnPostAssetMedia',
     ...recoveryExtensions,
   };
   for (final method in flutterExtensions) {
@@ -1021,7 +1029,14 @@ void _validateLowLevelNativeMethods(
         pigeon.parameters.length == rn.parameters.length + 1 &&
         pigeon.parameters.last.name == 'ethRpcUrl' &&
         pigeon.parameters.last.type == _TypeShape.fromDart('String?');
-    if (rn.parameters.length != pigeon.parameters.length && !externalEthRpc) {
+    final invoiceDescription =
+        method == 'rlnLnInvoice' &&
+        pigeon.parameters.length == rn.parameters.length + 1 &&
+        pigeon.parameters.last.name == 'description' &&
+        pigeon.parameters.last.type == _TypeShape.fromDart('String?');
+    if (rn.parameters.length != pigeon.parameters.length &&
+        !externalEthRpc &&
+        !invoiceDescription) {
       errors.add(
         'NativeRgb.$method parameter count mismatch. RN '
         '${rn.parameters.length}, Pigeon ${pigeon.parameters.length}.',
@@ -1562,16 +1577,17 @@ void _validateCanonicalWalletReturnShapes(
   }
 
   const expectedDartParameters = <String, String>{
-    'getBtcBalance': '',
-    'listUnspents': '',
-    'createUtxos': '{boolupTo=true,int?num,int?size,doublefeeRate=1,}',
-    'listAssets': '',
-    'listTransactions': '',
+    'getBtcBalance': '{boolskipSync=false}',
+    'listUnspents': '{boolskipSync=false}',
+    'createUtxos':
+        '{boolupTo=true,int?num,int?size,doublefeeRate=1,boolskipSync=false,}',
+    'listAssets': '{List<String>filterAssetSchemas=const[],}',
+    'listTransactions': '{boolskipSync=false,}',
     'refreshWallet': '',
     'refreshTransfers': '{boolskipSync=false,}',
     'createLightningInvoice':
         '{int?amountSats,LightningAsset?asset,intexpirySeconds=3600,'
-        'int?minFinalCltvExpiryDelta,String?descriptionHash,}',
+        'int?minFinalCltvExpiryDelta,String?descriptionHash,String?description,}',
     'payLightningInvoice':
         '{requiredStringlnInvoice,int?amount,String?assetId,'
         'int?assetAmount,}',

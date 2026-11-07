@@ -324,7 +324,7 @@ Set<String> _exportedPublicSymbols() {
     }
     final librarySymbols = <String>{};
     for (final libraryFile in _dartLibraryFiles(file)) {
-      librarySymbols.addAll(_publicSymbolsIn(libraryFile.readAsStringSync()));
+      librarySymbols.addAll(publicSymbolsIn(libraryFile.readAsStringSync()));
     }
     symbols.addAll(_filterSymbols(librarySymbols, match));
   }
@@ -342,11 +342,12 @@ List<File> _dartLibraryFiles(File file) {
   ];
 }
 
-Set<String> _publicSymbolsIn(String source) {
+/// Enumerates declarations that require public API documentation.
+Set<String> publicSymbolsIn(String source) {
   final declarations = <String>{};
   final declarationPattern = RegExp(
     r'^(?:abstract\s+final\s+class|abstract\s+interface\s+class|'
-    r'abstract\s+class|sealed\s+class|class|enum|extension|typedef)\s+'
+    r'abstract\s+class|sealed\s+class|final\s+class|class|enum|extension|typedef)\s+'
     r'([A-Za-z_][A-Za-z0-9_]*)',
     multiLine: true,
   );

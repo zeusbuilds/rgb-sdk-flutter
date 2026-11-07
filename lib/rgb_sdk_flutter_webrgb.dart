@@ -10,4 +10,5 @@ export 'src/integrations/webrgb/errors.dart'
 export 'src/integrations/webrgb/provider.dart';
 export 'src/integrations/webrgb/types.dart' hide payoutJson;
 export 'src/integrations/webrgb/walletconnect.dart';
+export 'src/wallet/burn_destination.dart';
 export 'src/wallet/burn_operations.dart';

@@ -7,6 +7,7 @@ mixin _UtexoWalletLightning on _UtexoWalletInternals {
     int expirySeconds = 3600,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   }) async {
     _assertLightningEnabled();
     _requireNonNegativeOptional(amountSats, 'amountSats');
@@ -18,6 +19,7 @@ mixin _UtexoWalletLightning on _UtexoWalletInternals {
       paymentHash: null,
       minFinalCltvExpiryDelta: minFinalCltvExpiryDelta,
       descriptionHash: descriptionHash,
+      description: description,
     );
     return LightningReceiveRequest(lnInvoice: invoice.invoice);
   }
@@ -30,6 +32,7 @@ mixin _UtexoWalletLightning on _UtexoWalletInternals {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   }) async {
     _requireNonNegativeOptional(amtMsat, 'amtMsat');
     _requireUInt32(expirySec, 'expirySec');
@@ -44,6 +47,7 @@ mixin _UtexoWalletLightning on _UtexoWalletInternals {
       paymentHash: paymentHash,
       minFinalCltvExpiryDelta: minFinalCltvExpiryDelta,
       descriptionHash: descriptionHash,
+      description: description,
     );
   }
 
@@ -65,6 +69,7 @@ mixin _UtexoWalletLightning on _UtexoWalletInternals {
       paymentHash: params.paymentHash,
       minFinalCltvExpiryDelta: params.minFinalCltvExpiryDelta,
       descriptionHash: params.descriptionHash,
+      description: params.description,
     );
     return HodlInvoice(
       bolt11: invoice.invoice,
@@ -75,6 +80,7 @@ mixin _UtexoWalletLightning on _UtexoWalletInternals {
       assetAmount: params.assetAmount,
       minFinalCltvExpiryDelta: params.minFinalCltvExpiryDelta,
       descriptionHash: params.descriptionHash,
+      description: params.description,
     );
   }
 

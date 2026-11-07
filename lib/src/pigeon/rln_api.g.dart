@@ -1617,6 +1617,7 @@ class RlnHostApi {
     String? paymentHash,
     int? minFinalCltvExpiryDelta,
     String? descriptionHash,
+    String? description,
   ) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnLnInvoice$pigeonVar_messageChannelSuffix';
@@ -1635,6 +1636,7 @@ class RlnHostApi {
           paymentHash,
           minFinalCltvExpiryDelta,
           descriptionHash,
+          description,
         ]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
@@ -2018,6 +2020,48 @@ class RlnHostApi {
       pigeonVar_channelName,
       isNullValid: true,
     );
+  }
+
+  Future<RlnWireResponse> rlnAssetMetadata(int nodeId, String assetId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnAssetMetadata$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[nodeId, assetId],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as RlnWireResponse;
+  }
+
+  Future<RlnWireResponse> rlnPostAssetMedia(int nodeId, Uint8List bytes) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.rgb_sdk_flutter.RlnHostApi.rlnPostAssetMedia$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[nodeId, bytes],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as RlnWireResponse;
   }
 
   Future<RlnWireResponse> rlnIssueAssetNia(
