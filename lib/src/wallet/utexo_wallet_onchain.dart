@@ -728,6 +728,7 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
 
   Future<RlnIndexerCheck> _checkIndexerUrlRaw(String url) async {
     _requireNonEmpty(url, 'url');
+    requireQualifiedUtexoDevSignet(endpoints: [url]);
     _requireUnlockedNode();
     return _binding.rlnCheckIndexerUrl(url);
   }
@@ -741,6 +742,7 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
 
   Future<void> checkProxyEndpoint(String endpoint) {
     _requireNonEmpty(endpoint, 'endpoint');
+    requireQualifiedUtexoDevSignet(endpoints: [endpoint]);
     _requireUnlockedNode();
     return _binding.rlnCheckProxyEndpoint(endpoint);
   }

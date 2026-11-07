@@ -27,11 +27,41 @@ and its parity check still identify the legacy RLN engine.
 | Reference | Verified identity and applicability |
 | --- | --- |
 | RN `1.0.0-beta.40` | `RGB_L1` is now the default wallet protocol. `RGB_LN` is optional and disabled at compile time in the distributed configuration. Explicit RLN use retains `0.17.0-beta.3`. |
-| RGB_L1 native dependency | `0.3.0-beta.7-upstream-dev-bfa.5-bfa`, source `0a9d352f2690902df2b6fae9bca1a6c13c3354d4`, UniFFI `0.32.2`, bridge contract 4. The library uses RGB `0.11.2-rc.2` and requires proxy protocol 1.0. This is the newest BFA binding version listed in [Maven Central metadata](https://repo.maven.apache.org/maven2/com/utexo/rgb-lib-bfa-android/maven-metadata.xml) and the [Swift release history](https://github.com/UTEXO-Protocol/rgb-lib-swift/releases). The Swift archive SHA-256 is `44890e57b78935a2c7842d9baeed5172bbd99e9b2b91c6a599fbc2c745760669`. |
+| RGB_L1 native dependency | `0.3.0-beta.7-upstream-dev-bfa.5-bfa`, source `0a9d352f2690902df2b6fae9bca1a6c13c3354d4`, UniFFI `0.32.2`, bridge contract 4. The library uses RGB `0.11.2-rc.2` and requires proxy protocol 1.0. This remains the newest version in [Maven Central metadata](https://repo.maven.apache.org/maven2/com/utexo/rgb-lib-bfa-android/maven-metadata.xml) on November 7. [Swift BFA.6](https://github.com/UTEXO-Protocol/rgb-lib-swift/releases/tag/0.3.0-beta.7-upstream-dev-bfa.6-bfa) was published on November 6, without a matching published Android archive or standalone genesis registration API. The pinned BFA.5 Swift archive SHA-256 is `44890e57b78935a2c7842d9baeed5172bbd99e9b2b91c6a599fbc2c745760669`; it has not been silently replaced. |
 | JS core, WebRGB and WalletConnect | RN still pins core `1.0.0-beta.9` and WalletConnect `0.1.3`. WebRGB peer range is `^0.1.3` with `0.1.3` used to build and test. The behavior changes are in the RN SDK rather than a new core package. |
 | RLN PR 212 and prerequisites | [RLN PR 212](https://github.com/UTEXO-Protocol/rgb-lightning-node/pull/212) remains open at `d7802ab8a45b7a072a8c489492ca2152c1c61002`. The RN release explicitly reverted that ABI. The RGB prerequisite branch `98bcbf9973b02fa6e336b6db7c16413825500c85` and LDK prerequisite `44a4d51399036178cd9d4ae2ba539dd47aea691c` are distinct from the BFA.5 archive. Their contract registration, protected sweeps, funding and VSS changes require separate qualification. The rolling RGB branch has advanced beyond BFA.5. |
 | Other RN branches | Open [PR 67](https://github.com/UTEXO-Protocol/rgb-sdk-rn/pull/67), [PR 68](https://github.com/UTEXO-Protocol/rgb-sdk-rn/pull/68) and [PR 70](https://github.com/UTEXO-Protocol/rgb-sdk-rn/pull/70) overlap the merged RGB_L1 work and include alternate APIs. [PR 69](https://github.com/UTEXO-Protocol/rgb-sdk-rn/pull/69) closed without merging. `sendrgbinvoice` from the open RLN graph is absent from the released legacy binding. |
-| WDK and Iris | `@utexo/wdk-rgb-lightning@0.2.0-beta.5` resolves to `608937d849412a4c25e9b9a66a7571b561396ae0`. The separate `wdk-wallet-rgb` public tag `v2.0.4` is `6d28bc9ff35a7863cd21b21e62a7c03a9b794066`. Its private `2.1.0-alpha.10` and the opt-in Iris Dev Signet candidate are reference evidence for different binaries and deployments. Iris public main was `c737bc6939babbfd6720f464841d9b4b1a5a2cb9`. |
+| WDK and Iris | `@utexo/wdk-rgb-lightning@0.2.0-beta.5` resolves to `608937d849412a4c25e9b9a66a7571b561396ae0`. The separate `wdk-wallet-rgb` public tag `v2.0.4` is `6d28bc9ff35a7863cd21b21e62a7c03a9b794066`. November 7 [PR 23](https://github.com/UTEXO-Protocol/wdk-wallet-rgb/pull/23) identifies candidate `2.1.0-alpha.12`, BFA.7 source `9ec49c08be2e68f08521281e3efbd760ec989cb9`. Its Bare artifacts and overlays are distinct from Flutter's UniFFI dependencies. Hosted Dev remains disabled; the historical BFA.5 BUSDT is not admitted. Iris public main was `c737bc6939babbfd6720f464841d9b4b1a5a2cb9`. |
+
+## November 7 Dev Signet follow-up
+
+The Iris chat's current configuration and WDK PR 23 supersede the historical
+BFA.5 hosted-test preparation. Dev now uses BFA.6 asset
+`rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE` (Bridged USDT / BUSDT).
+The issuer-approved contract bytes, SHA-256 and verified precision are absent
+from the reviewed inputs. The old export
+`rgb:fbkO6B_i-qyLXa6d-x3sAOaX-cx~vZB9-rxNSUle-9lXBTf8` is historical BFA.5
+and explicitly unadmitted in Iris. Its precision and digest cannot authenticate
+the new asset. See [DevOps 217](https://github.com/UTEXO-Protocol/devops/pull/217)
+and [218](https://github.com/UTEXO-Protocol/devops/pull/218).
+
+Dev's block-one checkpoint is
+`0000001b808e4ece11c0cd922eaf9eee8d7dfba7e23e90b4f9614248daaf72cb`, distinct
+from public Signet. Its current HTTPS Esplora and protocol-1.0 RGB proxy cannot
+be substituted for public Signet or an older RLN proxy. Arbitrum chain `42161`
+is the separate backing chain. The SDK now rejects the unqualified RGB_L1
+`utexo` profile before key reads/native wallet opening and known Dev service
+overrides before connection. The legacy RLN `utexo` alias remains usable with
+explicit compatible public Signet services. Arbitrary independently configured
+endpoints remain a caller-owned qualification responsibility.
+
+The evidence manifest records requirements without admitting an asset or
+fabricating an import API. Updating metadata alone cannot bridge BFA.5 to
+BFA.6/7. Matching mobile native registration, checkpoint enforcement, durable
+send/backup recovery and funded deployment qualification remain prerequisites
+for activation. The [latest referenced Dev E2E](https://github.com/UTEXO-Protocol/bridge/actions/runs/42261217049)
+failed while waiting for the web UI mint-confirmation button; this does not
+prove a native mint or chain-settlement failure. Aster's RGB_L1 gate stays closed.
 
 ## Changed behavior and verification
 

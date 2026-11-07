@@ -7,6 +7,7 @@ import '../../errors/rgb_sdk_exception.dart';
 import '../../models/burn_models.dart';
 import '../../models/utexo_core_models.dart';
 import '../burn_operations.dart';
+import '../dev_signet_policy.dart';
 import '../utexo_wallet_types.dart';
 import 'config.dart';
 import 'wire.dart';
@@ -107,6 +108,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
 
   Future<void> _open() async {
     if (_identity != null) return;
+    requireQualifiedUtexoDevSignet(customSignetProfile: network == 'utexo');
     final runtime = await getRuntimeInfo();
     final readMnemonic = _keys.readMnemonic;
     String? mnemonic;
@@ -335,14 +337,16 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         );
       }, online: true);
 
-  Future<RgbLibIndexerCheck> checkIndexerUrl(String indexerUrl) =>
-      _call('checkIndexerUrl', (value) {
-        if (value is! String ||
-            !{'esplora', 'electrum', 'bitcoind'}.contains(value)) {
-          invalidRgbLibWire('indexerProtocol');
-        }
-        return (indexerProtocol: value);
-      }, arguments: {'indexerUrl': indexerUrl});
+  Future<RgbLibIndexerCheck> checkIndexerUrl(String indexerUrl) async {
+    requireQualifiedUtexoDevSignet(endpoints: [indexerUrl]);
+    return _call('checkIndexerUrl', (value) {
+      if (value is! String ||
+          !{'esplora', 'electrum', 'bitcoind'}.contains(value)) {
+        invalidRgbLibWire('indexerProtocol');
+      }
+      return (indexerProtocol: value);
+    }, arguments: {'indexerUrl': indexerUrl});
+  }
 
   Future<CoreBtcBalance> getBtcBalance({bool skipSync = false}) => _call(
     'getBtcBalance',

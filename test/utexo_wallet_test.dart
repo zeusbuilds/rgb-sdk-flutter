@@ -1670,15 +1670,21 @@ void main() {
     await passwordWallet.init(password: 'password');
     await passwordWallet.unlock(
       password: 'password',
-      config: UtexoUnlockConfig(),
+      config: UtexoUnlockConfig(
+        indexerUrl: 'https://mempool.space/signet/api',
+        proxyEndpoint: 'rpcs://proxy.iriswallet.com/0.2/json-rpc',
+      ),
     );
 
     expect(passwordWallet.getNetwork(), 'utexo');
     expect(passwordHostApi.createdNodeNetwork, 'signet');
-    expect(passwordHostApi.unlockedIndexerUrl, 'https://esplora-api.utexo.com');
+    expect(
+      passwordHostApi.unlockedIndexerUrl,
+      'https://mempool.space/signet/api',
+    );
     expect(
       passwordHostApi.unlockedProxyEndpoint,
-      'rpcs://rgb-proxy.utexo.com/json-rpc',
+      'rpcs://proxy.iriswallet.com/0.2/json-rpc',
     );
 
     final signerHostApi = FakeRlnHostApi();
@@ -1704,19 +1710,35 @@ void main() {
 
   test('exports RN-style network defaults and unlock resolution', () {
     final defaults = getNetworkDefaults('utexo');
-    final resolved = resolveUnlockParams('utexo', UtexoUnlockConfig());
+    final resolved = resolveUnlockParams(
+      'utexo',
+      UtexoUnlockConfig(
+        indexerUrl: 'https://mempool.space/signet/api',
+        proxyEndpoint: 'rpcs://proxy.iriswallet.com/0.2/json-rpc',
+      ),
+    );
 
     expect(normalizeNativeRlnNetwork('UTEXO'), 'signet');
     expect(defaults?.indexerUrl, 'https://esplora-api.utexo.com');
-    expect(defaults?.proxyEndpoint, 'rpcs://rgb-proxy.utexo.com/json-rpc');
+    expect(defaults?.proxyEndpoint, 'rpcs://proxy.iriswallet.com/0.2/json-rpc');
     expect(getDefaultLspBaseUrl('utexo'), 'https://lsp-signet.utexo.com');
     expect(resolveLspBaseUrl('utexo', null), 'https://lsp-signet.utexo.com');
     expect(
       resolveLspBaseUrl('regtest', 'http://127.0.0.1:3000'),
       'http://127.0.0.1:3000',
     );
-    expect(resolved.indexerUrl, 'https://esplora-api.utexo.com');
-    expect(resolved.proxyEndpoint, 'rpcs://rgb-proxy.utexo.com/json-rpc');
+    expect(resolved.indexerUrl, 'https://mempool.space/signet/api');
+    expect(resolved.proxyEndpoint, 'rpcs://proxy.iriswallet.com/0.2/json-rpc');
+    expect(
+      () => resolveUnlockParams('utexo', UtexoUnlockConfig()),
+      throwsA(
+        isA<WalletException>().having(
+          (error) => error.code,
+          'code',
+          'DEPLOYMENT_UNQUALIFIED',
+        ),
+      ),
+    );
 
     expect(
       () => resolveUnlockConfig('unknown-network', UtexoUnlockConfig()),
@@ -4871,7 +4893,10 @@ void main() {
   });
 
   test('exports current RN package utility helpers without bridge maps', () {
-    expect(getNetworkDefaults('signet')?.proxyEndpoint, contains('utexo.com'));
+    expect(
+      getNetworkDefaults('signet')?.proxyEndpoint,
+      'rpcs://proxy.iriswallet.com/0.2/json-rpc',
+    );
     expect(UMA_PREFIX, r'$');
     expect(UMA_MAX_USERNAME_LENGTH, 64);
     expect(isUmaAddress(r'$alice@example.com'), true);

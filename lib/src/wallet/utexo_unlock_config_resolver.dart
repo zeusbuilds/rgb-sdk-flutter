@@ -10,6 +10,9 @@ UtexoUnlockConfig resolveUnlockConfig(
       _blankToNull(config.proxyEndpoint) ?? defaults?.proxyEndpoint;
   final bitcoindRpcHost = _blankToNull(config.bitcoindRpcHost);
   final bitcoindRpcUsername = _blankToNull(config.bitcoindRpcUsername);
+  requireQualifiedUtexoDevSignet(
+    endpoints: [indexerUrl, proxyEndpoint, bitcoindRpcHost, config.ethRpcUrl],
+  );
   final resolved = UtexoUnlockConfig(
     bitcoindRpcUsername: bitcoindRpcUsername,
     bitcoindRpcPassword: config.bitcoindRpcPassword,

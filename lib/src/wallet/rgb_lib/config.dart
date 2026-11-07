@@ -4,6 +4,7 @@ import 'package:bip32/bip32.dart';
 
 import '../../crypto/constants.dart';
 import '../../errors/rgb_sdk_exception.dart';
+import '../dev_signet_policy.dart';
 import '../network_defaults.dart';
 
 /// Stable failure categories for the native on-chain wallet.
@@ -146,16 +147,18 @@ final class RgbLibUnlockParams {
 }
 
 /// SDK beta.40 RGB_L1 defaults, kept separate from legacy RLN proxy defaults.
+///
+/// UTEXO Dev Signet (`utexo`) is gated while its current BFA deployment and
+/// contract export are incompatible with the pinned native generation.
 NetworkEndpoints? getRgbLibNetworkDefaults(String network) {
+  requireQualifiedUtexoDevSignet(customSignetProfile: network == 'utexo');
   final indexer = switch (network) {
     'mainnet' => 'ssl://electrs-01.utexo.com:50002',
-    'utexo' => 'https://dev.esplora-01.mint.utexo.com',
     'testnet' || 'testnet4' || 'signet' => DEFAULT_INDEXER_URLS[network],
     _ => null,
   };
   final proxy = switch (network) {
     'mainnet' => 'rpcs://rgb-proxy.utexo.com/json-rpc',
-    'utexo' => 'rpcs://dev.rgb-proxy.utexo.com/json-rpc',
     'signet' => 'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
     'testnet' || 'testnet4' => DEFAULT_TRANSPORT_ENDPOINTS[network],
     _ => null,
@@ -241,6 +244,16 @@ RgbLibOnlineConfig resolveRgbLibOnline(
   String network,
   RgbLibUnlockParams params,
 ) {
+  requireQualifiedUtexoDevSignet(
+    customSignetProfile: network == 'utexo',
+    endpoints: [
+      params.indexer?.url,
+      params.indexerUrl,
+      params.proxyEndpoint,
+      ...params.proxyAuthKeys.keys,
+      ...params.evmRpcUrls.values,
+    ],
+  );
   if (params.indexer != null && params.indexerUrl != null) {
     invalidRgbLibConfig('Provide either indexer or indexerUrl.');
   }

@@ -25,7 +25,8 @@ NetworkEndpoints? getNetworkDefaults(String network) {
   if (indexerUrl == null || proxyEndpoint == null) return null;
 
   final proxyOverride = switch (normalized) {
-    'utexo' || 'signet' => 'rpcs://rgb-proxy.utexo.com/json-rpc',
+    // Legacy RLN consumes protocol 0.2; RGB_L1 owns its separate 1.0 defaults.
+    'utexo' || 'signet' => 'rpcs://proxy.iriswallet.com/0.2/json-rpc',
     _ => proxyEndpoint,
   };
 

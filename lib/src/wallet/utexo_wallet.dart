@@ -20,6 +20,7 @@ import '../models/rln_models.dart';
 import '../models/utexo_core_models.dart';
 import '../models/utexo_domain_policy.dart';
 import 'burn_operations.dart';
+import 'dev_signet_policy.dart';
 import 'lightning_policy.dart';
 import 'network_defaults.dart';
 import 'recoverable_storage.dart';

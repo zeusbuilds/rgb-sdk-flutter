@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "profile": "utexo-dev-signet",
+  "reviewedAt": "2026-11-07",
+  "enabled": false,
+  "failureCode": "DEPLOYMENT_UNQUALIFIED",
+  "formerServiceHosts": ["esplora-api.utexo.com", "rgb-proxy.dev.utexo.com"],
+  "bitcoin": {
+    "network": "signet",
+    "sdkRgbL1Network": "utexo",
+    "checkpoint": {
+      "height": 1,
+      "blockHash": "0000001b808e4ece11c0cd922eaf9eee8d7dfba7e23e90b4f9614248daaf72cb"
+    },
+    "publicSignetBlockOne": "00000086d6b2636cb2a392d45edc4ec544a10024d30141c9adf4bfd9de533b53",
+    "indexerUrl": "https://dev.esplora-01.mint.utexo.com"
+  },
+  "rgb": {
+    "proxyEndpoint": "rpcs://dev.rgb-proxy.utexo.com/json-rpc",
+    "proxyProtocol": "1.0",
+    "requiredSchemaGeneration": "BFA.6",
+    "schemaCompatibleGenerations": ["BFA.6", "BFA.7"],
+    "reportedDeployedAssetId": "rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE",
+    "approvedAsset": null,
+    "approvedContractBase64": null,
+    "approvedContractSha256": null
+  },
+  "backingChain": {
+    "chainId": "42161",
+    "rpcUrl": "https://arb1.arbitrum.io/rpc"
+  },
+  "bundledRgbL1": {
+    "generation": "BFA.5",
+    "sourceRevision": "0a9d352f2690902df2b6fae9bca1a6c13c3354d4",
+    "standaloneContractRegistration": false,
+    "durablePaymentRecoveryQualified": false
+  },
+  "historicalEvidence": {
+    "admitted": false,
+    "generation": "BFA.5",
+    "assetId": "rgb:fbkO6B_i-qyLXa6d-x3sAOaX-cx~vZB9-rxNSUle-9lXBTf8",
+    "nativeName": "Bridged USDT",
+    "nativeTicker": "BUSDT",
+    "precision": 6,
+    "contractSha256": "a678ebf73f3a0523b307cd2fe8019a321ac938eaf547c2c65a7ac079948332ce",
+    "sourceE2eRun": "41698713237"
+  },
+  "unresolvedRequirements": [
+    "Matching independently verified iOS and Android native artifacts with compatible schema",
+    "Standalone contract registration with exact ID, network, schema and metadata validation",
+    "Qualified durable payment identity and recovery on the selected native generation",
+    "Issuer-approved current contract export, digest and exact native metadata",
+    "Matched gateway, signer, proxy and backing-contract deployment qualification",
+    "Funded wallet and bridge acceptance against the exact deployment"
+  ],
+  "evidence": {
+    "referenceProfile": "Iris onchain dev-signet-profile.json, hostedTestingEnabled=false",
+    "referenceNativeSource": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
+    "deploymentPullRequest": "https://github.com/UTEXO-Protocol/devops/pull/217",
+    "readinessPullRequest": "https://github.com/UTEXO-Protocol/devops/pull/218",
+    "latestReferencedE2eRun": "https://github.com/UTEXO-Protocol/bridge/actions/runs/42261217049",
+    "latestReferencedE2eOutcome": "UI timeout waiting for Confirm and sign; settlement not qualified"
+  }
+}

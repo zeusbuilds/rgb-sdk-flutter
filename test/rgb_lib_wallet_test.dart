@@ -430,19 +430,89 @@ void main() {
     },
   );
 
-  test('preserves the custom Signet chain identity', () async {
+  test('Dev Signet fails before secrets or native wallet access', () async {
+    var reads = 0;
+    final session = wallet(
+      network: 'utexo',
+      keys: RgbLibKeys.reader(() {
+        reads++;
+        return 'private test-only key source';
+      }),
+    );
+    final unavailable = isA<WalletException>().having(
+      (error) => error.code,
+      'code',
+      'DEPLOYMENT_UNQUALIFIED',
+    );
+    await expectLater(session.init(), throwsA(unavailable));
+    await expectLater(session.reinit(), throwsA(unavailable));
+    await expectLater(
+      session.checkIndexerUrl('https://dev.esplora-01.mint.utexo.com'),
+      throwsA(unavailable),
+    );
+    expect(() => getRgbLibNetworkDefaults('utexo'), throwsA(unavailable));
+    expect(reads, 0);
+    expect(calls, isEmpty);
+    await session.destroy();
+    expect(calls, isEmpty);
+  });
+
+  test('public Signet retains its own chain identity', () async {
     dispatch = (call) => call.method == 'getWalletIdentity'
-        ? {..._identity, 'network': 'utexo'}
+        ? {..._identity, 'network': 'signet'}
         : _defaultReply(call.method);
-    final session = wallet(network: 'utexo');
+    final session = wallet(network: 'signet');
     await session.init();
-    expect(calls[1].arguments['network'], 'utexo');
-    expect((await session.getWalletIdentity()).network, 'utexo');
+    expect(calls[1].arguments['network'], 'signet');
+    expect((await session.getWalletIdentity()).network, 'signet');
     expect(
-      getRgbLibNetworkDefaults('utexo')!.indexerUrl,
-      'https://dev.esplora-01.mint.utexo.com',
+      getRgbLibNetworkDefaults('signet')!.proxyEndpoint,
+      'rpcs://staging.rgb-proxy.utexo.com/json-rpc',
     );
     await session.destroy();
+  });
+
+  test('Dev overrides fail reinit before secrets or native access', () async {
+    final configurations = [
+      RgbLibUnlockParams(indexerUrl: 'https://dev.esplora-01.mint.utexo.com'),
+      RgbLibUnlockParams(
+        indexer: const RgbLibIndexer.esplora(
+          'https://DEV.ESPLORA-01.MINT.UTEXO.COM./',
+        ),
+      ),
+      RgbLibUnlockParams(
+        proxyEndpoint: 'rpcs://dev.rgb-proxy.utexo.com/json-rpc',
+      ),
+      RgbLibUnlockParams(
+        proxyAuthKeys: {'https://dev.rgb-proxy.utexo.com/json-rpc': 'a' * 64},
+      ),
+      RgbLibUnlockParams(
+        evmRpcUrls: {'42161': 'https://dev.esplora-01.mint.utexo.com'},
+      ),
+    ];
+    for (final config in configurations) {
+      var reads = 0;
+      final session = wallet(
+        network: 'signet',
+        keys: RgbLibKeys.reader(() {
+          reads++;
+          return 'private test-only key source';
+        }),
+      );
+      await expectLater(
+        session.reinit(config),
+        throwsA(
+          isA<WalletException>().having(
+            (error) => error.code,
+            'code',
+            'DEPLOYMENT_UNQUALIFIED',
+          ),
+        ),
+      );
+      expect(reads, 0);
+      expect(calls, isEmpty);
+      await session.destroy();
+    }
   });
 
   test(
