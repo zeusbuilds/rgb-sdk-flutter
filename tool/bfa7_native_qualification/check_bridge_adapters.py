@@ -11,8 +11,10 @@ def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--generated',type=Path,default=WORK/'generated-preview')
+    parser.add_argument('--hosted-dev-bridge',action='store_true')
+    parser.add_argument('--output',type=Path,default=WORK/'adapter-qualification')
     args=parser.parse_args();generated=args.generated.resolve()
-    output=WORK/'adapter-qualification';output.mkdir(exist_ok=True)
+    output=args.output.resolve();output.mkdir(parents=True,exist_ok=True)
     manifest=json.loads((SDK/'native/rgb_l1/source-manifest.json').read_text())
     jars=[]
     for pin in manifest['build']['kotlinJars']:
@@ -36,14 +38,15 @@ def main():
     assert android.is_file() and len(json_candidates)==1
     adapter_classpath=os.pathsep.join([str(json_candidates[0]),str(android),str(native_classes),classpath])
     adapter_classes=output/'adapter-kotlin';adapter_classes.mkdir(exist_ok=True)
-    names=['RgbLibSessionStore','RgbLibDtos','RgbLibOperationPolicy','RgbLibRevocationPolicy','RgbLibExistingOpenPolicy','RgbLibProfileReader','RgbLibNetworkPolicy',
+    names=['RgbLibSessionStore','RgbLibDtos','RgbLibHostedBridge','RgbLibOperationPolicy','RgbLibRevocationPolicy','RgbLibExistingOpenPolicy','RgbLibProfileReader','RgbLibNetworkPolicy',
            'RgbLibSessionAddress','RlnStorageClaim','RlnStorageDirectoryPolicy']
     adapter_sources=[SDK/'android/src/main/kotlin/com/utexo/rgb_sdk_flutter'/(name+'.kt') for name in names]
     native_tests=[SDK/'test/native'/(name+'.kt') for name in ['RgbLibRuntimeCapabilityChecks','RgbLibOperationPolicyChecks']]
     run(base+['-classpath',adapter_classpath,'-d',adapter_classes]+adapter_sources+native_tests)
     runtime_classpath=os.pathsep.join([str(adapter_classes),adapter_classpath])
     for name in ['RgbLibRuntimeCapabilityChecksKt','RgbLibOperationPolicyChecksKt']:
-        run([java,'-cp',runtime_classpath,'com.utexo.rgb_sdk_flutter.'+name])
+        expected=['--hosted-dev-bridge'] if args.hosted_dev_bridge and name=='RgbLibRuntimeCapabilityChecksKt' else []
+        run([java,'-cp',runtime_classpath,'com.utexo.rgb_sdk_flutter.'+name]+expected)
     headers=output/'swift-headers';headers.mkdir(exist_ok=True)
     shutil.copyfile(generated/'swift/rgb_libFFI.h',headers/'rgb_libFFI.h')
     (headers/'module.modulemap').write_text('module rgb_libFFI { header "rgb_libFFI.h" export * }\n')
@@ -57,9 +60,10 @@ def main():
         modules=output/'swift-modules'/triple;modules.mkdir(parents=True,exist_ok=True)
         common=['xcrun','swiftc','-target',triple,'-sdk',sysroot,'-I',headers,'-module-cache-path',output/'swift-cache']
         run(common+['-emit-module','-parse-as-library','-module-name','RGBLib','-o',modules/'RGBLib.swiftmodule',generated/'swift/rgb_lib.swift'])
-        run(common+['-typecheck','-I',modules]+swift_sources)
+        hosted=['-D','RGB_LIB_DURABLE_HOSTED_BRIDGE'] if args.hosted_dev_bridge else []
+        run(common+['-typecheck','-I',modules]+hosted+swift_sources)
     proof={'passed':True,'scope':'generated API/real platform adapter shape compilation + JVM archive capability/error policy execution',
-           'deviceOrStackActions':False,'nativeLibraryExecutionClaimed':False,
+           'deviceOrStackActions':False,'nativeLibraryExecutionClaimed':False,'hostedDevBridgeCompiled':args.hosted_dev_bridge,
            'kotlinVersion':manifest['build']['kotlinVersion'],'javaVersion':17,'swiftTargets':[t[0] for t in triples],
            'generatedFiles':{str(p.relative_to(generated)):digest(p) for p in generated.rglob('*')if p.is_file()},
            'adapterFiles':{str(p.relative_to(SDK)):digest(p)for p in adapter_sources+swift_sources},'logSha256':digest(log)}

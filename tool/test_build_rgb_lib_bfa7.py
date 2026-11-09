@@ -138,6 +138,41 @@ class NativeAdmissionTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     BUILD.verify_source(manifest)
 
+    def test_bridge_seal_preserves_preceding_overlay_patch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            native = root / "native"
+            source.mkdir()
+            native.mkdir()
+            BUILD.git(source, "init", "--quiet")
+            lock = source / "bindings/uniffi/Cargo.lock"
+            lock.parent.mkdir(parents=True)
+            lock.write_text("base lock\n")
+            BUILD.git(source, "add", "--all")
+            BUILD.git(source, "-c", "user.name=Fixture", "-c",
+                      "user.email=fixture@example.test", "commit", "--quiet", "-m", "base")
+            base = BUILD.git(source, "rev-parse", "HEAD")
+            base_tree = BUILD.git(source, "write-tree")
+            lock.write_text("preceding integrated lock\n")
+            BUILD.git(source, "add", "--all")
+            preceding = BUILD.git(source, "write-tree")
+            overlay = native / "source-overlay.patch"
+            overlay.write_text("preceding patch\n")
+            lock.write_text("bridge lock\n")
+            manifest = {"source": {"revision": base, "tree": base_tree, "coreOverlayTree": base_tree},
+                        "integration": {"patch": overlay.name, "patchSha256": BUILD.digest(overlay),
+                                        "bridgePatch": {"path": "bridge.patch",
+                                                        "baseIntegrationTree": preceding}}}
+            with patch.object(BUILD, "SOURCE", source), patch.object(BUILD, "NATIVE", native), \
+                    patch.object(BUILD, "MANIFEST", native / "source-bridge-manifest.json"):
+                BUILD.seal(manifest)
+                self.assertEqual(overlay.read_text(), "preceding patch\n")
+                self.assertIn("preceding integrated lock", (native / "bridge.patch").read_text())
+                self.assertEqual(manifest["integration"]["bridgePatch"]["sha256"],
+                                 BUILD.digest(native / "bridge.patch"))
+                BUILD.verify_source(manifest)
+
     def test_packaging_is_deterministic_across_input_order(self):
         with tempfile.TemporaryDirectory() as temporary:
             first = Path(temporary) / "first.zip"
@@ -289,6 +324,7 @@ class NativeAdmissionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.object(BUILD, "WORK", Path(temporary)), \
                 patch.object(BUILD, "verify_source"), \
+                patch.object(BUILD.shutil, "disk_usage", return_value=type("Disk", (), {"free": 7 * 1024**3})()), \
                 patch.object(BUILD, "verify_dependencies", side_effect=[None, ValueError("changed Esplora")]) as dependencies, \
                 patch.object(BUILD, "target_identity", return_value="identity"), \
                 patch.object(BUILD, "cargo") as cargo:

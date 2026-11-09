@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "description": "AST-normalized public API and bridge snapshot. Update only with a tracker row and migration note.",
   "dartExportedSurface": {
-    "count": 2440,
-    "hash": "99dd7f20a177bbadc02a043b7d0cc3a8e522cdf55bc3b3028191cb7fbc5d951b",
+    "count": 2451,
+    "hash": "72fcfef44a7ddd169a7cf392725730ec252532f5fc072ecdc9fcbd08f8096617",
     "files": [
       "lib/rgb_sdk_flutter.dart",
       "lib/rgb_sdk_flutter_advanced.dart",
@@ -23,6 +23,7 @@
       "lib/src/errors/native_bridge_error_mapper.dart",
       "lib/src/errors/rgb_sdk_exception.dart",
       "lib/src/integrations/webrgb/errors.dart",
+      "lib/src/integrations/webrgb/hosted_dev_bridge.dart",
       "lib/src/integrations/webrgb/provider.dart",
       "lib/src/integrations/webrgb/types.dart",
       "lib/src/integrations/webrgb/walletconnect.dart",
@@ -53,6 +54,7 @@
       "lib/src/wallet/network_defaults.dart",
       "lib/src/wallet/recoverable_onchain_send.dart",
       "lib/src/wallet/rgb_lib/config.dart",
+      "lib/src/wallet/rgb_lib/hosted_dev_bridge.dart",
       "lib/src/wallet/rgb_lib/operation_inputs.dart",
       "lib/src/wallet/rgb_lib/recoverable_operations.dart",
       "lib/src/wallet/rgb_lib/rgb_lib_wallet.dart",
@@ -74,8 +76,8 @@
     ]
   },
   "stableWalletSurface": {
-    "count": 126,
-    "hash": "c1a0bc438ddf8a48d91e0c793d706d70bb85918393dcd3fa7cc45a9a25ba5a27",
+    "count": 129,
+    "hash": "923d62eb51f6dcfbac3d161a9cfa87c4e2f652bae1a69c4709f5334b9d892750",
     "files": [
       "lib/src/wallet/utexo_wallet.dart",
       "lib/src/wallet/utexo_wallet_bfa.dart",
@@ -172,6 +174,8 @@
       "Future<WalletNodeInfo> getNodeInfo()",
       "Future<bool> deleteTransfers({int? batchTransferIdx, bool noAssetOnly = false})",
       "Future<bool> failTransfers({int? batchTransferIdx, bool noAssetOnly = false, bool skipSync = false})",
+      "Future<bool> hasPendingHostedDevBridgeBurn()",
+      "Future<bool> hostedDevBridgeBlindReceiveReady()",
       "Future<bool> verifyMessage(String message, String signature)",
       "Future<bool> verifyNodeMessage(String message, String signature)",
       "Future<int> backupNow()",
@@ -209,6 +213,7 @@
       "bool get isInitialized",
       "bool get isShutdown",
       "bool get isUnlocked",
+      "bool get supportsHostedDevBridge",
       "bool get supportsRecoverableOnchainSend",
       "bool get watchOnly",
       "bool isDisposed()",
@@ -272,8 +277,8 @@
     ]
   },
   "nativeBridgeSurface": {
-    "count": 751,
-    "hash": "da939f08a625a69893ae0d900db2e2bd152fef6bc238ff760c9846bb257b3650",
+    "count": 761,
+    "hash": "7d75e584ba46798ae9aa978591637f02c203f2c7f3649b1df34f91db88a8d016",
     "files": [
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbSdkFlutterPlugin.kt",
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnAssetMapper.kt",

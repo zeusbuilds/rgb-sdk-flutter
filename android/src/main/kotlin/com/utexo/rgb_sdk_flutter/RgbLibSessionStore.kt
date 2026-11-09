@@ -19,7 +19,8 @@ internal class RgbLibBridgeError(val code: String, message: String) : Exception(
  */
 internal val rgbRecoveryErrorCodes = setOf(
   "RECOVERY_STORAGE_INVALID", "RECOVERY_IDENTITY_MISMATCH", "RECOVERY_REQUEST_MISMATCH",
-  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN", "RECOVERY_BACKUP_INVALID"
+  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN", "RECOVERY_BACKUP_INVALID",
+  "BRIDGE_DEPLOYMENT_UNQUALIFIED", "BRIDGE_INVOICE_EXPIRED", "BRIDGE_PROOF_UNAVAILABLE", "BRIDGE_FEE_CAP_EXCEEDED"
 )
 internal fun rgbLibErrorCode(error: RgbLibException): String =
   if (error is RgbLibException.Recovery) error.code.takeIf { it in rgbRecoveryErrorCodes } ?: "NATIVE_ERROR"
@@ -326,7 +327,7 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     when(operation) {
       "getRuntimeInfo" -> {
         val artifact = runCatching { JSONObject(artifactInfo()!!) }.getOrNull()
-        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to 5,"integrationTree" to (artifact?.optString("integration_tree") ?: ""),"overlayPatchSha256" to (artifact?.optString("overlay_patch_sha256") ?: ""),"sourceLockSha256" to (artifact?.optString("source_lock_sha256") ?: ""),"sourceManifestSha256" to (artifact?.optString("source_manifest_sha256") ?: ""),"nativeOverlay" to (artifact?.optString("native_overlay") ?: ""),"supportsExistingOnlyOpen" to true,"supportsHostedDevSignet" to true,"contractRegistration" to true,"durableOnchainRecovery" to true,"supportsDispatchedRgbRevocation" to (if (artifact?.has("dispatched_rgb_revocation") == true) artifact.opt("dispatched_rgb_revocation").takeUnless { it === JSONObject.NULL } else false),"burn" to true,"consignment" to true,"bfa" to true)
+        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to (artifact?.optInt("bridge_version", 5) ?: 5),"integrationTree" to (artifact?.optString("integration_tree") ?: ""),"overlayPatchSha256" to (artifact?.optString("overlay_patch_sha256") ?: ""),"sourceLockSha256" to (artifact?.optString("source_lock_sha256") ?: ""),"sourceManifestSha256" to (artifact?.optString("source_manifest_sha256") ?: ""),"nativeOverlay" to (artifact?.optString("native_overlay") ?: ""),"supportsExistingOnlyOpen" to true,"supportsHostedDevSignet" to true,"supportsDurableHostedDevBridge" to RgbLibHostedBridge.supports(artifact?.opt("durable_hosted_bridge")),"contractRegistration" to true,"durableOnchainRecovery" to true,"supportsDispatchedRgbRevocation" to (if (artifact?.has("dispatched_rgb_revocation") == true) artifact.opt("dispatched_rgb_revocation").takeUnless { it === JSONObject.NULL } else false),"burn" to true,"consignment" to true,"bfa" to true)
       }
       // JSONObject(Map) drops null values. Preserve original key presence so
       // explicit null cannot silently become the legacy absent/defaultfalse.
@@ -394,6 +395,22 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         w.getReceivedMint(recipient)?.let { rgbDto(it) }
       }
       "importContract" -> w.importContract(p.getString("contractBase64"),p.getString("expectedAssetId"))
+      in RgbLibHostedBridge.operations -> {
+        val logical = s.profile.getString("network")
+        val artifact = runCatching { JSONObject(artifactInfo()!!) }.getOrNull()
+        if (logical != "utexo" || !RgbLibNetworkPolicy.permitsOpen(logical, s.profile.opt("devSignetDeployment") as? String) ||
+            !RgbLibHostedBridge.supports(artifact?.opt("durable_hosted_bridge"))) RgbLibHostedBridge.unavailable()
+        val request = p.getString("requestJson")
+        if (request.length > 8192) fail("Invalid hosted Dev bridge request")
+        val recovery = if (operation == "bridgeBlindReceive" || operation == "observeBridgeBurn") {
+          (p.opt("recoveryOnly") as? Boolean) ?: fail("Missing recovery mode")
+        } else null
+        if ((operation == "bridgeBlindReceive" && recovery == false) || operation == "prepareBridgeBurn") {
+          w.assertNoPendingOnchainSend()
+        }
+        val connection = if (operation == "observeBridgeBurn" && recovery == true) null else online(s)
+        RgbLibHostedBridge.invoke(operation, w, connection, request, recovery)
+      }
       "prepareOnchainSend" -> w.prepareOnchainSend(online(s),durableRequest(s,p))
       "commitOnchainSend" -> w.commitOnchainSend(online(s),durableRequest(s,p))
       "onchainSendStatus" -> w.onchainSendStatus(s.online,durableRequest(s,p))

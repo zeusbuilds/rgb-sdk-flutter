@@ -8,7 +8,8 @@ enum RgbLibOperationPolicy {
     "listTransfers", "decodeInvoice", "checkIndexerUrl", "sync", "estimateFeeRate",
     "getNetworkInfo", "refresh", "backup", "getConsignmentPath", "getConsignment",
     "prepareOnchainSend", "commitOnchainSend", "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend",
-    "onchainRecoveryState", "listOnchainSendReceipts"
+    "onchainRecoveryState", "listOnchainSendReceipts",
+    "bridgeBlindReceive", "prepareBridgeBurn", "commitBridgeBurn", "observeBridgeBurn", "cancelBridgeBurn", "bridgeBurnProof"
   ]
 
   static func perform<T>(_ operation: String, assertNoPending: () throws -> Void,

@@ -12,7 +12,8 @@ internal object RgbLibOperationPolicy {
     "listTransfers", "decodeInvoice", "checkIndexerUrl", "sync", "estimateFeeRate",
     "getNetworkInfo", "refresh", "backup", "getConsignmentPath", "getConsignment",
     "prepareOnchainSend", "commitOnchainSend", "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend",
-    "onchainRecoveryState", "listOnchainSendReceipts"
+    "onchainRecoveryState", "listOnchainSendReceipts",
+    "bridgeBlindReceive", "prepareBridgeBurn", "commitBridgeBurn", "observeBridgeBurn", "cancelBridgeBurn", "bridgeBurnProof"
   )
 
   fun <T> perform(operation: String, assertNoPending: () -> Unit, action: () -> T): T {

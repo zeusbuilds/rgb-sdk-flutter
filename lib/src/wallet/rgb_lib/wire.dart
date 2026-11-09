@@ -59,6 +59,7 @@ final class RgbLibRuntimeInfo {
     this.supportsDispatchedRgbRevocation = false,
     this.supportsExistingOnlyOpen = false,
     this.supportsHostedDevSignet = false,
+    this.supportsDurableHostedDevBridge = false,
   });
 
   static const expectedVersion =
@@ -96,6 +97,9 @@ final class RgbLibRuntimeInfo {
 
   /// The platform wrapper admits the explicitly configured hosted Dev profile.
   final bool supportsHostedDevSignet;
+
+  /// The pinned artifact and platform wrapper support durable hosted Dev bridge operations.
+  final bool supportsDurableHostedDevBridge;
 
   RgbLibBackupRecoveryCapabilities get backupRecovery =>
       const RgbLibBackupRecoveryCapabilities._();

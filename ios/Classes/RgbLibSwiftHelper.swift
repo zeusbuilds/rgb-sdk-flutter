@@ -21,7 +21,8 @@ private func rgbUnqualifiedDev() -> RgbBridgeFailure {
 /// (payload-free cases), never from a type-qualified description.
 private let rgbRecoveryErrorCodes: Set<String> = [
   "RECOVERY_STORAGE_INVALID", "RECOVERY_IDENTITY_MISMATCH", "RECOVERY_REQUEST_MISMATCH",
-  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN", "RECOVERY_BACKUP_INVALID"
+  "RECOVERY_PENDING", "RECOVERY_CAPACITY", "RECOVERY_REJECTED", "RECOVERY_BUSY", "RECOVERY_REQUEST_INVALID", "RECOVERY_OBSERVATION_INVALID", "RECOVERY_RESTORE_UNCERTAIN", "RECOVERY_BACKUP_INVALID",
+  "BRIDGE_DEPLOYMENT_UNQUALIFIED", "BRIDGE_INVOICE_EXPIRED", "BRIDGE_PROOF_UNAVAILABLE", "BRIDGE_FEE_CAP_EXCEEDED"
 ]
 func rgbLibErrorCode(_ error: RGBLib.RgbLibError) -> String {
   if case .Recovery(let code) = error {
@@ -109,6 +110,13 @@ private func rgbArtifactInfo() -> [String: Any] {
         let data = try? Data(contentsOf: url),
         let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return [:] }
   return info
+}
+private func rgbSupportsHostedBridge(_ artifact: [String: Any]) -> Bool {
+  #if RGB_LIB_DURABLE_HOSTED_BRIDGE
+  return RgbLibRevocationPolicy.isAvailable(artifact["durable_hosted_bridge"])
+  #else
+  return false
+  #endif
 }
 private func rgbNetworkFromName(_ name: String) throws -> RGBLib.BitcoinNetwork {
   switch RgbLibNetworkPolicy.nativeNetwork(name) {
@@ -440,7 +448,7 @@ final class RgbLibSwiftHelper {
     switch operation {
     case "getRuntimeInfo":
       let artifact = rgbArtifactInfo()
-      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": 5, "integrationTree": artifact["integration_tree"] as? String ?? "", "overlayPatchSha256": artifact["overlay_patch_sha256"] as? String ?? "", "sourceLockSha256": artifact["source_lock_sha256"] as? String ?? "", "sourceManifestSha256": artifact["source_manifest_sha256"] as? String ?? "", "nativeOverlay": artifact["native_overlay"] as? String ?? "", "supportsExistingOnlyOpen": true, "supportsHostedDevSignet": true, "contractRegistration": true, "durableOnchainRecovery": true, "supportsDispatchedRgbRevocation": artifact["dispatched_rgb_revocation"] ?? false, "burn": true, "consignment": true, "bfa": true]
+      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": artifact["bridge_version"] as? Int ?? 5, "integrationTree": artifact["integration_tree"] as? String ?? "", "overlayPatchSha256": artifact["overlay_patch_sha256"] as? String ?? "", "sourceLockSha256": artifact["source_lock_sha256"] as? String ?? "", "sourceManifestSha256": artifact["source_manifest_sha256"] as? String ?? "", "nativeOverlay": artifact["native_overlay"] as? String ?? "", "supportsExistingOnlyOpen": true, "supportsHostedDevSignet": true, "supportsDurableHostedDevBridge": rgbSupportsHostedBridge(artifact), "contractRegistration": true, "durableOnchainRecovery": true, "supportsDispatchedRgbRevocation": artifact["dispatched_rgb_revocation"] ?? false, "burn": true, "consignment": true, "bfa": true]
     case "openWallet": return try open(p)
     case "restoreBackup": try restore(p); return NSNull()
     default: break
@@ -490,6 +498,33 @@ final class RgbLibSwiftHelper {
       _ = try RGBLib.RecipientInfo(recipientId: recipient).recipientType()
       return try w.getReceivedMint(recipientId: recipient).map { rgbDto($0) } ?? (NSNull() as Any)
     case "importContract": return try w.importContract(contractBase64: p.string("contractBase64"), expectedAssetId: p.string("expectedAssetId"))
+    case "bridgeBlindReceive", "prepareBridgeBurn", "commitBridgeBurn", "observeBridgeBurn", "cancelBridgeBurn", "bridgeBurnProof":
+      #if RGB_LIB_DURABLE_HOSTED_BRIDGE
+      let logical = s.profile["network"] as? String ?? ""
+      if logical == "utexo",
+        RgbLibNetworkPolicy.permitsOpen(logical, deployment: s.profile["devSignetDeployment"] as? String),
+        rgbSupportsHostedBridge(rgbArtifactInfo()) {
+        let request = try p.string("requestJson")
+        guard request.utf8.count <= 8192 else { throw rgbInvalid("Invalid hosted Dev bridge request") }
+        let online = try s.requireOnline()
+        switch operation {
+        case "bridgeBlindReceive":
+          let recoveryOnly = try p.bool("recoveryOnly")
+          if !recoveryOnly { try w.assertNoPendingOnchainSend() }
+          return try w.bridgeBlindReceive(online: online, requestJson: request, recoveryOnly: recoveryOnly)
+        case "prepareBridgeBurn":
+          try w.assertNoPendingOnchainSend()
+          return try w.prepareBridgeBurn(online: online, requestJson: request)
+        case "commitBridgeBurn": return try w.commitBridgeBurn(online: online, requestJson: request)
+        case "observeBridgeBurn":
+          let localOnly = try p.bool("recoveryOnly")
+          return try w.observeBridgeBurn(online: localOnly ? nil : online, requestJson: request)
+        case "cancelBridgeBurn": return try w.cancelBridgeBurn(online: online, requestJson: request)
+        default: return try w.bridgeBurnProof(requestJson: request)
+        }
+      }
+      #endif
+      throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Durable hosted Dev bridge is unavailable")
     case "prepareOnchainSend": return try w.prepareOnchainSend(online: s.requireOnline(), requestJson: durableRequest(s, p))
     case "commitOnchainSend": return try w.commitOnchainSend(online: s.requireOnline(), requestJson: durableRequest(s, p))
     case "onchainSendStatus": return try w.onchainSendStatus(online: s.online, requestJson: durableRequest(s, p))

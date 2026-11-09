@@ -108,3 +108,38 @@ when invoked outside that supported boundary. Native generic `refresh` is
 additionally quarantine guarded because it can ACK/broadcast pending transfers.
 The [backup and recovery contract](../../doc/RGB_LIB_BACKUP_RECOVERY.md) records
 the supported inspection methods and the unresolved portable-freshness blocker.
+
+## Hosted Dev Bridge candidate
+
+The optional `--bridge` workflow adds the separately sealed
+`source-bridge-manifest.json` overlay on top of the exact bridge 5 tree. It
+builds native version `0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.3`, bridge 6,
+in the ignored `.buildlog/bfa7-bridge/` directory. The default workflow and the
+published SDK artifact pins remain on bridge 5 until release artifacts are
+explicitly qualified and promoted.
+
+Native bridge 6 atomically saves each scoped blind invoice and its receive
+transfer. Reading a receipt does not allocate an output or submit a new
+invoice. A burn has separate Prepare and Commit operations. Commit verifies
+the exact Arbitrum V1 destination and amount in the proof before dispatch.
+After dispatch, Status may reconcile from the recorded native acceptance or
+the exact Bitcoin transaction and proof; it does not broadcast the transaction
+again. This does not enable production RGB_L1 or mint and burn on an arbitrary
+deployment.
+
+For local arm64 iOS Simulator testing, run these from the SDK checkout with
+the same Xcode selection:
+
+```sh
+python3 tool/build_rgb_lib_bfa7.py prepare --bridge --source /path/to/exact/local/source/mirror
+python3 tool/build_rgb_lib_bfa7.py build --bridge --target aarch64-apple-ios-sim
+python3 tool/build_rgb_lib_bfa7.py generate --bridge
+python3 tool/stage_bfa7_bridge_ios_sim.py --output .buildlog/bfa7-bridge/ios-arm64-fixture-sdk
+```
+
+Point a local Flutter consumer at that staged SDK using a dependency
+override. The fixture validates the compiled binary, bindings and source
+identity before building the simulator frameworks, then verifies its runtime
+files during CocoaPods installation. Use an arm64 simulator. The fixture does
+not replace the SDK's checked-in artifact pins and cannot build a distributable
+iOS or Android release.

@@ -8,11 +8,16 @@ import 'package:pointycastle/digests/keccak.dart';
 
 import '../../wallet/burn_destination.dart';
 import '../../wallet/burn_operations.dart';
+import '../../wallet/dev_signet_policy.dart';
+import '../../wallet/rgb_lib/config.dart' show RgbLibWalletException;
 import '../../wallet/rgb_lib/rgb_lib_wallet.dart';
+import '../../wallet/rgb_lib/wire.dart' show RgbLibTransfer;
 import '../../wallet/utexo_wallet.dart';
 import 'errors.dart';
 import 'provider.dart';
 import 'types.dart';
+
+part 'hosted_dev_bridge.dart';
 
 /// Experimental UTEXO transport profile, not a WalletConnect standard.
 const webRgbWalletConnectProfile = 'webrgb:1';
@@ -71,6 +76,22 @@ class _Request {
 /// Duplicate IDs reuse their result only within this live router; irreversible
 /// burns additionally require the provider's durable wallet-scoped journal.
 class WebRgbWalletConnectSession {
+  /// Ceiling for the hosted Dev WebRGB namespace. The current wallet can
+  /// temporarily withhold methods even when a session originally granted them.
+  static const hostedDevMethods = <String>{
+    'rgb_enable',
+    'rgb_getInfo',
+    'rgb_getAddress',
+    'rgb_blindReceive',
+    'rgb_listAssets',
+    'rgb_getAssetBalance',
+    'rgb_listTransfers',
+    'rgb_getTransferStatus',
+    'rgb_decodeRgbInvoice',
+    'rgb_burnAsset',
+    'rgb_getConsignment',
+  };
+
   WebRgbWalletConnectSession({
     required UtexoWallet wallet,
     required WebRgbWalletConnectGrant grant,
@@ -106,6 +127,72 @@ class WebRgbWalletConnectSession {
          clock: clock,
        );
 
+  /// Opens the reviewed Dev bridge router for an already authorized grant.
+  ///
+  /// The grant account is `rgb:utexo:<native wallet identity id>`. The host
+  /// restores and checks that grant before constructing this object. Native
+  /// request bindings survive restart. Dispatching an already accepted request
+  /// only recovers its original response.
+  WebRgbWalletConnectSession.hostedDev({
+    required RgbLibWallet wallet,
+    required WebRgbWalletConnectGrant grant,
+    required WebRgbWalletConnectGrant? Function() currentGrant,
+    required Future<bool> Function(WebRgbApproval) confirm,
+    DateTime Function()? clock,
+  }) : this._(
+         network: wallet.getNetwork(),
+         provider: (options) => WebRgbProvider.rgbLib(wallet, options),
+         grant: grant,
+         currentGrant: currentGrant,
+         confirm: confirm,
+         clock: clock,
+         hostedDevWallet: wallet,
+       );
+
+  /// Discards an exact persisted hosted Dev burn before any broadcast.
+  ///
+  /// Supply the original request ID, topic, effective expiry and parameters
+  /// from authenticated local storage. The app must independently authorize
+  /// the active wallet before calling this after a relay session is gone.
+  /// Returns true for an absent, rejected or safely discarded reservation,
+  /// and false for accepted or possibly dispatched burns.
+  static Future<bool> cancelUnsubmittedHostedDevBurn({
+    required RgbLibWallet wallet,
+    required String topic,
+    required int id,
+    required int expiry,
+    required List<Object?> params,
+    required void Function() assertAuthorized,
+  }) => _cancelLocalHostedBurn(
+    wallet,
+    topic,
+    id,
+    expiry,
+    params,
+    assertAuthorized,
+  );
+
+  /// Lists recent accepted burns owned by the active wallet and saved topic.
+  ///
+  /// Call only under an authenticated local wallet lease. The original topic
+  /// must come from trusted storage. The results contain no proof bytes.
+  static Future<List<WebRgbTransfer>> listHostedDevBridgeBurns({
+    required RgbLibWallet wallet,
+    required String topic,
+    required void Function() assertAuthorized,
+  }) => _listLocalHostedBurns(wallet, topic, assertAuthorized);
+
+  /// Builds a portable .utexoburn from an exact native receipt and proof.
+  ///
+  /// The caller must authenticate the active wallet and authorize explicit
+  /// disclosure. The result contains the verified proof and bound payout.
+  static Future<Map<String, Object?>> exportHostedDevBridgeBurn({
+    required RgbLibWallet wallet,
+    required String topic,
+    required String txid,
+    required void Function() assertAuthorized,
+  }) => _exportLocalHostedBurn(wallet, topic, txid, assertAuthorized);
+
   WebRgbWalletConnectSession._({
     required String network,
     required WebRgbProvider Function(WebRgbOptions) provider,
@@ -114,6 +201,7 @@ class WebRgbWalletConnectSession {
     required Future<bool> Function(WebRgbApproval) confirm,
     WebRgbBurnOptions? burn,
     DateTime Function()? clock,
+    RgbLibWallet? hostedDevWallet,
   }) : _grant = grant,
        _currentGrant = currentGrant,
        _clock = clock ?? DateTime.now {
@@ -138,12 +226,26 @@ class WebRgbWalletConnectSession {
         assertAuthorized: _check,
       ),
     );
+    if (hostedDevWallet != null) {
+      if (!hostedDevWallet.supportsHostedDevBridge ||
+          grant.origin != utexoDevBridgeOrigin ||
+          !hostedDevMethods.containsAll(grant.methods)) {
+        throw const WebRgbError(
+          'NOT_ENABLED',
+          'The hosted Dev bridge is unavailable for this session.',
+        );
+      }
+      _hostedDev = _HostedDevWebRgb(hostedDevWallet, this, confirm);
+      // The host has independently approved or restored this exact grant.
+      _enabled = true;
+    }
   }
 
   final WebRgbWalletConnectGrant _grant;
   final WebRgbWalletConnectGrant? Function() _currentGrant;
   final DateTime Function() _clock;
   late final WebRgbProvider _provider;
+  _HostedDevWebRgb? _hostedDev;
   final Map<int, _Request> _requests = {};
   Future<void> _queue = Future.value();
   bool _disposed = false;
@@ -164,12 +266,14 @@ class WebRgbWalletConnectSession {
         current.network != _grant.network ||
         current.account != _grant.account ||
         current.profile != webRgbWalletConnectProfile ||
+        _grant.expiry <= _now ||
         current.expiry <= _now ||
         (request && _activeExpiry != null && _activeExpiry! <= _now) ||
         !current.methods.containsAll({'rgb_enable', 'rgb_getInfo'}) ||
         (request &&
             _activeMethod != null &&
-            !current.methods.contains(_activeMethod))) {
+            (!current.methods.contains(_activeMethod) ||
+                !_grant.methods.contains(_activeMethod)))) {
       throw const WebRgbError(
         'NOT_ENABLED',
         'Session or request is no longer authorized.',
@@ -195,6 +299,8 @@ class WebRgbWalletConnectSession {
   /// Inputs are snapshotted before queuing; at most 256 unexpired request IDs
   /// and 64 KiB per request are retained. Capacity exhaustion fails closed,
   /// rather than evicting a mutation result and accidentally re-executing it.
+  /// For hosted Dev, [recoveryOnly] returns retained mutation results without
+  /// starting a new native operation. Use it for restored request envelopes.
   Future<Map<String, Object?>> handle({
     required int id,
     required String topic,
@@ -202,9 +308,13 @@ class WebRgbWalletConnectSession {
     required String method,
     required List<Object?> params,
     int? expiry,
+    bool recoveryOnly = false,
   }) async {
     try {
       _check(request: false);
+      if (recoveryOnly && _hostedDev == null) {
+        throw const WebRgbError('INVALID_PARAMS', 'Recovery is unavailable.');
+      }
       webRgbInteger(id, 'id', min: 0);
       if (topic != _grant.topic || chainId != 'rgb:${_grant.network}') {
         throw const WebRgbError('NOT_ENABLED', 'Wrong session or network.');
@@ -214,7 +324,8 @@ class WebRgbWalletConnectSession {
       if (deadline <= _now) {
         throw const WebRgbError('INVALID_PARAMS', 'Request expired.');
       }
-      if (!_currentGrant()!.methods.contains(method)) {
+      if (!_grant.methods.contains(method) ||
+          !_currentGrant()!.methods.contains(method)) {
         throw const WebRgbError(
           'METHOD_NOT_SUPPORTED',
           'Method is not authorized.',
@@ -225,9 +336,13 @@ class WebRgbWalletConnectSession {
         throw const WebRgbError('INVALID_PARAMS', 'Request is too large.');
       }
       final frozen = jsonDecode(encoded) as List<Object?>;
-      final fingerprint = sha256
-          .convert(utf8.encode(jsonEncode([chainId, method, deadline, frozen])))
-          .toString();
+      final fingerprint = _hostedDev == null
+          ? sha256
+                .convert(
+                  utf8.encode(jsonEncode([chainId, method, deadline, frozen])),
+                )
+                .toString()
+          : _bridgeFingerprint(chainId, method, deadline, frozen);
       _requests.removeWhere((_, item) => item.complete && item.expiry <= _now);
       final existing = _requests[id];
       if (existing != null) {
@@ -242,7 +357,15 @@ class WebRgbWalletConnectSession {
         if (deadline <= _now || !_currentGrant()!.methods.contains(method)) {
           throw const WebRgbError('NOT_ENABLED', 'Request permission expired.');
         }
-        return _copyReply(reply);
+        // A read-only recovery may observe new chain evidence. Only a caller
+        // restoring its persisted mutation envelope can repeat that observation.
+        if (!(recoveryOnly &&
+            reply.containsKey('error') &&
+            (method == 'rgb_burnAsset' || method == 'rgb_blindReceive') &&
+            identical(_requests[id], existing))) {
+          return _copyReply(reply);
+        }
+        _requests.remove(id);
       }
       if (_requests.length >= 256) {
         throw const WebRgbError(
@@ -255,7 +378,13 @@ class WebRgbWalletConnectSession {
           _activeMethod = method;
           _activeExpiry = deadline;
           _check();
-          final value = await _dispatch(method, frozen);
+          final value = await _dispatch(
+            method,
+            frozen,
+            id,
+            fingerprint,
+            recoveryOnly: recoveryOnly,
+          );
           _check();
           return Map<String, Object?>.unmodifiable({
             'id': id,
@@ -272,13 +401,24 @@ class WebRgbWalletConnectSession {
       final request = _Request(fingerprint, deadline, result);
       _requests[id] = request;
       _queue = result.then((_) => request.complete = true);
-      return _copyReply(await result);
+      final reply = await result;
+      _check(request: false);
+      if (deadline <= _now || !_currentGrant()!.methods.contains(method)) {
+        throw const WebRgbError('NOT_ENABLED', 'Request permission expired.');
+      }
+      return _copyReply(reply);
     } catch (error) {
       return _errorReply(id, error);
     }
   }
 
-  Future<Object?> _dispatch(String method, List<Object?> args) async {
+  Future<Object?> _dispatch(
+    String method,
+    List<Object?> args,
+    int id,
+    String fingerprint, {
+    required bool recoveryOnly,
+  }) async {
     final name = method.startsWith('rgb_') ? method.substring(4) : '';
     if (!{
       ...webRgbReadMethods,
@@ -313,6 +453,9 @@ class WebRgbWalletConnectSession {
     }
     if (name != 'enable' && !_enabled) {
       throw const WebRgbError('NOT_ENABLED', 'Call enable first.');
+    }
+    if (_hostedDev case final hosted?) {
+      return hosted.dispatch(name, args, id, fingerprint, recoveryOnly);
     }
     switch (name) {
       case 'enable':
@@ -424,9 +567,11 @@ class WebRgbWalletConnectSession {
         bytes == null ||
         proof.assetId != asset ||
         proof.txid != txid) {
-      proof = await _provider.getConsignment(
-        WebRgbGetConsignmentArgs(assetId: asset, txid: txid),
-      );
+      proof = _hostedDev == null
+          ? await _provider.getConsignment(
+              WebRgbGetConsignmentArgs(assetId: asset, txid: txid),
+            )
+          : await _hostedDev!.proof(asset, txid);
       _check();
       if (proof.data.length > ((16 * 1024 * 1024 + 2) ~/ 3) * 4) {
         throw const WebRgbError(
@@ -500,6 +645,7 @@ Map<String, Object?> _errorReply(int id, Object error) {
     'METHOD_NOT_SUPPORTED',
     'INVALID_PARAMS',
     'ASSET_NOT_FOUND',
+    'BURN_NOT_SUBMITTED',
     'INTERNAL_ERROR',
   };
   final code = error is WebRgbError && codes.contains(error.code)
@@ -510,6 +656,7 @@ Map<String, Object?> _errorReply(int id, Object error) {
     'NOT_ENABLED' => (3001, 'Session or request is not authorized.'),
     'METHOD_NOT_SUPPORTED' => (-32601, 'Method is not supported.'),
     'INVALID_PARAMS' => (-32602, 'Invalid request parameters.'),
+    'BURN_NOT_SUBMITTED' => (-32000, 'Burn was interrupted before submission.'),
     _ => (-32000, 'Wallet request failed.'),
   };
   return Map.unmodifiable({

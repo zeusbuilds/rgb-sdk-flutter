@@ -24,6 +24,7 @@ import 'wire.dart';
 
 part 'operation_inputs.dart';
 part 'recoverable_operations.dart';
+part 'hosted_dev_bridge.dart';
 
 /// Native RGB_L1 Bitcoin and RGB wallet, independent of the legacy RLN wallet.
 ///
@@ -60,6 +61,41 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   /// This capability does not establish funded or release qualification.
   bool get supportsRecoverableOnchainSend =>
       !watchOnly && _runtime?.durableOnchainRecovery == true;
+
+  /// An open signing wallet with the reviewed Dev services and durable bridge artifact.
+  bool get supportsHostedDevBridge =>
+      network == 'utexo' &&
+      params.allowUtexoDevSignet &&
+      !watchOnly &&
+      !_disposeRequested &&
+      !_closeRequired &&
+      _closing == null &&
+      _online != null &&
+      _runtime?.supportsDurableHostedDevBridge == true;
+
+  /// Checks for a confirmed, empty RGB output. This does not reserve it or pay a fee.
+  Future<bool> hostedDevBridgeBlindReceiveReady() =>
+      _hostedDevBridgeBlindReceiveReady(this);
+
+  /// Whether a durable hosted Dev burn still reserves wallet state.
+  /// A wallet owner should check this before discarding the wallet or its keys.
+  Future<bool> hasPendingHostedDevBridgeBurn() => _accept(() async {
+    if (_runtime?.supportsDurableHostedDevBridge != true) return false;
+    final identity = _requireIdentity();
+    final row = RgbLibWire(
+      _recoveryJson(
+        await _invoke('onchainRecoveryState', {'handle': _handle!}),
+      ),
+      'recoveryState',
+    );
+    if (row.integer('version') != 1 ||
+        row.text('walletBinding') != identity.id ||
+        row.text('cohort') != identity.recoveryCohort ||
+        row.flag('restoredSnapshot')) {
+      invalidRgbLibWire('recoveryState.identity');
+    }
+    return row.flag('pendingBridgeBurn');
+  });
 
   Future<T> _enqueue<T>(Future<T> Function() action) {
     final result = _tail.then((_) => action());
@@ -101,6 +137,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     final revocation = row.map['supportsDispatchedRgbRevocation'];
     final existingOnly = row.map['supportsExistingOnlyOpen'];
     final hostedDev = row.map['supportsHostedDevSignet'];
+    final hostedBridge = row.map['supportsDurableHostedDevBridge'];
     if (row.map.containsKey('supportsDispatchedRgbRevocation') &&
         revocation is! bool) {
       invalidRgbLibWire('runtime.supportsDispatchedRgbRevocation');
@@ -111,6 +148,10 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     }
     if (row.map.containsKey('supportsHostedDevSignet') && hostedDev is! bool) {
       invalidRgbLibWire('runtime.supportsHostedDevSignet');
+    }
+    if (row.map.containsKey('supportsDurableHostedDevBridge') &&
+        hostedBridge is! bool) {
+      invalidRgbLibWire('runtime.supportsDurableHostedDevBridge');
     }
     final info = RgbLibRuntimeInfo(
       version: row.text('version'),
@@ -126,9 +167,16 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       supportsDispatchedRgbRevocation: revocation == true,
       supportsExistingOnlyOpen: existingOnly == true,
       supportsHostedDevSignet: hostedDev == true,
+      supportsDurableHostedDevBridge: hostedBridge == true,
     );
     if (info.supportsDispatchedRgbRevocation && !info.durableOnchainRecovery) {
       invalidRgbLibWire('runtime.supportsDispatchedRgbRevocation');
+    }
+    if (info.supportsDurableHostedDevBridge &&
+        (!info.supportsHostedDevSignet ||
+            !info.durableOnchainRecovery ||
+            !info.contractRegistration)) {
+      invalidRgbLibWire('runtime.supportsDurableHostedDevBridge');
     }
     if (info.version != RgbLibRuntimeInfo.expectedVersion ||
         info.sourceRevision != RgbLibRuntimeInfo.expectedSourceRevision ||
@@ -1092,6 +1140,10 @@ const _nativeCodes = {
   'RECOVERY_OBSERVATION_INVALID',
   'RECOVERY_RESTORE_UNCERTAIN',
   'RECOVERY_BACKUP_INVALID',
+  'BRIDGE_INVOICE_EXPIRED',
+  'BRIDGE_DEPLOYMENT_UNQUALIFIED',
+  'BRIDGE_PROOF_UNAVAILABLE',
+  'BRIDGE_FEE_CAP_EXCEEDED',
 };
 
 String _nonempty(Object? value, String field) =>

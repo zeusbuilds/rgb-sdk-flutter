@@ -60,6 +60,8 @@ def verify_provenance(provenance):
         expected = PIN.get(pin_key)
         if expected is None or provenance.get(archive_key) != expected:
             raise ValueError("RGB Lib iOS provenance does not match the release pin: " + archive_key)
+    if provenance.get("durable_hosted_bridge", False) is not PIN.get("features", {}).get("durableHostedBridge", False):
+        raise ValueError("RGB Lib iOS hosted bridge capability does not match the release pin.")
 
 
 def build_identity():

@@ -534,9 +534,39 @@ The current public BFA genesis, digest and metadata are recorded in
 [`tool/dev_signet_deployment_requirements.json`](../tool/dev_signet_deployment_requirements.json).
 Register the definition with `importContract` using the exact asset ID before
 presenting it. Registration credits no balance. These APIs support a dedicated
-Dev wallet. Dev burns are unavailable, including through the optional WebRGB
-adapter. Hosted bridge pairing, mint settlement and burn payout have separate
-qualification requirements.
+Dev wallet. The pinned `.2` artifacts support wallet operations while the
+separately qualified bridge capability is disabled.
+
+The optional `WebRgbWalletConnectSession.hostedDev` accepts a host-authenticated
+`webrgb:1` grant for `https://dev.mint.utexo.com`, `rgb:utexo` and the active
+wallet's stable native account ID. Use `hostedDevMethods` as the negotiation
+ceiling and `hostedDevBridgeBlindReceiveReady` to check for a confirmed empty
+RGB output before offering blind receiving. Pairing, grant persistence and
+revocation belong to the host. The router binds each financial request to its
+exact session and JSON-RPC ID. Persist the original envelope and expiry before
+dispatch. On restart pass `recoveryOnly: true` to `handle` for retained mutation
+envelopes. That mode can recover an accepted receipt or cancel an exact
+unsubmitted burn reservation. It cannot sign or broadcast. If the relay
+request is gone, call `WebRgbWalletConnectSession.cancelUnsubmittedHostedDevBurn`
+under local wallet authorization with the original saved request. Keep native
+recovery protection whenever the result indicates possible submission.
+
+Dev bridge burns bind the approved BUSDT asset, direct Arbitrum `42161` V1
+recipient, minimum six Bitcoin confirmations and the exact prepared Bitcoin
+fee. The router waits for host approval before committing. Native proof
+disclosure additionally requires consent and the matching accepted receipt.
+Neither a broadcast result nor a consignment establishes a successful payout.
+`supportsHostedDevBridge` requires the linked artifact's
+`supportsDurableHostedDevBridge` capability. `hasPendingHostedDevBridgeBurn`
+checks the durable native fence before an app discards wallet state.
+
+`WebRgbWalletConnectSession.listHostedDevBridgeBurns` lists recent accepted
+burns scoped to the active wallet and its original saved topic.
+`WebRgbWalletConnectSession.exportHostedDevBridgeBurn` returns the portable
+`.utexoburn` V1 proof and committed destination, with a 10 MiB raw proof cap.
+Use both under local wallet authorization, and get explicit consent before
+sharing a proof. Hosted transfer history and proof requests remain bound to the
+approved session topic.
 
 `RgbLibIndexer` selects Electrum, Esplora or authenticated bitcoind access.
 `RgbLibUnlockParams` supplies an explicit indexer or indexer URL, a proxy

@@ -33,6 +33,18 @@ GENERATED = WORK / "generated"
 ARTIFACTS = WORK / "artifacts"
 
 
+def use_bridge_candidate():
+    global MANIFEST, WORK, SOURCE, ESPLORA, SQLITE, TARGET, GENERATED, ARTIFACTS
+    MANIFEST = NATIVE / "source-bridge-manifest.json"
+    WORK = ROOT / ".buildlog/bfa7-bridge"
+    SOURCE = WORK / "source"
+    ESPLORA = WORK / "esplora-client"
+    SQLITE = WORK / "sqlite3-sys"
+    TARGET = WORK / "target"
+    GENERATED = WORK / "generated"
+    ARTIFACTS = WORK / "artifacts"
+
+
 def digest(path):
     value = hashlib.sha256()
     with Path(path).open("rb") as stream:
@@ -166,6 +178,8 @@ def prepare_sqlite(manifest):
 def prepare(manifest, source_override=None):
     integration = manifest["integration"]
     overlay = checked_patch({"path": integration["patch"], "sha256": integration["patchSha256"]})
+    bridge_pin = integration.get("bridgePatch")
+    bridge_patch = checked_patch(bridge_pin) if bridge_pin else None
     prepare_esplora(manifest)
     prepare_sqlite(manifest)
     if SOURCE.exists():
@@ -190,6 +204,11 @@ def prepare(manifest, source_override=None):
             raise ValueError("BFA.7 core safeguard overlay tree mismatch.")
         git(staged, "apply", "--check", "--index", overlay)
         git(staged, "apply", "--index", overlay)
+        if bridge_patch:
+            if git(staged, "write-tree") != bridge_pin["baseIntegrationTree"]:
+                raise ValueError("The Dev Bridge patch requires the exact preceding Flutter tree.")
+            git(staged, "apply", "--check", "--index", bridge_patch)
+            git(staged, "apply", "--index", bridge_patch)
         if git(staged, "write-tree") != integration["tree"]:
             raise ValueError("Flutter integration overlay tree mismatch.")
         staged.rename(SOURCE)
@@ -199,19 +218,25 @@ def prepare(manifest, source_override=None):
 def seal(manifest):
     """Explicit developer operation; never used by consumer acquisition/build."""
     source = manifest["source"]
+    integration = manifest["integration"]
+    bridge_pin = integration.get("bridgePatch")
+    expected = bridge_pin["baseIntegrationTree"] if bridge_pin else source["coreOverlayTree"]
     if (git(SOURCE, "rev-parse", "HEAD") != source["revision"] or
-            git(SOURCE, "write-tree") != source["coreOverlayTree"]):
-        raise ValueError("Seal requires the exact safeguard overlay in the index.")
+            git(SOURCE, "write-tree") != expected):
+        raise ValueError("Seal requires the exact preceding source tree in the index.")
     git(SOURCE, "add", "--intent-to-add", "--all")
     patch = subprocess.check_output(["git", "-C", str(SOURCE), "diff", "--binary"])
     if not patch:
         raise ValueError("No integration changes to seal.")
-    integration = manifest["integration"]
-    destination = NATIVE / integration["patch"]
+    destination = NATIVE / (bridge_pin["path"] if bridge_pin else integration["patch"])
     destination.write_bytes(patch)
     git(SOURCE, "add", "--all")
+    if bridge_pin:
+        bridge_pin["sha256"] = digest(destination)
+    else:
+        integration["patchSha256"] = digest(destination)
     integration.update(
-        patchSha256=digest(destination), tree=git(SOURCE, "write-tree"),
+        tree=git(SOURCE, "write-tree"),
         uniffiLockSha256=digest(SOURCE / "bindings/uniffi/Cargo.lock"),
     )
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
@@ -286,6 +311,8 @@ def verify_dependencies(manifest):
         checked_patch(entry)
     integration = manifest["integration"]
     checked_patch({"path": integration["patch"], "sha256": integration["patchSha256"]})
+    if integration.get("bridgePatch"):
+        checked_patch(integration["bridgePatch"])
     # The path-patched dependency is outside SOURCE; its clean tree must be
     # checked independently before and after builds, including cached builds.
     prepare_esplora(manifest)
@@ -488,6 +515,9 @@ def metadata(manifest, platform):
             "overlay_patch_sha256": manifest["integration"]["patchSha256"],
             "source_manifest_sha256": digest(MANIFEST), "build_script_sha256": digest(Path(__file__)),
             "dispatched_rgb_revocation": manifest.get("features", {}).get("dispatchedRgbRevocation", False),
+            **({"durable_hosted_bridge": True,
+                "bridge_patch_sha256": manifest["integration"]["bridgePatch"]["sha256"]}
+               if manifest.get("features", {}).get("durableHostedBridge") is True else {}),
             "sqlite_overlay_tree": manifest.get("sqlite3", {}).get("overlayTree"),
             "ios_sqlite_compile_flags": manifest.get("sqlite3", {}).get("iosCompileFlags", []),
             "distribution_inputs": distribution_inputs(),
@@ -629,7 +659,10 @@ def main():
     parser.add_argument("--source", help="Exact-commit local mirror for offline source preparation")
     parser.add_argument("--target", action="append", default=[])
     parser.add_argument("--platform", choices=("all", "android", "ios"), default="all")
+    parser.add_argument("--bridge", action="store_true", help="Build the separate Dev Bridge native candidate")
     args = parser.parse_args()
+    if args.bridge:
+        use_bridge_candidate()
     manifest = read_manifest()
     if args.command == "seal":
         seal(manifest)

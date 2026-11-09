@@ -2,7 +2,7 @@ package com.utexo.rgb_sdk_flutter
 
 import com.utexo.RgbLibException
 
-fun main() {
+fun main(args: Array<String>) {
   val cases = listOf(
     "{}" to false,
     "{\"dispatched_rgb_revocation\":false}" to false,
@@ -17,6 +17,14 @@ fun main() {
     check(info["supportsDispatchedRgbRevocation"] == expected)
     check(info["supportsExistingOnlyOpen"] == true)
   }
+  for (encoded in listOf("false", "\"true\"", "1", "null")) {
+    val info = RgbLibSessionStore { "{\"durable_hosted_bridge\":$encoded}" }
+      .execute("getRuntimeInfo", emptyMap()) as Map<*, *>
+    check(info["supportsDurableHostedDevBridge"] == false)
+  }
+  val reviewed = RgbLibSessionStore { "{\"durable_hosted_bridge\":true}" }
+    .execute("getRuntimeInfo", emptyMap()) as Map<*, *>
+  check(reviewed["supportsDurableHostedDevBridge"] == args.contains("--hosted-dev-bridge"))
   check(RgbLibExistingOpenPolicy.parseFlag(null, false) == false)
   check(RgbLibExistingOpenPolicy.parseFlag(false, true) == false)
   check(RgbLibExistingOpenPolicy.parseFlag(true, true) == true)
@@ -26,6 +34,7 @@ fun main() {
   check(RgbLibExistingOpenPolicy.permitsProfile(true, true))
   check(!RgbLibExistingOpenPolicy.permitsProfile(true, false))
   check(rgbLibErrorCode(RgbLibException.Recovery("RECOVERY_BACKUP_INVALID")) == "RECOVERY_BACKUP_INVALID")
+  check(rgbLibErrorCode(RgbLibException.Recovery("BRIDGE_INVOICE_EXPIRED")) == "BRIDGE_INVOICE_EXPIRED")
   check(rgbLibErrorCode(RgbLibException.Recovery("private_unexpected_payload")) == "NATIVE_ERROR")
   println("Kotlin runtime capability forwards exact archive boolean/type; typed backup error allowlist passed")
 }

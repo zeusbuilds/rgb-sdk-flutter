@@ -26,6 +26,15 @@ The exact network, contract and outstanding Dev bridge evidence are recorded in
 [`tool/dev_signet_deployment_requirements.json`](../tool/dev_signet_deployment_requirements.json).
 Mainnet activation and restored snapshot spending retain their separate gates.
 
+NOV-004 bridge follow-up. The hosted Dev WebRGB router and ABI-6 candidate add
+request-bound blind invoice receipts, exact fee review before V1 burn dispatch,
+read-only burn recovery, and session-scoped proof export. The public API changes
+are the additive `WebRgbWalletConnectSession.hostedDev` constructor, method
+ceiling, `handle(recoveryOnly: ...)`, and hosted bridge capability/readiness
+checks. Existing callers keep their current methods and pinned `.2` behavior.
+Hosted mint, burn and payout still require the matching mobile native artifacts
+and a funded end-to-end run against the hosted deployment.
+
 ### November 8 RGB_L1 successor qualification
 
 The `.2` native candidate is separately sealed as

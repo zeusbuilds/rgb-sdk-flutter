@@ -9,6 +9,7 @@ require 'json'
 Pod::Spec.new do |s|
   baseline_path = File.expand_path('../tool/release_baseline.json', __dir__)
   baseline = JSON.parse(File.read(baseline_path))
+  rgb_lib_baseline = JSON.parse(File.read(File.expand_path('../tool/rgb_lib_native_baseline.json', __dir__)))
   rln_version = baseline.fetch('rln').fetch('version')
   ios_requirements = baseline.fetch('buildRequirements').fetch('ios')
 
@@ -57,7 +58,7 @@ Pinned RLN artifact: #{rln_version}.
   s.platform = :ios, ios_requirements.fetch('minimumOsVersion')
 
   # Flutter.framework does not contain a i386 slice.
-  s.pod_target_xcconfig = {
+  pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'IPHONEOS_DEPLOYMENT_TARGET' => ios_requirements.fetch('minimumOsVersion'),
@@ -69,6 +70,11 @@ Pinned RLN artifact: #{rln_version}.
     'LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]' => '$(PODS_TARGET_SRCROOT)/RGBLightningNode.xcframework/ios-arm64_x86_64-simulator',
     'OTHER_LDFLAGS' => '$(inherited) -l"rgb_lightning_node"'
   }
+  if rgb_lib_baseline.dig('features', 'durableHostedBridge') == true
+    pod_target_xcconfig['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] =
+      '$(inherited) RGB_LIB_DURABLE_HOSTED_BRIDGE'
+  end
+  s.pod_target_xcconfig = pod_target_xcconfig
   s.user_target_xcconfig = {
     'IPHONEOS_DEPLOYMENT_TARGET' => ios_requirements.fetch('minimumOsVersion'),
     'HEADER_SEARCH_PATHS[sdk=iphoneos*]' => '$(inherited) "$(PODS_ROOT)/../.symlinks/plugins/rgb_sdk_flutter/ios/RGBLightningNode.xcframework/ios-arm64/Headers"',

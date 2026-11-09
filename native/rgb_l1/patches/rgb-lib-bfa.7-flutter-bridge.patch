@@ -1,0 +1,1285 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e7acbf6..44de3e0 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3626,6 +3626,7 @@ dependencies = [
+  "tempfile",
+  "thiserror 2.0.21",
+  "time",
++ "tiny-keccak",
+  "tokio",
+  "url",
+  "walkdir",
+diff --git a/Cargo.toml b/Cargo.toml
+index d3374e9..7000086 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -80,6 +80,7 @@ slog-async = { version = "2.8.0", optional = true, default-features = false }
+ slog-term = { version = "2.9.2", optional = true, default-features = false }
+ tempfile = { version = "3.27.0", optional = true, default-features = false }
+ thiserror = { version = "2.0", default-features = false }
++tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+ time = { version = "0.3.55", optional = true, default-features = false }
+ file-format = { version = "0.29.0", optional = true, default-features = false, features = [
+     "reader",
+diff --git a/bindings/uniffi/Cargo.lock b/bindings/uniffi/Cargo.lock
+index c0e5011..8f8f769 100644
+--- a/bindings/uniffi/Cargo.lock
++++ b/bindings/uniffi/Cargo.lock
+@@ -3328,6 +3328,7 @@ dependencies = [
+  "tempfile",
+  "thiserror 2.0.21",
+  "time",
++ "tiny-keccak",
+  "tokio",
+  "url",
+  "walkdir",
+diff --git a/bindings/uniffi/src/lib.rs b/bindings/uniffi/src/lib.rs
+index 997af9d..24f85c6 100644
+--- a/bindings/uniffi/src/lib.rs
++++ b/bindings/uniffi/src/lib.rs
+@@ -1509,6 +1509,32 @@ impl Wallet {
+     ) -> Result<String, RgbLibError> {
+         self._get_wallet().onchain_send_status(online, request_json)
+     }
++    fn bridge_blind_receive(
++        &self, online: Option<Online>, request_json: String, recovery_only: bool,
++    ) -> Result<String, RgbLibError> {
++        self._get_wallet().bridge_blind_receive(online, request_json, recovery_only)
++    }
++
++    fn prepare_bridge_burn(&self, online: Online, request_json: String) -> Result<String, RgbLibError> {
++        self._get_wallet().prepare_bridge_burn(online, request_json)
++    }
++
++    fn commit_bridge_burn(&self, online: Online, request_json: String) -> Result<String, RgbLibError> {
++        self._get_wallet().commit_bridge_burn(online, request_json)
++    }
++
++    fn observe_bridge_burn(&self, online: Option<Online>, request_json: String) -> Result<String, RgbLibError> {
++        self._get_wallet().observe_bridge_burn(online, request_json)
++    }
++
++    fn cancel_bridge_burn(&self, online: Option<Online>, request_json: String) -> Result<String, RgbLibError> {
++        self._get_wallet().cancel_bridge_burn(online, request_json)
++    }
++
++    fn bridge_burn_proof(&self, request_json: String) -> Result<String, RgbLibError> {
++        self._get_wallet().bridge_burn_proof(request_json)
++    }
++
+     fn cancel_onchain_send(
+         &self,
+         online: Option<Online>,
+diff --git a/bindings/uniffi/src/rgb-lib.udl b/bindings/uniffi/src/rgb-lib.udl
+index c966630..41b1df4 100644
+--- a/bindings/uniffi/src/rgb-lib.udl
++++ b/bindings/uniffi/src/rgb-lib.udl
+@@ -1128,6 +1128,12 @@ interface Wallet {
+     [Throws=RgbLibError] string prepare_onchain_send(Online online, string request_json);
+     [Throws=RgbLibError] string commit_onchain_send(Online online, string request_json);
+     [Throws=RgbLibError] string onchain_send_status(Online? online, string request_json);
++    [Throws=RgbLibError] string bridge_blind_receive(Online? online, string request_json, boolean recovery_only);
++    [Throws=RgbLibError] string prepare_bridge_burn(Online online, string request_json);
++    [Throws=RgbLibError] string commit_bridge_burn(Online online, string request_json);
++    [Throws=RgbLibError] string observe_bridge_burn(Online? online, string request_json);
++    [Throws=RgbLibError] string cancel_bridge_burn(Online? online, string request_json);
++    [Throws=RgbLibError] string bridge_burn_proof(string request_json);
+     [Throws=RgbLibError] string cancel_onchain_send(Online? online, string request_json);
+     [Throws=RgbLibError] string revoke_onchain_send(Online online, string request_json);
+ 
+diff --git a/src/wallet/durable_bridge.rs b/src/wallet/durable_bridge.rs
+new file mode 100644
+index 0000000..210ceea
+--- /dev/null
++++ b/src/wallet/durable_bridge.rs
+@@ -0,0 +1,669 @@
++//! Native request binding for the Dev bridge. Request IDs are host-generated
++//! from an authenticated session and survive process restarts.
++use super::*;
++use base64::{Engine, engine::general_purpose::STANDARD};
++use tiny_keccak::{Hasher, Keccak};
++
++const DEV_BUSDT: &str = "rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE";
++const DEV_INDEXER: &str = "https://dev.esplora-01.mint.utexo.com";
++const DEV_PROXY: &str = "rpcs://dev.rgb-proxy.utexo.com/json-rpc";
++const MAX_BRIDGE_FEE: u64 = 5_000;
++const MAX_PROOF: u64 = 10 * 1024 * 1024;
++const MAX_REQUEST: usize = 4_096;
++
++#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub(super) struct BridgeBurnRequest {
++    pub(super) operation_id: String,
++    pub(super) scope_key: String,
++    pub(super) request_key: String,
++    pub(super) asset_id: String,
++    pub(super) amount: String,
++    pub(super) fee_rate: String,
++    pub(super) min_confirmations: u8,
++    pub(super) recipient_address: String,
++    pub(super) destination_commitment: String,
++}
++
++#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct BridgeBlindRequest {
++    operation_id: String,
++    scope_key: String,
++    request_key: String,
++    asset_id: String,
++    amount: Option<String>,
++    duration_seconds: u32,
++    min_confirmations: u8,
++    transport_endpoint: String,
++}
++
++#[derive(Deserialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct BridgeProofRequest {
++    scope_key: String,
++    asset_id: String,
++    txid: String,
++}
++
++#[derive(Deserialize, Serialize)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++struct BlindReceipt {
++    request: BridgeBlindRequest,
++    invoice: String,
++    recipient_id: String,
++    expiration_timestamp: String,
++    batch_transfer_idx: i32,
++    public_key: String,
++}
++
++fn parse_bridge<T: serde::de::DeserializeOwned>(raw: &str) -> Result<T, Error> {
++    if raw.len() > MAX_REQUEST {
++        return Err(fail("RECOVERY_REQUEST_INVALID"));
++    }
++    serde_json::from_str(raw).map_err(|_| fail("RECOVERY_REQUEST_INVALID"))
++}
++
++fn identifiers(id: &str, scope: &str, request: &str, asset: &str) -> Result<(), Error> {
++    if !hex(id, 32)
++        || !hex(scope, 64)
++        || !hex(request, 64)
++        || asset.len() > 128
++        || ContractId::from_str(asset).is_err()
++    {
++        return Err(fail("RECOVERY_REQUEST_INVALID"));
++    }
++    Ok(())
++}
++
++fn keccak(value: &[u8]) -> [u8; 32] {
++    let mut hash = Keccak::v256();
++    hash.update(value);
++    let mut digest = [0; 32];
++    hash.finalize(&mut digest);
++    digest
++}
++
++fn direct_arbitrum_commitment(address: &str) -> Result<String, Error> {
++    let Some(address) = address.strip_prefix("0x") else {
++        return Err(fail("RECOVERY_REQUEST_INVALID"));
++    };
++    if !hex(address, 40) || address.bytes().all(|c| c == b'0') {
++        return Err(fail("RECOVERY_REQUEST_INVALID"));
++    }
++    let recipient = hex::decode(address).map_err(storage)?;
++    let mut tuple = [0; 128];
++    tuple[..32].copy_from_slice(&keccak(
++        b"UtexoBurnDestinationV1(uint64 destinationChainId,uint32 dstEid,bytes recipient)",
++    ));
++    tuple[56..64].copy_from_slice(&42161u64.to_be_bytes());
++    tuple[96..].copy_from_slice(&keccak(&recipient));
++    Ok(hex::encode(keccak(&tuple)))
++}
++
++impl BridgeBurnRequest {
++    pub(super) fn validate(&self) -> Result<(), Error> {
++        identifiers(
++            &self.operation_id,
++            &self.scope_key,
++            &self.request_key,
++            &self.asset_id,
++        )?;
++        decimal(&self.amount, true)?;
++        if self.min_confirmations < 6
++            || decimal(&self.fee_rate, true)? > 1000
++            || self.destination_commitment != direct_arbitrum_commitment(&self.recipient_address)?
++        {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        Ok(())
++    }
++}
++
++fn bridge_eligible(outbox: &Outbox, asset: &str, endpoint: Option<&str>) -> Result<(), Error> {
++    if outbox.restored_snapshot {
++        return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
++    }
++    let hosted = outbox.network == "utexo"
++        && asset == DEV_BUSDT
++        && endpoint.is_none_or(|value| value == DEV_PROXY);
++    // Local bridge qualification accepts only the regtest resolver and a numeric
++    // loopback proxy. The mobile host grants no bridge permissions in Regtest.
++    let local = outbox.network == "regtest"
++        && endpoint.is_none_or(|value| {
++            let Some(address) = value.strip_prefix("rpc://") else {
++                return false;
++            };
++            is_loopback_url(&format!("http://{address}"))
++        });
++    if !hosted && !local {
++        return Err(fail("BRIDGE_DEPLOYMENT_UNQUALIFIED"));
++    }
++    Ok(())
++}
++
++fn is_loopback_url(value: &str) -> bool {
++    reqwest::Url::parse(value).ok().is_some_and(|url| {
++        url.scheme() == "http"
++            && url.host_str() == Some("127.0.0.1")
++            && url.port().is_some()
++            && url.username().is_empty()
++            && url.password().is_none()
++            && url.query().is_none()
++            && url.fragment().is_none()
++    })
++}
++
++fn require_bridge_online(wallet: &Wallet, outbox: &Outbox, online: Online) -> Result<(), Error> {
++    wallet.check_online(online)?;
++    wallet.require_recovery_online_profile(&outbox.network)?;
++    let indexer = &wallet
++        .online_data()
++        .as_ref()
++        .ok_or(Error::Offline)?
++        .indexer_config;
++    let allowed = match (outbox.network.as_str(), indexer) {
++        ("utexo", IndexerConfig::DevSignetEsplora { url }) => url == DEV_INDEXER,
++        ("regtest", IndexerConfig::Esplora { url }) => is_loopback_url(url),
++        _ => false,
++    };
++    if allowed {
++        Ok(())
++    } else {
++        Err(fail("BRIDGE_DEPLOYMENT_UNQUALIFIED"))
++    }
++}
++
++fn require_bridge_asset(wallet: &Wallet, asset: &str) -> Result<(), Error> {
++    if wallet.get_asset_metadata(asset.into())?.asset_schema != AssetSchema::Bfa {
++        return Err(fail("BRIDGE_DEPLOYMENT_UNQUALIFIED"));
++    }
++    Ok(())
++}
++
++fn blind_receipt_mac(store: &Store, outbox: &Outbox, receipt: &str) -> Result<String, Error> {
++    use hmac::{Hmac, KeyInit, Mac};
++    let mut mac =
++        <Hmac<sha2::Sha256> as KeyInit>::new_from_slice(&store.key[..]).map_err(storage)?;
++    mac.update(b"flutter-bridge-blind-v1:");
++    mac.update(outbox.cohort.as_bytes());
++    mac.update(receipt.as_bytes());
++    Ok(hex::encode(mac.finalize().into_bytes()))
++}
++
++fn bridge_blind_row(
++    txn: &DbTxn,
++    store: &Store,
++    outbox: &Outbox,
++    request: &BridgeBlindRequest,
++) -> Result<Option<String>, Error> {
++    let table = block_on(txn.inner().query_one_raw(Statement::from_string(
++        DbBackend::Sqlite,
++        "SELECT name FROM sqlite_master WHERE type='table' AND name='flutter_bridge_blind_v1'",
++    )))
++    .map_err(storage)?;
++    if table.is_none() {
++        return Ok(None);
++    }
++    let row = block_on(txn.inner().query_one_raw(Statement::from_sql_and_values(
++        DbBackend::Sqlite,
++        "SELECT receipt,mac FROM flutter_bridge_blind_v1 WHERE operation_id=?",
++        [request.operation_id.clone().into()],
++    )))
++    .map_err(storage)?;
++    let Some(row) = row else {
++        return Ok(None);
++    };
++    let raw: String = row.try_get("", "receipt").map_err(storage)?;
++    let mac: String = row.try_get("", "mac").map_err(storage)?;
++    if raw.len() > 16000 || blind_receipt_mac(store, outbox, &raw)? != mac {
++        return Err(storage("bridge invoice receipt authentication"));
++    }
++    let receipt: BlindReceipt = serde_json::from_str(&raw).map_err(storage)?;
++    if receipt.request != *request {
++        return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++    }
++    if decimal(&receipt.expiration_timestamp, true)?
++        <= std::cmp::max(time::OffsetDateTime::now_utc().unix_timestamp(), 0) as u64
++    {
++        return Err(fail("BRIDGE_INVOICE_EXPIRED"));
++    }
++    Ok(Some(blind_response(&receipt)))
++}
++
++fn blind_response(r: &BlindReceipt) -> String {
++    json!({
++        "operationId":r.request.operation_id,
++        "scopeKey":r.request.scope_key,
++        "requestKey":r.request.request_key,
++        "assetId":r.request.asset_id,
++        "invoice":r.invoice,
++        "recipientId":r.recipient_id,
++        "expirationTimestamp":r.expiration_timestamp,
++        "batchTransferIdx":r.batch_transfer_idx,
++        "publicKey":r.public_key,
++        "minConfirmations":r.request.min_confirmations
++    })
++    .to_string()
++}
++
++impl Wallet {
++    pub(super) fn inspect_bridge_burn_plan(
++        &self,
++        txn: &DbTxn,
++        raw: &str,
++        info: &InfoBatchTransfer,
++        psbt: &Psbt,
++        directory: &Path,
++        burn: &BridgeBurnRequest,
++    ) -> Result<(), Error> {
++        bridge_fee(psbt)?;
++        if info.min_confirmations != burn.min_confirmations
++            || info.donation
++            || info.transfers.len() != 1
++            || info.sender_transport_endpoint.is_some()
++            || !info.is_operation(&TypeOfTransition::Burn)
++        {
++            return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++        }
++        let fascia = directory.join(FASCIA_FILE);
++        let inspection = self.inspect_rgb_transfer_impl(
++            txn,
++            raw.into(),
++            fascia
++                .to_str()
++                .ok_or_else(|| storage("fascia path"))?
++                .into(),
++            info.entropy,
++        )?;
++        if !burn_inspection_matches(
++            &inspection,
++            burn,
++            &psbt.unsigned_tx.compute_txid().to_string(),
++            true,
++        ) {
++            return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++        }
++        Ok(())
++    }
++
++    /// Create a blind invoice exactly once, or read the durable receipt without
++    /// allocating an output, reserving a proxy recipient or replaying a request.
++    pub fn bridge_blind_receive(
++        &mut self,
++        online: Option<Online>,
++        raw: String,
++        recovery_only: bool,
++    ) -> Result<String, Error> {
++        let request: BridgeBlindRequest = parse_bridge(&raw)?;
++        identifiers(
++            &request.operation_id,
++            &request.scope_key,
++            &request.request_key,
++            &request.asset_id,
++        )?;
++        if !(3600..=604800).contains(&request.duration_seconds) || request.min_confirmations < 3 {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        let assignment = match request.amount.as_deref() {
++            Some(amount) => Assignment::Fungible(decimal(amount, true)?),
++            None => Assignment::Any,
++        };
++        let store = Store::open(self, false)?;
++        let outbox = store.read(self)?;
++        bridge_eligible(
++            &outbox,
++            &request.asset_id,
++            Some(&request.transport_endpoint),
++        )?;
++        require_bridge_asset(self, &request.asset_id)?;
++        let txn = self.database().begin_transaction()?;
++        if let Some(reply) = bridge_blind_row(&txn, &store, &outbox, &request)? {
++            txn.commit()?;
++            return Ok(reply);
++        }
++        if recovery_only {
++            txn.commit()?;
++            return Ok("null".into());
++        }
++        let online = online.ok_or(Error::Offline)?;
++        require_bridge_online(self, &outbox, online)?;
++        if outbox.records.iter().any(|record| !record.terminal()) {
++            return Err(fail("RECOVERY_PENDING"));
++        }
++        block_on(txn.inner().execute_raw(Statement::from_string(
++            DbBackend::Sqlite,
++            "CREATE TABLE IF NOT EXISTS flutter_bridge_blind_v1 (operation_id TEXT PRIMARY KEY, receipt TEXT NOT NULL, mac TEXT NOT NULL) WITHOUT ROWID",
++        ))).map_err(storage)?;
++        let count = block_on(txn.inner().query_one_raw(Statement::from_string(
++            DbBackend::Sqlite,
++            "SELECT COUNT(*) AS size FROM flutter_bridge_blind_v1",
++        )))
++        .map_err(storage)?
++        .ok_or_else(|| storage("invoice receipt count"))?;
++        if count.try_get::<i64>("", "size").map_err(storage)? >= MAX_RECORDS as i64 {
++            return Err(fail("RECOVERY_CAPACITY"));
++        }
++        let expiration = time::OffsetDateTime::now_utc()
++            .unix_timestamp()
++            .checked_add(i64::from(request.duration_seconds))
++            .filter(|value| *value > 0)
++            .ok_or_else(|| fail("RECOVERY_REQUEST_INVALID"))?;
++        let native = self.create_receive_data(
++            &txn,
++            Some(online),
++            Some(request.asset_id.clone()),
++            assignment,
++            expiration,
++            vec![request.transport_endpoint.clone()],
++            RecipientType::Blind,
++            None,
++            None,
++        )?;
++        let batch = self.store_receive_transfer(&txn, &native, request.min_confirmations)?;
++        let receipt = BlindReceipt {
++            request,
++            invoice: native.invoice_string,
++            recipient_id: native.recipient_id,
++            expiration_timestamp: native.expiration_timestamp.to_string(),
++            batch_transfer_idx: batch,
++            public_key: hex::encode(native.recipient_pubkey),
++        };
++        let raw = serde_json::to_string(&receipt).map_err(storage)?;
++        let mac = blind_receipt_mac(&store, &outbox, &raw)?;
++        block_on(txn.inner().execute_raw(Statement::from_sql_and_values(
++            DbBackend::Sqlite,
++            "INSERT INTO flutter_bridge_blind_v1 VALUES (?,?,?)",
++            [
++                receipt.request.operation_id.clone().into(),
++                raw.into(),
++                mac.into(),
++            ],
++        )))
++        .map_err(storage)?;
++        self.update_backup_info(&txn, false)?;
++        self.persist_and_commit(txn)?;
++        Ok(blind_response(&receipt))
++    }
++
++    fn bridge_burn_envelope(&self, raw: &str, online: Option<Online>) -> Result<Envelope, Error> {
++        let burn: BridgeBurnRequest = parse_bridge(raw)?;
++        burn.validate()?;
++        let store = Store::open(self, false)?;
++        let outbox = store.read(self)?;
++        bridge_eligible(&outbox, &burn.asset_id, None)?;
++        require_bridge_asset(self, &burn.asset_id)?;
++        if let Some(online) = online {
++            require_bridge_online(self, &outbox, online)?;
++        }
++        let mut envelope = Envelope {
++            version: 3,
++            backend: "RGB_L1".into(),
++            network: outbox.network,
++            wallet_binding: outbox.wallet_binding,
++            recovery_cohort: outbox.cohort,
++            native_source_revision: SOURCE.into(),
++            native_overlay: OVERLAY.into(),
++            request: Request {
++                version: 2,
++                operation_id: burn.operation_id.clone(),
++                kind: Kind::Burn,
++                amount: burn.amount.clone(),
++                fee_rate: burn.fee_rate.clone(),
++                address: None,
++                asset_id: Some(burn.asset_id.clone()),
++                recipient_id: None,
++                transport_endpoints: vec![],
++                sender_transport_endpoint: None,
++                witness_amount_sat: None,
++                witness_blinding: None,
++                min_confirmations: burn.min_confirmations,
++                donation: false,
++                expiration_timestamp: None,
++                invoice_public_key: None,
++                invoice_encryption: None,
++                bridge_burn: Some(burn),
++                fingerprint: String::new(),
++            },
++        };
++        envelope.request.fingerprint =
++            sha256::Hash::hash(&serde_json::to_vec(&envelope).map_err(storage)?).to_string();
++        envelope.validate()?;
++        Ok(envelope)
++    }
++
++    /// Plan a bounded bridge burn without submitting a Bitcoin transaction.
++    pub fn prepare_bridge_burn(&mut self, online: Online, raw: String) -> Result<String, Error> {
++        let envelope = self.bridge_burn_envelope(&raw, Some(online))?;
++        self.prepare_onchain_envelope(online, envelope)
++    }
++
++    /// Submit exactly the prepared bridge transaction with explicit authorization.
++    pub fn commit_bridge_burn(&mut self, online: Online, raw: String) -> Result<String, Error> {
++        let envelope = self.bridge_burn_envelope(&raw, Some(online))?;
++        self.commit_onchain_envelope(online, envelope)
++    }
++
++    /// Recover the original burn from its local receipt or exact chain evidence.
++    pub fn observe_bridge_burn(
++        &mut self,
++        online: Option<Online>,
++        raw: String,
++    ) -> Result<String, Error> {
++        if let Ok(lookup) = parse_bridge::<BridgeProofRequest>(&raw) {
++            let store = Store::open(self, false)?;
++            let outbox = store.read(self)?;
++            bridge_eligible(&outbox, &lookup.asset_id, None)?;
++            let Some(record) = lookup.accepted(&outbox)? else {
++                return Ok("null".into());
++            };
++            let mut response = record.response();
++            if let Some(online) = online {
++                require_bridge_online(self, &outbox, online)?;
++                response["confirmations"] =
++                    json!(self.indexer().get_tx_confirmations(&lookup.txid)?);
++            }
++            return Ok(response.to_string());
++        }
++        let envelope = self.bridge_burn_envelope(&raw, online)?;
++        self.observe_onchain_envelope(online, envelope)
++    }
++
++    /// Cancel a bridge burn only before any broadcast could have taken place.
++    pub fn cancel_bridge_burn(
++        &mut self,
++        online: Option<Online>,
++        raw: String,
++    ) -> Result<String, Error> {
++        let envelope = self.bridge_burn_envelope(&raw, online)?;
++        self.cancel_onchain_envelope(online, envelope, false)
++    }
++
++    /// Export only a native-owned, accepted, independently verified BFA burn.
++    pub fn bridge_burn_proof(&self, raw: String) -> Result<String, Error> {
++        let request: BridgeProofRequest = parse_bridge(&raw)?;
++        let store = Store::open(self, false)?;
++        let outbox = store.read(self)?;
++        bridge_eligible(&outbox, &request.asset_id, None)?;
++        let record = request.accepted(&outbox)?.ok_or_else(proof_error)?;
++        let burn = record.bridge_burn.as_ref().ok_or_else(proof_error)?;
++        let rows = self.list_transfers(
++            AssetFilter::Id(request.asset_id.clone()),
++            TransferScope::Txid(request.txid.clone()),
++        )?;
++        let mut rows = rows.iter().filter(|row| {
++            row.kind == TransferKind::Burn
++                && Some(row.batch_transfer_idx) == record.batch_transfer_index
++                && matches!(
++                    row.status,
++                    TransferStatus::WaitingConfirmations | TransferStatus::Settled
++                )
++                && row.txid.as_deref() == Some(&request.txid)
++        });
++        let row = rows.next().ok_or_else(proof_error)?;
++        if rows.next().is_some() {
++            return Err(proof_error());
++        }
++        let path = Path::new(row.consignment_path.as_deref().ok_or_else(proof_error)?);
++        let root = self.get_wallet_dir();
++        if path.canonicalize().map_err(|_| proof_error())? != path || !path.starts_with(&root) {
++            return Err(proof_error());
++        }
++        let mut file = OpenOptions::new()
++            .read(true)
++            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
++            .open(path)
++            .map_err(|_| proof_error())?;
++        let meta = file.metadata().map_err(|_| proof_error())?;
++        if !meta.is_file() || meta.nlink() != 1 || meta.len() > MAX_PROOF {
++            return Err(proof_error());
++        }
++        let mut bytes = Vec::new();
++        Read::by_ref(&mut file)
++            .take(MAX_PROOF + 1)
++            .read_to_end(&mut bytes)
++            .map_err(storage)?;
++        if bytes.is_empty() || bytes.len() as u64 > MAX_PROOF {
++            return Err(proof_error());
++        }
++        let digest = sha256::Hash::hash(&bytes).to_string();
++        let batch = record.batch_transfer_index.ok_or_else(proof_error)?;
++        let txn = self.database().begin_transaction()?;
++        let db_rows = txn.get_transfers_for_asset(batch, &request.asset_id)?;
++        if db_rows.len() != 1
++            || db_rows[0].consignment_hash.as_deref() != Some(digest.as_str())
++        {
++            return Err(proof_error());
++        }
++        txn.commit()?;
++        // The inspector reads an immutable private copy of the exact response bytes.
++        let mut checked = tempfile::NamedTempFile::new_in(root).map_err(storage)?;
++        checked.write_all(&bytes).map_err(storage)?;
++        inspect_bridge_proof(checked.path(), burn, &request.txid)?;
++        let mut response = record.response();
++        response["data"] = Value::String(STANDARD.encode(&bytes));
++        response["sha256"] = Value::String(digest);
++        Ok(response.to_string())
++    }
++}
++
++impl BridgeProofRequest {
++    fn accepted<'a>(&self, outbox: &'a Outbox) -> Result<Option<&'a Record>, Error> {
++        if !hex(&self.scope_key, 64) || !hex(&self.txid, 64) {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        let mut records = outbox.records.iter().filter(|r| {
++            r.kind == Kind::Burn
++                && r.phase == Phase::Accepted
++                && r.txid.as_deref() == Some(&self.txid)
++                && r.bridge_burn
++                    .as_ref()
++                    .is_some_and(|b| b.scope_key == self.scope_key && b.asset_id == self.asset_id)
++        });
++        let record = records.next();
++        if records.next().is_some() {
++            return Err(proof_error());
++        }
++        Ok(record)
++    }
++}
++
++pub(super) fn inspect_bridge_proof(
++    path: &Path,
++    burn: &BridgeBurnRequest,
++    txid: &str,
++) -> Result<(), Error> {
++    let meta = fs::symlink_metadata(path).map_err(|_| proof_error())?;
++    if !meta.is_file() || meta.nlink() != 1 || meta.len() == 0 || meta.len() > MAX_PROOF {
++        return Err(proof_error());
++    }
++    let inspection = crate::no_wallet::inspect_consignment(
++        path.to_str().ok_or_else(proof_error)?.into(),
++        crate::no_wallet::BundleFilter::Witness(txid.into()),
++    )
++    .map_err(|_| proof_error())?;
++    if !inspection.is_transfer
++        || inspection.asset_id != burn.asset_id
++        || inspection.asset_schema != AssetSchema::Bfa
++        || inspection.witnesses.len() != 1
++        || !burn_inspection_matches(&inspection.witnesses[0], burn, txid, false)
++    {
++        return Err(proof_error());
++    }
++    Ok(())
++}
++
++fn proof_error() -> Error {
++    fail("BRIDGE_PROOF_UNAVAILABLE")
++}
++
++pub(super) fn burn_inspection_matches(
++    inspection: &RgbInspection,
++    burn: &BridgeBurnRequest,
++    txid: &str,
++    wallet_plan: bool,
++) -> bool {
++    if inspection.txid != txid || inspection.operations.len() != 1 {
++        return false;
++    }
++    let op = &inspection.operations[0];
++    if op.asset_id != burn.asset_id
++        || (wallet_plan && op.committed_transition_count as usize != op.transitions.len())
++    {
++        return false;
++    }
++    // A partial BFA burn first splits the input into wallet change and the
++    // amount consumed by the burn. The same bundle may also preserve mint
++    // rights. Neither changes the bridge payout amount or destination.
++    let mut burns = op.transitions.iter().filter(|t| t.r#type == TypeOfTransition::Burn);
++    let Some(transition) = burns.next() else {
++        return false;
++    };
++    if burns.next().is_some()
++        || op.transitions.iter().any(|t| {
++            (!matches!(t.r#type, TypeOfTransition::Burn | TypeOfTransition::Transfer | TypeOfTransition::Propagate))
++                || (t.r#type != TypeOfTransition::Burn && !t.globals.is_empty())
++                || (wallet_plan && t.outputs.iter().any(|output| output.is_ours != Some(true)))
++        })
++    {
++        return false;
++    }
++    let mut reasons = transition.globals.iter().filter_map(|global| match global {
++        TransitionGlobal::BurnReason(reason) => Some(reason),
++        _ => None,
++    });
++    let mut amounts = transition.globals.iter().filter_map(|global| match global {
++        TransitionGlobal::BurnedAsset(amount) => Some(*amount),
++        _ => None,
++    });
++    transition.globals.len() == 2
++        && reasons.next() == Some(&burn.destination_commitment)
++        && reasons.next().is_none()
++        && amounts.next() == decimal(&burn.amount, true).ok()
++        && amounts.next().is_none()
++}
++
++pub(super) fn bridge_fee(psbt: &Psbt) -> Result<String, Error> {
++    let fee = psbt.fee().map_err(storage)?.to_sat();
++    if fee == 0 || fee > MAX_BRIDGE_FEE {
++        return Err(fail("BRIDGE_FEE_CAP_EXCEEDED"));
++    }
++    Ok(fee.to_string())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn direct_arbitrum_commitment_matches_independent_go_ethereum_vector() {
++        // WDK's bridge-burn-destination-vectors.json uses go-ethereum accounts/abi.
++        let recipient = "0x1111111111111111111111111111111111111111";
++        assert_eq!(
++            direct_arbitrum_commitment(recipient).unwrap(),
++            "65101fb7d644f69b71360617954850e0c357789253eb373dde3f0d9077f2fbc7"
++        );
++        assert!(direct_arbitrum_commitment(&format!("0x{}", "0".repeat(40))).is_err());
++        assert!(direct_arbitrum_commitment(&format!("0x41{}", "1".repeat(40))).is_err());
++    }
++}
+diff --git a/src/wallet/durable_observation.rs b/src/wallet/durable_observation.rs
+index 6f09fd6..ecc5321 100644
+--- a/src/wallet/durable_observation.rs
++++ b/src/wallet/durable_observation.rs
+@@ -192,7 +192,7 @@ impl Wallet {
+     /// `false` means no sufficient proof was obtained, never that a payment did not happen.
+     pub(crate) fn recover_submitted_onchain(
+         &mut self, online: Online, signed_psbt: &str,
+-        expected_asset: Option<&str>, expected_batch: Option<i32>,
++        expected_asset: Option<&str>, expected_batch: Option<i32>, burn: bool,
+     ) -> Result<bool, Error> {
+         let read_deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+         self.check_online(online)?;
+@@ -225,7 +225,8 @@ impl Wallet {
+         if batches.len() != 1 || batches[0].idx != expected_batch { return Err(invalid()); }
+         let existing = batches.remove(0);
+         let (_, transfer_dir, mut info, fascia) = self.get_transfer_end_data(&psbt)?;
+-        if info.donation || !info.is_operation(&TypeOfTransition::Transfer)
++        let transition = if burn { TypeOfTransition::Burn } else { TypeOfTransition::Transfer };
++        if info.donation || !info.is_operation(&transition)
+             || info.transfers.len() != 1 || !info.transfers.contains_key(asset)
+             || fascia.witness_id().to_string() != txid
+             || info.operation_secret_key != existing.operation_secret_key
+@@ -249,12 +250,27 @@ impl Wallet {
+         if recipients.is_empty() || recipients.len() > 16 { return Err(invalid()); }
+         let db_recipients = txn.get_transfers_for_asset(expected_batch, asset)?;
+         if db_recipients.len() != recipients.len() { return Err(invalid()); }
+-        for recipient in recipients {
+-            if !db_recipients.iter().any(|row| row.recipient_id.as_deref() == Some(&recipient.recipient_id)
+-                && row.recipient_pubkey.as_ref() == Some(&recipient.public_key)
+-                && row.requested_assignment.as_ref() == Some(&recipient.assignment)
+-                && row.consignment_hash.as_ref().is_none_or(|hash| hash == &pin.digest))
++        if burn {
++            // The dust output is wallet-owned, not an RGB recipient. Native
++            // burn rows instead record the exact fungible amount being burned.
++            let amount = info.transfers[asset].original_assignments_needed.fungible;
++            if recipients.len() != 1 || amount == 0 || recipients[0].assignment != Assignment::Fungible(0)
++                || !recipients[0].public_key.is_empty()
++                || !recipients[0].transport_endpoints.is_empty()
++                || db_recipients[0].recipient_id.is_some()
++                || db_recipients[0].recipient_type.is_some()
++                || db_recipients[0].recipient_pubkey.is_some()
++                || db_recipients[0].requested_assignment != Some(Assignment::Fungible(amount))
++                || db_recipients[0].consignment_hash.as_ref().is_some_and(|hash| hash != &pin.digest)
+             { return Err(invalid()); }
++        } else {
++            for recipient in recipients {
++                if !db_recipients.iter().any(|row| row.recipient_id.as_deref() == Some(&recipient.recipient_id)
++                    && row.recipient_pubkey.as_ref() == Some(&recipient.public_key)
++                    && row.requested_assignment.as_ref() == Some(&recipient.assignment)
++                    && row.consignment_hash.as_ref().is_none_or(|hash| hash == &pin.digest))
++                { return Err(invalid()); }
++            }
+         }
+         // A committed native receipt is authoritative; never regress its status on a later read.
+         if matches!(existing.status, TransferStatus::WaitingCounterparty | TransferStatus::WaitingConfirmations | TransferStatus::Settled) {
+@@ -273,7 +289,7 @@ impl Wallet {
+             self.persist_and_commit(txn)?;
+             return Ok(true);
+         }
+-        if existing.status != TransferStatus::Initiated { return Ok(false); }
++        if burn || existing.status != TransferStatus::Initiated { return Ok(false); }
+         let seed: [u8; 32] = info.operation_secret_key.clone().and_then(|s| s.try_into().ok()).ok_or_else(invalid)?;
+         let sender = ed25519_from_seed(&seed);
+         let sender_hex = hex::encode(sender.verifying_key().to_bytes());
+diff --git a/src/wallet/durable_onchain.rs b/src/wallet/durable_onchain.rs
+index cb5b0f5..2faa751 100644
+--- a/src/wallet/durable_onchain.rs
++++ b/src/wallet/durable_onchain.rs
+@@ -21,6 +21,10 @@ use std::{
+ };
+ use zeroize::Zeroizing;
+ 
++#[path = "durable_bridge.rs"]
++mod bridge;
++use bridge::{BridgeBurnRequest, bridge_fee};
++
+ const SOURCE: &str = "9ec49c08be2e68f08521281e3efbd760ec989cb9";
+ const OVERLAY: &str = "flutter-bfa7-durable-v1";
+ const DIRECTORY: &str = ".flutter-onchain-v1";
+@@ -115,6 +119,7 @@ fn validate_recovery_indexer_profile(network: &str, indexer: &IndexerConfig) ->
+ enum Kind {
+     Bitcoin,
+     Rgb,
++    Burn,
+ }
+ #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+ #[serde(rename_all = "lowercase")]
+@@ -145,6 +150,8 @@ struct Request {
+     expiration_timestamp: Option<String>,
+     invoice_public_key: Option<String>,
+     invoice_encryption: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    bridge_burn: Option<BridgeBurnRequest>,
+     #[serde(skip_serializing_if = "String::is_empty")]
+     fingerprint: String,
+ }
+@@ -182,6 +189,7 @@ impl Envelope {
+             || !hex(&r.operation_id, 32)
+             || !hex(&r.fingerprint, 64)
+             || r.donation
++            || (r.kind == Kind::Burn) != r.bridge_burn.is_some()
+             || r.min_confirmations == 0
+         {
+             return Err(fail("RECOVERY_REQUEST_INVALID"));
+@@ -251,6 +259,20 @@ impl Envelope {
+                     }
+                 }
+             }
++            Kind::Burn => {
++                let burn = r.bridge_burn.as_ref().ok_or_else(|| fail("RECOVERY_REQUEST_INVALID"))?;
++                burn.validate()?;
++                if r.operation_id != burn.operation_id || r.amount != burn.amount
++                    || r.fee_rate != burn.fee_rate || r.asset_id.as_deref() != Some(&burn.asset_id)
++                    || r.min_confirmations != burn.min_confirmations || r.address.is_some()
++                    || r.recipient_id.is_some() || !r.transport_endpoints.is_empty()
++                    || r.sender_transport_endpoint.is_some() || r.witness_amount_sat.is_some()
++                    || r.witness_blinding.is_some() || r.expiration_timestamp.is_some()
++                    || r.invoice_public_key.is_some() || r.invoice_encryption.is_some()
++                {
++                    return Err(fail("RECOVERY_REQUEST_MISMATCH"));
++                }
++            }
+         }
+         Ok(())
+     }
+@@ -278,6 +300,10 @@ struct Record {
+     asset_id: Option<String>,
+     address: Option<String>,
+     recipient_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    bridge_burn: Option<BridgeBurnRequest>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    bridge_fee_sats: Option<String>,
+ }
+ impl Record {
+     fn new(command: Envelope) -> Self {
+@@ -290,6 +316,8 @@ impl Record {
+             asset_id: command.request.asset_id.clone(),
+             address: command.request.address.clone(),
+             recipient_id: command.request.recipient_id.clone(),
++            bridge_burn: command.request.bridge_burn.clone(),
++            bridge_fee_sats: None,
+             phase: Phase::Preparing,
+             command: Some(command),
+             txid: None,
+@@ -326,6 +354,18 @@ impl Record {
+         {
+             return Err(storage("receipt summary"));
+         }
++        if let Some(burn) = &self.bridge_burn {
++            burn.validate().map_err(storage)?;
++            if self.kind != Kind::Burn || self.operation_id != burn.operation_id
++                || self.asset_id.as_deref() != Some(&burn.asset_id)
++                || self.amount != burn.amount || self.fee_rate != burn.fee_rate
++                || (self.txid.is_some() != self.bridge_fee_sats.is_some())
++            {
++                return Err(storage("bridge burn receipt identity"));
++            }
++        } else if self.kind == Kind::Burn || self.bridge_fee_sats.is_some() {
++            return Err(storage("bridge burn receipt missing"));
++        }
+         if let Some(command) = &self.command {
+             command.validate().map_err(storage)?;
+             if self.amount != command.request.amount
+@@ -333,6 +373,7 @@ impl Record {
+                 || self.asset_id != command.request.asset_id
+                 || self.address != command.request.address
+                 || self.recipient_id != command.request.recipient_id
++                || self.bridge_burn != command.request.bridge_burn
+             {
+                 return Err(storage("receipt approval mismatch"));
+             }
+@@ -360,6 +401,11 @@ impl Record {
+                     return Err(storage("PSBT size"));
+                 }
+                 let unsigned = Psbt::from_str(raw).map_err(storage)?;
++                if self.kind == Kind::Burn
++                    && self.bridge_fee_sats.as_deref() != Some(bridge_fee(&unsigned).map_err(storage)?.as_str())
++                {
++                    return Err(storage("bridge burn fee"));
++                }
+                 if self.txid.as_deref()
+                     != Some(unsigned.unsigned_tx.compute_txid().to_string().as_str())
+                     || (self.kind == Kind::Bitcoin) != self.batch_transfer_index.is_none()
+@@ -405,6 +451,16 @@ impl Record {
+         Ok(())
+     }
+     fn response(&self) -> Value {
++        if let Some(burn) = &self.bridge_burn {
++            return json!({
++                "operationId": self.operation_id, "scopeKey": burn.scope_key,
++                "requestKey": burn.request_key, "assetId": burn.asset_id, "amount": burn.amount,
++                "feeRate": burn.fee_rate, "minConfirmations": burn.min_confirmations,
++                "recipientAddress": burn.recipient_address, "destinationCommitment": burn.destination_commitment,
++                "phase": self.phase, "txid": self.txid, "batchTransferIdx": self.batch_transfer_index,
++                "feeSats": self.bridge_fee_sats, "failureCode": self.failure_code,
++            });
++        }
+         json!({"version":1,"operationId":self.operation_id,"fingerprint":self.fingerprint,"kind":self.kind,"phase":self.phase,"txid":self.txid,"batchTransferIndex":self.batch_transfer_index,"failureCode":self.failure_code,"endAuthorized":matches!(self.phase,Phase::Committing|Phase::Accepted)})
+     }
+     fn finish(&mut self, accepted: bool, code: Option<&str>) {
+@@ -423,6 +479,7 @@ impl Record {
+             self.dispatch_started = false;
+             self.txid = None;
+             self.batch_transfer_index = None;
++            self.bridge_fee_sats = None;
+         }
+     }
+ }
+@@ -883,7 +940,7 @@ impl Wallet {
+         let store = Store::open(self, false)?;
+         let outbox = store.read(self)?;
+         let mut pending = Vec::new();
+-        for record in outbox.records.iter().filter(|r| !r.terminal()) {
++        for record in outbox.records.iter().filter(|r| !r.terminal() && r.kind != Kind::Burn) {
+             let command = record
+                 .command
+                 .as_ref()
+@@ -892,7 +949,7 @@ impl Wallet {
+             value["commandJson"] = Value::String(serde_json::to_string(command).map_err(storage)?);
+             pending.push(value);
+         }
+-        Ok(json!({"version":1,"walletBinding":outbox.wallet_binding,"cohort":outbox.cohort,"restoredSnapshot":outbox.restored_snapshot,"pending":pending,"retainedReceipts":outbox.records.iter().filter(|r|r.terminal()).count()}).to_string())
++        Ok(json!({"version":1,"walletBinding":outbox.wallet_binding,"cohort":outbox.cohort,"restoredSnapshot":outbox.restored_snapshot,"pending":pending,"pendingBridgeBurn":outbox.records.iter().any(|r|r.kind == Kind::Burn && !r.terminal()),"retainedReceipts":outbox.records.iter().filter(|r|r.terminal() && r.kind != Kind::Burn).count()}).to_string())
+     }
+     /// Paginated, authenticated submission receipts. These do not imply confirmations.
+     pub fn list_onchain_send_receipts(&self, offset: u32, limit: u16) -> Result<String, Error> {
+@@ -905,7 +962,7 @@ impl Wallet {
+             .records
+             .iter()
+             .rev()
+-            .filter(|r| r.phase == Phase::Accepted)
++            .filter(|r| r.phase == Phase::Accepted && r.kind != Kind::Burn)
+             .collect();
+         let receipts = accepted
+             .iter()
+@@ -1109,6 +1166,13 @@ impl Wallet {
+                     _ => return Err(fail("RECOVERY_REQUEST_MISMATCH")),
+                 }
+             }
++            Kind::Burn => {
++                let (_, directory, info, _) = self.get_transfer_end_data(&psbt)?;
++                let burn = r.bridge_burn.as_ref().ok_or_else(|| storage("bridge burn"))?;
++                let txn = self.database().begin_transaction()?;
++                self.inspect_bridge_burn_plan(&txn, raw, &info, &psbt, &directory, burn)?;
++                txn.commit()?;
++            }
+         }
+         let mut external_count = 0;
+         for output in &psbt.unsigned_tx.output {
+@@ -1119,7 +1183,7 @@ impl Wallet {
+                 external_count += 1;
+                 continue;
+             }
+-            if output.script_pubkey.is_op_return() && r.kind == Kind::Rgb {
++            if output.script_pubkey.is_op_return() && r.kind != Kind::Bitcoin {
+                 continue;
+             }
+             if !self.bdk_wallet().is_mine(output.script_pubkey.clone()) {
+@@ -1149,7 +1213,7 @@ impl Wallet {
+                         .transactions()
+                         .any(|t| t.tx_node.txid.to_string() == txid)
+             }
+-            Kind::Rgb => {
++            Kind::Rgb | Kind::Burn => {
+                 let rows = txn.get_batch_transfers_by_txid(txid)?;
+                 let rows: Vec<_> = rows
+                     .into_iter()
+@@ -1177,13 +1241,21 @@ impl Wallet {
+         online: Option<Online>,
+         raw: String,
+     ) -> Result<String, Error> {
+-        let e = Envelope::parse(&raw)?;
++        let envelope = Envelope::parse(&raw)?;
++        if envelope.request.kind == Kind::Burn {
++            return Err(fail("RECOVERY_REQUEST_INVALID"));
++        }
++        self.observe_onchain_envelope(online, envelope)
++    }
++
++    fn observe_onchain_envelope(&mut self, online: Option<Online>, e: Envelope) -> Result<String, Error> {
+         let store = Store::open(self, false)?;
+         let mut outbox = store.read(self)?;
+         let Some(i) = outbox.index(&e)? else {
+             if outbox.restored_snapshot {
+                 return Err(fail("RECOVERY_RESTORE_UNCERTAIN"));
+             }
++            if e.request.kind == Kind::Burn { return Ok("null".into()); }
+             return Ok(json!({"version":1,"operationId":e.request.operation_id,"fingerprint":null,"kind":null,"phase":"absent","txid":null,"batchTransferIndex":null,"failureCode":null,"endAuthorized":false}).to_string());
+         };
+         if outbox.records[i].unsigned_psbt.is_some() {
+@@ -1204,6 +1276,7 @@ impl Wallet {
+                     record.signed_psbt.as_deref().unwrap(),
+                     asset,
+                     record.batch_transfer_index,
++                    record.kind == Kind::Burn,
+                 )? {
+                     outbox.records[i].finish(true, None);
+                     accepted = true;
+@@ -1238,6 +1311,7 @@ impl Wallet {
+                         .ok_or_else(|| storage("signed plan"))?,
+                     asset,
+                     record.batch_transfer_index,
++                    record.kind == Kind::Burn,
+                 )? {
+                     outbox.records[i].finish(true, None);
+                     accepted = true;
+@@ -1254,8 +1328,13 @@ impl Wallet {
+     }
+     /// Prepare exactly one durable transaction, before any commit authorization exists.
+     pub fn prepare_onchain_send(&mut self, online: Online, raw: String) -> Result<String, Error> {
++        let envelope = Envelope::parse(&raw)?;
++        if envelope.request.kind == Kind::Burn { return Err(fail("RECOVERY_REQUEST_INVALID")); }
++        self.prepare_onchain_envelope(online, envelope)
++    }
++
++    fn prepare_onchain_envelope(&mut self, online: Online, e: Envelope) -> Result<String, Error> {
+         self.check_xprv()?;
+-        let e = Envelope::parse(&raw)?;
+         let store = Store::open(self, false)?;
+         let mut outbox = store.read(self)?;
+         if outbox.restored_snapshot {
+@@ -1369,6 +1448,24 @@ impl Wallet {
+                     )
+                     .map(|_| ())
+                 }
++                Kind::Burn => {
++                    let burn = request.bridge_burn.as_ref().ok_or_else(|| storage("bridge burn"))?;
++                    (|| {
++                        self.check_online(online)?;
++                        let txn = self.database().begin_transaction()?;
++                        let plan = self.burn_begin_impl(
++                            &txn, burn.asset_id.clone(), amount, Some(burn.destination_commitment.clone()),
++                            fee, burn.min_confirmations, false,
++                        )?;
++                        let raw = plan.psbt.to_string();
++                        self.inspect_bridge_burn_plan(&txn, &raw, &plan.info_batch_transfer,
++                            &plan.psbt, &plan.transfer_dir, burn)?;
++                        sync_tree(&plan.transfer_dir, 0)?;
++                        persist_plan(&store, &mut outbox, i, &raw, plan.batch_transfer_idx, &txn)?;
++                        self.update_backup_info(&txn, false)?;
++                        self.persist_and_commit(txn)
++                    })()
++                }
+             };
+             if let Err(error) = prepared {
+                 let r = &mut outbox.records[i];
+@@ -1406,8 +1503,13 @@ impl Wallet {
+     }
+     /// Authorize End once and persist its exact identity before any external submission.
+     pub fn commit_onchain_send(&mut self, online: Online, raw: String) -> Result<String, Error> {
++        let envelope = Envelope::parse(&raw)?;
++        if envelope.request.kind == Kind::Burn { return Err(fail("RECOVERY_REQUEST_INVALID")); }
++        self.commit_onchain_envelope(online, envelope)
++    }
++
++    fn commit_onchain_envelope(&mut self, online: Online, e: Envelope) -> Result<String, Error> {
+         self.check_xprv()?;
+-        let e = Envelope::parse(&raw)?;
+         let store = Store::open(self, false)?;
+         let mut outbox = store.read(self)?;
+         if outbox.restored_snapshot {
+@@ -1446,7 +1548,24 @@ impl Wallet {
+         let psbt = Psbt::from_str(&signed).map_err(storage)?;
+         let result = (|| {
+             let txn = self.database().begin_transaction()?;
+-            let kind = outbox.records[i].kind;
++            let record = &outbox.records[i];
++            let kind = record.kind;
++            let bridge_burn = record.bridge_burn.clone();
++            let bridge_proof_path = if let Some(burn) = &bridge_burn {
++                let txid = record.txid.as_deref().ok_or_else(|| storage("txid"))?;
++                Some(self.get_asset_transfer_dir(&self.get_transfer_dir(txid), &burn.asset_id)
++                    .join(CONSIGNMENT_FILE))
++            } else { None };
++            if kind == Kind::Burn {
++                let txid = record.txid.as_deref().ok_or_else(|| storage("txid"))?;
++                let batches = txn.get_batch_transfers_by_txid(txid)?;
++                if batches.len() != 1 || batches[0].incoming
++                    || Some(batches[0].idx) != record.batch_transfer_index
++                    || batches[0].status != TransferStatus::Initiated
++                {
++                    return Err(fail("RECOVERY_PENDING"));
++                }
++            }
+             let mut before_submit = |txn: &DbTxn| {
+                 outbox.records[i].dispatch_started = true;
+                 store.write_in(&outbox, Some(txn))
+@@ -1458,6 +1577,17 @@ impl Wallet {
+                 Kind::Rgb => self
+                     .send_end_impl_with_durable_callback(&txn, &psbt, &mut before_submit)
+                     .map(|r| (r.txid, Some(r.batch_transfer_idx))),
++                Kind::Burn => self
++                    .end_without_recipient_with_durable_callback(
++                        &txn, &psbt, TypeOfTransition::Burn, true, |txn, _| {
++                            let burn = bridge_burn.as_ref().ok_or_else(|| storage("bridge burn"))?;
++                            let proof_path = bridge_proof_path.as_deref().ok_or_else(|| storage("bridge proof"))?;
++                            bridge::inspect_bridge_proof(
++                                proof_path, burn, &psbt.unsigned_tx.compute_txid().to_string(),
++                            )?;
++                            before_submit(txn)
++                        },
++                    ).map(|(r, _)| (r.txid, Some(r.batch_transfer_idx))),
+             }?;
+             self.update_backup_info(&txn, false)?;
+             self.persist_and_commit(txn)?;
+@@ -1466,7 +1596,7 @@ impl Wallet {
+         match result {
+             Ok((id, batch)) => {
+                 if Some(id) != outbox.records[i].txid
+-                    || (outbox.records[i].kind == Kind::Rgb
++                    || (outbox.records[i].kind != Kind::Bitcoin
+                         && batch != outbox.records[i].batch_transfer_index)
+                 {
+                     return Err(storage("accepted plan mismatch"));
+@@ -1584,7 +1714,14 @@ impl Wallet {
+     fn cancel_onchain_send_impl(
+         &mut self, online: Option<Online>, raw: String, allow_dispatched_revocation: bool,
+     ) -> Result<String, Error> {
+-        let e = Envelope::parse(&raw)?;
++        let envelope = Envelope::parse(&raw)?;
++        if envelope.request.kind == Kind::Burn { return Err(fail("RECOVERY_REQUEST_INVALID")); }
++        self.cancel_onchain_envelope(online, envelope, allow_dispatched_revocation)
++    }
++
++    fn cancel_onchain_envelope(
++        &mut self, online: Option<Online>, e: Envelope, allow_dispatched_revocation: bool,
++    ) -> Result<String, Error> {
+         let store = Store::open(self, false)?;
+         let mut outbox = store.read(self)?;
+         if outbox.restored_snapshot {
+@@ -1640,7 +1777,7 @@ impl Wallet {
+             if self.recover_submitted_onchain(
+                 online,
+                 record.signed_psbt.as_deref().ok_or_else(|| storage("signed plan"))?,
+-                record.asset_id.as_deref(), record.batch_transfer_index,
++                record.asset_id.as_deref(), record.batch_transfer_index, false,
+             )? {
+                 outbox.records[i].finish(true, None);
+                 store.write(&outbox)?;
+@@ -1683,7 +1820,7 @@ impl Wallet {
+                         self.abort_pending_vanilla_tx(txid.clone())?;
+                     }
+                 }
+-                Kind::Rgb => {
++                Kind::Rgb | Kind::Burn => {
+                     // No End was authorized, so this exact Initiated reservation can be failed
+                     // locally. Never revoke a different batch or a progressed transfer.
+                     let txn = self.database().begin_transaction()?;
+@@ -1746,6 +1883,9 @@ fn persist_plan(
+             return Err(storage("replacement plan"));
+         }
+     }
++    if r.kind == Kind::Burn {
++        r.bridge_fee_sats = Some(bridge_fee(&psbt)?);
++    }
+     r.txid = Some(psbt.unsigned_tx.compute_txid().to_string());
+     r.batch_transfer_index = batch;
+     r.unsigned_psbt = Some(raw.into());
+@@ -1775,6 +1915,7 @@ fn prepare_error(error: &Error) -> &'static str {
+         Error::InsufficientBitcoins { .. } => "insufficient_bitcoins",
+         Error::InsufficientAssignments { .. } => "insufficient_asset_balance",
+         Error::InsufficientAllocationSlots => "insufficient_allocations",
++        Error::Recovery { code } if code == "BRIDGE_FEE_CAP_EXCEEDED" => "bridge_fee_cap_exceeded",
+         Error::InvalidFeeRate { .. }
+         | Error::MaxFeeExceeded { .. }
+         | Error::MinFeeNotMet { .. } => "invalid_fee",
+@@ -2119,6 +2260,7 @@ mod tests {
+                 expiration_timestamp: None,
+                 invoice_public_key: None,
+                 invoice_encryption: None,
++                bridge_burn: None,
+                 fingerprint: String::new(),
+             },
+         };
+diff --git a/src/wallet/online.rs b/src/wallet/online.rs
+index 8956a2b..fa0d03c 100644
+--- a/src/wallet/online.rs
++++ b/src/wallet/online.rs
+@@ -7876,6 +7876,22 @@ pub trait WalletOnline: WalletOffline {
+         signed_psbt: &Psbt,
+         main_transition: TypeOfTransition,
+     ) -> Result<(OperationResult, InfoBatchTransfer), Error> {
++        self.end_without_recipient_with_durable_callback(
++            txn, signed_psbt, main_transition, false, |_, _| Ok(()),
++        )
++    }
++
++    fn end_without_recipient_with_durable_callback<F>(
++        &mut self,
++        txn: &DbTxn,
++        signed_psbt: &Psbt,
++        main_transition: TypeOfTransition,
++        durable: bool,
++        before_submit: F,
++    ) -> Result<(OperationResult, InfoBatchTransfer), Error>
++    where
++        F: FnOnce(&DbTxn, &Path) -> Result<(), Error>,
++    {
+         super::settled_revalidation::ensure_inputs(self, txn, signed_psbt)?;
+         self.check_end_initiated(txn, signed_psbt)?;
+         let (txid, transfer_dir, info_contents, mut fascia) =
+@@ -7893,8 +7909,15 @@ pub trait WalletOnline: WalletOffline {
+             .extract_tx()
+             .map_err(InternalError::from)?;
+         fascia.update_witness_tx(tx);
+-        self.gen_consignments(txn, &fascia, &info_contents.transfers, &transfer_dir)?;
++        if durable {
++            super::durable_onchain::immutable_consignments(
++                self, txn, &fascia, &info_contents.transfers, &transfer_dir, &txid,
++            )?;
++        } else {
++            self.gen_consignments(txn, &fascia, &info_contents.transfers, &transfer_dir)?;
++        }
+         let consignment_hashes = self.consignment_hashes(&transfer_dir, &info_contents)?;
++        before_submit(txn, &transfer_dir)?;
+ 
+         let batch_transfer_idx = self.finalize_transfer_end(
+             txn,

@@ -9,6 +9,9 @@ const utexoDevSignetEvmChain = '42161';
 const utexoDevSignetEvmRpc = 'https://arb1.arbitrum.io/rpc';
 const utexoDevSignetMinMintLock = 2;
 const utexoDevSignetMaxMintLock = 7200;
+const utexoDevBridgeOrigin = 'https://dev.mint.utexo.com';
+const utexoDevBridgeAssetId =
+    'rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE';
 
 bool isUtexoDevSignetTransport(List<String> endpoints) =>
     endpoints.length == 1 && endpoints.single == utexoDevSignetProxy;
