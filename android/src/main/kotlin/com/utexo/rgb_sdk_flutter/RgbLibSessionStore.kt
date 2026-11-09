@@ -143,8 +143,10 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     }
   private fun open(p: JSONObject, existingFlagPresent: Boolean): String {
     val net = p.getString("network")
-    if (RgbLibNetworkPolicy.deploymentUnavailable(net))
-      throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
+    val deployment = p.opt("devSignetDeployment") as? String
+    if ((!p.isNull("devSignetDeployment") && deployment == null) ||
+        !RgbLibNetworkPolicy.permitsOpen(net, deployment))
+      rejectDevConfiguration()
     val existingOnly = RgbLibExistingOpenPolicy.parseFlag(p.opt("requireExisting"), existingFlagPresent)
       ?: fail("requireExisting must be a boolean")
     val witness = when (p.getString("witnessVersion")) {
@@ -176,6 +178,7 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       "masterFingerprint" to keys.third,"accountXpubVanilla" to keys.first,
       "accountXpubColored" to keys.second
     ))
+    if (deployment != null) expected.put("devSignetDeployment", deployment)
     val lease = Lease(File(p.getString("dataDir")), existingOnly)
     var wallet: Wallet? = null
     var created = false
@@ -236,8 +239,8 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         val dirs = stage.listFiles().orEmpty().filter { it.isDirectory && File(it,PROFILE).isFile }
         if (dirs.size != 1) throw RgbLibBridgeError("BACKUP_PROFILE_MISSING", "Backup does not contain an SDK RGB Lib profile")
         val profile = readProfile(File(dirs[0],PROFILE), "BACKUP_PROFILE_MISMATCH")
-        if (RgbLibNetworkPolicy.deploymentUnavailable(profile.optString("network")))
-          throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
+        if (!RgbLibNetworkPolicy.permitsOpen(profile.optString("network")))
+          rejectDevConfiguration()
         val fingerprint = profile.opt("masterFingerprint") as? String
           ?: throw RgbLibBridgeError("BACKUP_PROFILE_MISMATCH", "Invalid backup profile")
         if (profile.opt("formatVersion") != 2 || profile.opt("backend") != "rgb-lib" ||
@@ -295,10 +298,17 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
   }
   private fun send(s: Session,p: JSONObject): Any {
     val invoice = Invoice(p.getString("invoice")).use { it.invoiceData() }
-    if (invoice.network != network(s.profile.getString("network"))) fail("Invoice network does not match wallet")
+    val logical = s.profile.getString("network")
+    if (invoice.network != network(logical)) fail("Invoice network does not match wallet")
+    val sender = p.getString("senderTransportEndpoint")
+    if (!RgbLibNetworkPolicy.permitsSend(logical, invoice.transportEndpoints, sender)) rejectDevConfiguration()
     val supplied = optional(p,"assetId")
     if (supplied != null && invoice.assetId != null && supplied != invoice.assetId) fail("Asset override does not match invoice")
     val asset = invoice.assetId ?: supplied ?: fail("Asset ID is required")
+    if (logical == "utexo" && invoice.assetId == null) {
+      if (invoice.assignment != Assignment.Any) fail("An invoice without an asset must leave the assignment open")
+      s.wallet.getAssetMetadata(asset)
+    }
     val n = if (p.isNull("amount")) null else amount(p,"amount")
     val assignment = when(val a=invoice.assignment) {
       Assignment.Any -> if (n != null && n > 0UL) Assignment.Fungible(n) else fail("Amount is required")
@@ -309,14 +319,14 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     val expiry = invoice.expirationTimestamp?.let { if (it <= now + 600UL) fail("Invoice expires too soon"); it - 600UL } ?: (now+3600UL)
     val witness = if (p.isNull("witnessAmountSat")) null else WitnessData(amount(p,"witnessAmountSat"),if(p.isNull("witnessBlinding")) null else amount(p,"witnessBlinding"))
     val recipient = Recipient(invoice.recipientId,witness,assignment,invoice.transportEndpoints,invoice.publicKey,invoice.encryption,invoice.expirationTimestamp)
-    return rgbDto(s.wallet.send(online(s),mapOf(asset to listOf(recipient)),p.getBoolean("donation"),amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte(),expiry,p.getString("senderTransportEndpoint")))
+    return rgbDto(s.wallet.send(online(s),mapOf(asset to listOf(recipient)),p.getBoolean("donation"),amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte(),expiry,sender))
   }
   fun execute(operation: String, params: Map<String, Any?>): Any? {
     val p = JSONObject(params)
     when(operation) {
       "getRuntimeInfo" -> {
         val artifact = runCatching { JSONObject(artifactInfo()!!) }.getOrNull()
-        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to 5,"integrationTree" to (artifact?.optString("integration_tree") ?: ""),"overlayPatchSha256" to (artifact?.optString("overlay_patch_sha256") ?: ""),"sourceLockSha256" to (artifact?.optString("source_lock_sha256") ?: ""),"sourceManifestSha256" to (artifact?.optString("source_manifest_sha256") ?: ""),"nativeOverlay" to (artifact?.optString("native_overlay") ?: ""),"supportsExistingOnlyOpen" to true,"contractRegistration" to true,"durableOnchainRecovery" to true,"supportsDispatchedRgbRevocation" to (if (artifact?.has("dispatched_rgb_revocation") == true) artifact.opt("dispatched_rgb_revocation").takeUnless { it === JSONObject.NULL } else false),"burn" to true,"consignment" to true,"bfa" to true)
+        return mapOf("version" to (artifact?.optString("version") ?: ""),"sourceRevision" to (artifact?.optString("source_commit") ?: ""),"bridgeVersion" to 5,"integrationTree" to (artifact?.optString("integration_tree") ?: ""),"overlayPatchSha256" to (artifact?.optString("overlay_patch_sha256") ?: ""),"sourceLockSha256" to (artifact?.optString("source_lock_sha256") ?: ""),"sourceManifestSha256" to (artifact?.optString("source_manifest_sha256") ?: ""),"nativeOverlay" to (artifact?.optString("native_overlay") ?: ""),"supportsExistingOnlyOpen" to true,"supportsHostedDevSignet" to true,"contractRegistration" to true,"durableOnchainRecovery" to true,"supportsDispatchedRgbRevocation" to (if (artifact?.has("dispatched_rgb_revocation") == true) artifact.opt("dispatched_rgb_revocation").takeUnless { it === JSONObject.NULL } else false),"burn" to true,"consignment" to true,"bfa" to true)
       }
       // JSONObject(Map) drops null values. Preserve original key presence so
       // explicit null cannot silently become the legacy absent/defaultfalse.
@@ -331,9 +341,29 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       run(operation, handle, s, p)
     }
   }
+  private fun rejectDevConfiguration(): Nothing =
+    throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "The dedicated UTEXO Dev Signet configuration is required")
+
+  private fun durableRequest(s: Session, p: JSONObject): String {
+    val raw = p.getString("requestJson")
+    val logical = s.profile.getString("network")
+    if (logical == "utexo") {
+      // Canonical commands are shallow. Bound parsing before inspecting the proxy.
+      if (raw.length > 200000 || raw.count { it == '{' || it == '[' } > 32) rejectDevConfiguration()
+      val request = JSONObject(raw).getJSONObject("request")
+      if (request.getString("kind") == "rgb" && !RgbLibNetworkPolicy.permitsSend(
+          logical, strings(request, "transportEndpoints"), request.opt("senderTransportEndpoint") as? String
+        )) rejectDevConfiguration()
+    }
+    return raw
+  }
+
   private fun indexerConfig(s: Session, p: JSONObject): IndexerConfig {
-    val url=p.getString("indexerUrl")
-    val kind = RgbLibNetworkPolicy.indexerKind(s.profile.getString("network"),p.getString("indexerKind"))
+    val url = p.getString("indexerUrl")
+    val logical = s.profile.getString("network")
+    val requested = p.getString("indexerKind")
+    if (!RgbLibNetworkPolicy.permitsIndexer(logical, requested, url)) rejectDevConfiguration()
+    val kind = RgbLibNetworkPolicy.indexerKind(logical, requested)
       ?: fail("Indexer does not match the wallet chain profile")
     return when(kind) {
           "electrum" -> IndexerConfig.Electrum(url)
@@ -364,15 +394,15 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         w.getReceivedMint(recipient)?.let { rgbDto(it) }
       }
       "importContract" -> w.importContract(p.getString("contractBase64"),p.getString("expectedAssetId"))
-      "prepareOnchainSend" -> w.prepareOnchainSend(online(s),p.getString("requestJson"))
-      "commitOnchainSend" -> w.commitOnchainSend(online(s),p.getString("requestJson"))
-      "onchainSendStatus" -> w.onchainSendStatus(s.online,p.getString("requestJson"))
-      "cancelOnchainSend" -> w.cancelOnchainSend(s.online,p.getString("requestJson"))
+      "prepareOnchainSend" -> w.prepareOnchainSend(online(s),durableRequest(s,p))
+      "commitOnchainSend" -> w.commitOnchainSend(online(s),durableRequest(s,p))
+      "onchainSendStatus" -> w.onchainSendStatus(s.online,durableRequest(s,p))
+      "cancelOnchainSend" -> w.cancelOnchainSend(s.online,durableRequest(s,p))
       "revokeOnchainSend" -> {
         val artifact = runCatching { JSONObject(artifactInfo()!!) }.getOrNull()
         if (!RgbLibRevocationPolicy.isAvailable(artifact?.opt("dispatched_rgb_revocation")))
           throw RgbLibBridgeError("UNSUPPORTED_CAPABILITY", "Dispatched RGB cancellation is unavailable")
-        w.revokeOnchainSend(online(s),p.getString("requestJson"))
+        w.revokeOnchainSend(online(s),durableRequest(s,p))
       }
       "onchainRecoveryState" -> w.onchainRecoveryState()
       "listOnchainSendReceipts" -> w.listOnchainSendReceipts(number(p,"offset",0xffffffffL).toUInt(),number(p,"limit",500L).toUShort())
@@ -382,6 +412,8 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         val minimums=strings(p,"evmMinMintLockBlocks"); val maximums=strings(p,"evmMaxMintLockBlocks")
         val endpoints=strings(p,"proxyEndpoints"); val keys=strings(p,"proxyAuthKeys")
         if (ids.size != urls.size || ids.size != minimums.size || ids.size != maximums.size || endpoints.size != keys.size) fail("Configuration arrays do not match")
+        if (!RgbLibNetworkPolicy.permitsOnline(s.profile.getString("network"),
+            p.opt("proxyEndpoint") as? String,endpoints,ids,urls,minimums,maximums)) rejectDevConfiguration()
         s.online=w.goOnline(OnlineOptions(config,false,20U,86400U,endpoints.zip(keys).toMap(),ids.indices.associate { i -> ids[i].toULong() to EvmChain(urls[i],minimums[i].toULong(),maximums[i].toULong()) }))
         null
       }
@@ -396,9 +428,11 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       "createUtxos" -> w.createUtxos(online(s),p.getBoolean("upTo"),if(p.isNull("num")) null else number(p,"num",255).toUByte(),if(p.isNull("size")) null else number(p,"size",0xffffffffL).toUInt(),amount(p,"feeRate"),p.getBoolean("skipSync")).toInt()
       "sendBtc" -> w.sendBtc(online(s),p.getString("address"),amount(p,"amount"),amount(p,"feeRate"),p.getBoolean("skipSync"))
       "receive" -> {
+        val endpoints = strings(p,"transportEndpoints")
+        if (!RgbLibNetworkPolicy.permitsReceive(s.profile.getString("network"), endpoints)) rejectDevConfiguration()
         val assignment=receiveAssignment(optional(p,"assignmentKind"),if(p.isNull("amount")) null else amount(p,"amount"))
-        rgbDto(if(p.getBoolean("witness")) w.witnessReceive(s.online,optional(p,"assetId"),assignment,amount(p,"expirationTimestamp"),strings(p,"transportEndpoints"),number(p,"minConfirmations",255).toUByte(),null)
-          else w.blindReceive(s.online,optional(p,"assetId"),assignment,amount(p,"expirationTimestamp"),strings(p,"transportEndpoints"),number(p,"minConfirmations",255).toUByte(),null))
+        rgbDto(if(p.getBoolean("witness")) w.witnessReceive(s.online,optional(p,"assetId"),assignment,amount(p,"expirationTimestamp"),endpoints,number(p,"minConfirmations",255).toUByte(),null)
+          else w.blindReceive(s.online,optional(p,"assetId"),assignment,amount(p,"expirationTimestamp"),endpoints,number(p,"minConfirmations",255).toUByte(),null))
       }
       "decodeInvoice" -> Invoice(p.getString("invoice")).use { invoice ->
         val data=invoice.invoiceData()
@@ -411,14 +445,18 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       "issueAssetUda" -> rgbDto(w.issueAssetUda(p.getString("ticker"),p.getString("name"),optional(p,"details"),number(p,"precision",18).toUByte(),optional(p,"mediaFilePath"),strings(p,"attachmentsFilePaths")))
       "issueAssetIfa" -> rgbDto(w.issueAssetIfa(p.getString("ticker"),p.getString("name"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() },strings(p,"inflationAmounts").map { it.toULong() },optional(p,"rejectListUrl"),false,null))
       "inflate" -> rgbDto(w.inflate(online(s),p.getString("assetId"),strings(p,"amounts").map { it.toULong() },amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte()))
-      "burn" -> rgbDto(w.burn(online(s),p.getString("assetId"),amount(p,"amount"),optional(p,"burnReason"),amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte()))
+      "burn" -> {
+        if (!RgbLibNetworkPolicy.permitsBurn(s.profile.getString("network")))
+          throw RgbLibBridgeError("UNSUPPORTED_CAPABILITY", "Hosted Dev burns are unavailable")
+        rgbDto(w.burn(online(s),p.getString("assetId"),amount(p,"amount"),optional(p,"burnReason"),amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte()))
+      }
       "failTransfers" -> w.failTransfers(online(s),if(p.isNull("batchTransferIdx")) null else number(p,"batchTransferIdx",Int.MAX_VALUE.toLong()).toInt(),p.getBoolean("noAssetOnly"),p.getBoolean("skipSync"))
       "refresh" -> w.refresh(online(s),null,emptyList(),p.getBoolean("skipSync")).map { (id,r) -> mapOf("batchTransferIdx" to id,"updatedStatus" to r.updatedStatus?.let { rgbEnum(it) },"failure" to r.failure?.let { mapOf("name" to rgbLibErrorCode(it),"message" to "RGB Lib transfer refresh failed.") }) }
       "deleteTransfers" -> w.deleteTransfers(if(p.isNull("batchTransferIdx")) null else number(p,"batchTransferIdx",Int.MAX_VALUE.toLong()).toInt(),p.getBoolean("noAssetOnly"))
       "drainTo" -> w.drainTo(online(s),p.getString("address"),amount(p,"feeRate"))
       "checkIndexerUrl" -> {
-        if (RgbLibNetworkPolicy.deploymentUnavailable(s.profile.getString("network")))
-          throw RgbLibBridgeError("DEPLOYMENT_UNQUALIFIED", "UTEXO Dev Signet is not qualified")
+        if (!RgbLibNetworkPolicy.permitsIndexer(s.profile.getString("network"),
+            p.opt("indexerKind") as? String,p.getString("indexerUrl"))) rejectDevConfiguration()
         if (p.isNull("indexerKind")) checkIndexerUrl(p.getString("indexerUrl"),null,network(s.profile.getString("network"))).name.lowercase()
         else checkIndexerConfig(indexerConfig(s,p),network(s.profile.getString("network"))).name.lowercase()
       }

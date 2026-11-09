@@ -511,15 +511,32 @@ requiring signing. When both mnemonic and public keys are supplied, native
 validates that they describe the same wallet. Keys and read failures must stay
 out of logs and user-facing diagnostics.
 
-The gated logical `utexo` profile represents Dev Signet. Its native Bitcoin
-network is `Signet`, with an explicit Dev Signet Electrum/Esplora checkpoint
-resolver; it is never `SignetCustom` or the public Signet resolver. The logical
-profile name remains in wallet IDs, recovery cohorts and canonical commands.
-Public Signet remains a separate profile. A native `signet` invoice is compatible
-with a Dev send only after that Dev resolver has connected successfully and the
-invoice explicitly binds the selected locally registered asset; an invoice alone proves neither deployment
-nor chain. Both Dart and mobile channels reject unqualified Dev opens before
-key access. No runtime flag or test helper can open that gate.
+The logical `utexo` profile represents the hosted UTEXO Dev Signet test network.
+Use `RgbLibWalletParams(allowUtexoDevSignet: true, network: 'utexo', ...)` in a
+dedicated test build. The default is false. A current Android or iOS wrapper
+must advertise `supportsHostedDevSignet` before the SDK reads keys. An admitted
+wallet stores its deployment revision in its native profile. The logical name
+remains bound to wallet IDs, recovery cohorts and payment commands.
+
+Use Esplora `https://dev.esplora-01.mint.utexo.com`, RGB proxy
+`rpcs://dev.rgb-proxy.utexo.com/json-rpc` and Arbitrum RPC
+`https://arb1.arbitrum.io/rpc` for chain `42161` with a mint-lock range of 2 to
+7,200 backing-chain blocks. The SDK requires this exact tuple and uses the Dev
+Esplora block-one checkpoint. Public Signet uses its own checkpoint. The native
+`signet` invoice encoding is shared. A Dev durable send requires a locally
+registered asset. An open invoice can omit the asset when the sender explicitly
+selects the registered asset and enters the amount. Wallet-generated Dev receive
+invoices and both send paths require exactly one transport endpoint, the Dev
+proxy. A caller cannot activate Dev with `getRgbLibNetworkDefaults` or a legacy
+RLN wallet.
+
+The current public BFA genesis, digest and metadata are recorded in
+[`tool/dev_signet_deployment_requirements.json`](../tool/dev_signet_deployment_requirements.json).
+Register the definition with `importContract` using the exact asset ID before
+presenting it. Registration credits no balance. These APIs support a dedicated
+Dev wallet. Dev burns are unavailable, including through the optional WebRGB
+adapter. Hosted bridge pairing, mint settlement and burn payout have separate
+qualification requirements.
 
 `RgbLibIndexer` selects Electrum, Esplora or authenticated bitcoind access.
 `RgbLibUnlockParams` supplies an explicit indexer or indexer URL, a proxy
@@ -530,8 +547,11 @@ keys. BFA.7 uses `RgbLibEvmChain` entries in `evmChains`, each with `rpcUrl`,
 confirmation counts. A bare legacy `evmRpcUrls` map fails before connection;
 if retained for source compatibility, every entry must match a typed policy.
 `goOnline` applies this configuration. The first network operation can
-connect using defaults on supported public networks. Regtest requires an
-explicit online configuration.
+connect using defaults on supported public networks. Regtest and Dev Signet
+require an explicit online configuration. `estimateFeeRate` reports
+`FEE_UNAVAILABLE` when the native indexer returns no usable estimate, including
+a successfully parsed empty Esplora fee map. Connection and malformed-response
+failures remain distinct.
 
 `RgbLibWalletParams.reuseAddresses` reuses the most recently native-derived
 address only within one open session. Reopening derives through native again;

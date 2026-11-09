@@ -12,6 +12,9 @@ private struct RgbBridgeFailure: Error {
 private func rgbInvalid(_ message: String) -> RgbBridgeFailure {
   RgbBridgeFailure(code: "INVALID_CONFIG", message: message)
 }
+private func rgbUnqualifiedDev() -> RgbBridgeFailure {
+  RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "The dedicated UTEXO Dev Signet configuration is required")
+}
 /// `RGB_LIB_<Variant>`, matching the Kotlin exception subclass name for the same
 /// Rust variant. Used for rejections and for per-transfer refresh failures.
 /// The case name comes from reflection (payload cases) or the bare case text
@@ -193,8 +196,10 @@ final class RgbLibSwiftHelper {
   }
   private static func open(_ p: RgbParams) throws -> String {
     let net = try p.string("network")
-    guard !RgbLibNetworkPolicy.deploymentUnavailable(net) else {
-      throw RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "UTEXO Dev Signet is not qualified")
+    let deployment = p.optional("devSignetDeployment")
+    guard (!p.has("devSignetDeployment") || deployment != nil),
+      RgbLibNetworkPolicy.permitsOpen(net, deployment: deployment) else {
+      throw rgbUnqualifiedDev()
     }
     guard let existingOnly = RgbLibExistingOpenPolicy.parseFlag(
       p.values["requireExisting"], present: p.values.keys.contains("requireExisting")) else {
@@ -231,13 +236,14 @@ final class RgbLibSwiftHelper {
     guard max > 0 else { throw rgbInvalid("maxAllocationsPerUtxo must be positive") }
     let text = "\(net):\(witnessName):\(keys.vanilla):\(keys.colored)"
     let id = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
-    let expected: [String: Any] = [
+    var expected: [String: Any] = [
       "formatVersion": 2, "backend": "rgb-lib", "id": id, "network": net,
       "nativeSourceRevision": rgbNativeSource, "nativeOverlay": rgbNativeOverlay,
       "witnessVersion": witnessName, "maxAllocations": NSNumber(value: max),
       "masterFingerprint": keys.fingerprint, "accountXpubVanilla": keys.vanilla,
       "accountXpubColored": keys.colored
     ]
+    if let deployment { expected["devSignetDeployment"] = deployment }
     let lease = try RgbLibLease(p.string("dataDir"), existingOnly: existingOnly)
     let marker = lease.root.appendingPathComponent(rgbProfileName)
     guard RgbLibExistingOpenPolicy.permitsProfile(
@@ -322,8 +328,8 @@ final class RgbLibSwiftHelper {
       fingerprint.allSatisfy({ $0.isHexDigit }), dirs[0].lastPathComponent == fingerprint else {
       throw RgbBridgeFailure(code: "BACKUP_PROFILE_MISMATCH", message: "Invalid backup profile")
     }
-    guard !RgbLibNetworkPolicy.deploymentUnavailable(profile["network"] as? String ?? "") else {
-      throw RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "UTEXO Dev Signet is not qualified")
+    guard RgbLibNetworkPolicy.permitsOpen(profile["network"] as? String ?? "") else {
+      throw rgbUnqualifiedDev()
     }
     try validateRestoredRecovery(dirs[0], profile)
     profile.removeValue(forKey: "cachedAddress")
@@ -378,10 +384,16 @@ final class RgbLibSwiftHelper {
   }
   private static func send(_ s: RgbLibSession, _ p: RgbParams) throws -> Any {
     let invoice = try RGBLib.Invoice(invoiceString: p.string("invoice")).invoiceData()
-    guard invoice.network == (try rgbNetworkFromName(s.profile["network"] as! String)) else { throw rgbInvalid("Invoice network does not match wallet") }
+    let logical = s.profile["network"] as! String, sender = try p.string("senderTransportEndpoint")
+    guard invoice.network == (try rgbNetworkFromName(logical)) else { throw rgbInvalid("Invoice network does not match wallet") }
+    guard RgbLibNetworkPolicy.permitsSend(logical, endpoints: invoice.transportEndpoints, sender: sender) else { throw rgbUnqualifiedDev() }
     let supplied = p.optional("assetId")
     if let supplied, let embedded = invoice.assetId, supplied != embedded { throw rgbInvalid("Asset override does not match invoice") }
     guard let asset = invoice.assetId ?? supplied else { throw rgbInvalid("Asset ID is required") }
+    if logical == "utexo", invoice.assetId == nil {
+      guard case .any = invoice.assignment else { throw rgbInvalid("An invoice without an asset must leave the assignment open") }
+      _ = try s.wallet!.getAssetMetadata(assetId: asset)
+    }
     let amount = try p.has("amount") ? p.amount("amount") : nil
     let assignment: RGBLib.Assignment
     switch invoice.assignment {
@@ -403,13 +415,32 @@ final class RgbLibSwiftHelper {
     }
     let witness = try p.has("witnessAmountSat") ? RGBLib.WitnessData(amountSat: p.amount("witnessAmountSat"), blinding: p.has("witnessBlinding") ? p.amount("witnessBlinding") : nil) : nil
     let recipient = RGBLib.Recipient(recipientId: invoice.recipientId, witnessData: witness, assignment: assignment, transportEndpoints: invoice.transportEndpoints, publicKey: invoice.publicKey, encryption: invoice.encryption, expirationTimestamp: invoice.expirationTimestamp)
-    return try rgbDto(s.wallet!.send(online: s.requireOnline(), recipientMap: [asset: [recipient]], donation: p.bool("donation"), feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self), expirationTimestamp: expiry, senderTransportEndpoint: p.string("senderTransportEndpoint")))
+    return try rgbDto(s.wallet!.send(online: s.requireOnline(), recipientMap: [asset: [recipient]], donation: p.bool("donation"), feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self), expirationTimestamp: expiry, senderTransportEndpoint: sender))
+  }
+
+  private static func durableRequest(_ s: RgbLibSession, _ p: RgbParams) throws -> String {
+    let raw = try p.string("requestJson"), logical = s.profile["network"] as! String
+    if logical == "utexo" {
+      // Canonical commands are shallow. Bound parsing before inspecting the proxy.
+      guard raw.utf8.count <= 200000, raw.utf8.filter({ $0 == 123 || $0 == 91 }).count <= 32,
+        let envelope = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any],
+        let request = envelope["request"] as? [String: Any], let kind = request["kind"] as? String else {
+        throw rgbUnqualifiedDev()
+      }
+      if kind == "rgb" {
+        guard let endpoints = request["transportEndpoints"] as? [String],
+          RgbLibNetworkPolicy.permitsSend(logical, endpoints: endpoints, sender: request["senderTransportEndpoint"] as? String) else {
+          throw rgbUnqualifiedDev()
+        }
+      }
+    }
+    return raw
   }
   private static func call(_ operation: String, _ p: RgbParams) throws -> Any {
     switch operation {
     case "getRuntimeInfo":
       let artifact = rgbArtifactInfo()
-      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": 5, "integrationTree": artifact["integration_tree"] as? String ?? "", "overlayPatchSha256": artifact["overlay_patch_sha256"] as? String ?? "", "sourceLockSha256": artifact["source_lock_sha256"] as? String ?? "", "sourceManifestSha256": artifact["source_manifest_sha256"] as? String ?? "", "nativeOverlay": artifact["native_overlay"] as? String ?? "", "supportsExistingOnlyOpen": true, "contractRegistration": true, "durableOnchainRecovery": true, "supportsDispatchedRgbRevocation": artifact["dispatched_rgb_revocation"] ?? false, "burn": true, "consignment": true, "bfa": true]
+      return ["version": artifact["version"] as? String ?? "", "sourceRevision": artifact["source_commit"] as? String ?? "", "bridgeVersion": 5, "integrationTree": artifact["integration_tree"] as? String ?? "", "overlayPatchSha256": artifact["overlay_patch_sha256"] as? String ?? "", "sourceLockSha256": artifact["source_lock_sha256"] as? String ?? "", "sourceManifestSha256": artifact["source_manifest_sha256"] as? String ?? "", "nativeOverlay": artifact["native_overlay"] as? String ?? "", "supportsExistingOnlyOpen": true, "supportsHostedDevSignet": true, "contractRegistration": true, "durableOnchainRecovery": true, "supportsDispatchedRgbRevocation": artifact["dispatched_rgb_revocation"] ?? false, "burn": true, "consignment": true, "bfa": true]
     case "openWallet": return try open(p)
     case "restoreBackup": try restore(p); return NSNull()
     default: break
@@ -432,7 +463,9 @@ final class RgbLibSwiftHelper {
   }
   private static func indexerConfig(_ s: RgbLibSession, _ p: RgbParams) throws -> RGBLib.IndexerConfig {
     let url = try p.string("indexerUrl")
-    guard let kind = RgbLibNetworkPolicy.indexerKind(s.profile["network"] as! String, try p.string("indexerKind")) else {
+    let logical = s.profile["network"] as! String, requested = try p.string("indexerKind")
+    guard RgbLibNetworkPolicy.permitsIndexer(logical, kind: requested, url: url) else { throw rgbUnqualifiedDev() }
+    guard let kind = RgbLibNetworkPolicy.indexerKind(logical, requested) else {
       throw rgbInvalid("Indexer does not match the wallet chain profile")
     }
     switch kind {
@@ -457,15 +490,15 @@ final class RgbLibSwiftHelper {
       _ = try RGBLib.RecipientInfo(recipientId: recipient).recipientType()
       return try w.getReceivedMint(recipientId: recipient).map { rgbDto($0) } ?? (NSNull() as Any)
     case "importContract": return try w.importContract(contractBase64: p.string("contractBase64"), expectedAssetId: p.string("expectedAssetId"))
-    case "prepareOnchainSend": return try w.prepareOnchainSend(online: s.requireOnline(), requestJson: p.string("requestJson"))
-    case "commitOnchainSend": return try w.commitOnchainSend(online: s.requireOnline(), requestJson: p.string("requestJson"))
-    case "onchainSendStatus": return try w.onchainSendStatus(online: s.online, requestJson: p.string("requestJson"))
-    case "cancelOnchainSend": return try w.cancelOnchainSend(online: s.online, requestJson: p.string("requestJson"))
+    case "prepareOnchainSend": return try w.prepareOnchainSend(online: s.requireOnline(), requestJson: durableRequest(s, p))
+    case "commitOnchainSend": return try w.commitOnchainSend(online: s.requireOnline(), requestJson: durableRequest(s, p))
+    case "onchainSendStatus": return try w.onchainSendStatus(online: s.online, requestJson: durableRequest(s, p))
+    case "cancelOnchainSend": return try w.cancelOnchainSend(online: s.online, requestJson: durableRequest(s, p))
     case "revokeOnchainSend":
       guard RgbLibRevocationPolicy.isAvailable(rgbArtifactInfo()["dispatched_rgb_revocation"]) else {
         throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Dispatched RGB cancellation is unavailable")
       }
-      return try w.revokeOnchainSend(online: s.requireOnline(), requestJson: p.string("requestJson"))
+      return try w.revokeOnchainSend(online: s.requireOnline(), requestJson: durableRequest(s, p))
     case "onchainRecoveryState": return try w.onchainRecoveryState()
     case "listOnchainSendReceipts": return try w.listOnchainSendReceipts(offset: p.number("offset", UInt32.self), limit: p.number("limit", UInt16.self))
     case "goOnline":
@@ -474,6 +507,9 @@ final class RgbLibSwiftHelper {
       let minimums = try p.strings("evmMinMintLockBlocks"), maximums = try p.strings("evmMaxMintLockBlocks")
       let endpoints = try p.strings("proxyEndpoints"), keys = try p.strings("proxyAuthKeys")
       guard ids.count == urls.count, ids.count == minimums.count, ids.count == maximums.count, endpoints.count == keys.count else { throw rgbInvalid("Configuration arrays do not match") }
+      guard RgbLibNetworkPolicy.permitsOnline(s.profile["network"] as! String,
+        proxy: p.optional("proxyEndpoint"), proxyAuthEndpoints: endpoints,
+        chainIds: ids, rpcUrls: urls, minimums: minimums, maximums: maximums) else { throw rgbUnqualifiedDev() }
       var evm: [UInt64: RGBLib.EvmChain] = [:]
       for i in ids.indices {
         guard let id = UInt64(ids[i]), let min = UInt64(minimums[i]), let max = UInt64(maximums[i]), min >= 2, max >= min else { throw rgbInvalid("Invalid backing chain policy") }
@@ -494,11 +530,13 @@ final class RgbLibSwiftHelper {
     case "createUtxos": return try w.createUtxos(online: s.requireOnline(), upTo: p.bool("upTo"), num: p.has("num") ? p.number("num", UInt8.self) : nil, size: p.has("size") ? p.number("size", UInt32.self) : nil, feeRate: p.amount("feeRate"), skipSync: p.bool("skipSync"))
     case "sendBtc": return try w.sendBtc(online: s.requireOnline(), address: p.string("address"), amount: p.amount("amount"), feeRate: p.amount("feeRate"), skipSync: p.bool("skipSync"))
     case "receive":
+      let endpoints = try p.strings("transportEndpoints")
+      guard RgbLibNetworkPolicy.permitsReceive(s.profile["network"] as! String, endpoints: endpoints) else { throw rgbUnqualifiedDev() }
       let assignment = try rgbReceiveAssignment(p.optional("assignmentKind"), p.has("amount") ? p.amount("amount") : nil)
       if try p.bool("witness") {
-        return try rgbDto(w.witnessReceive(online: s.online, assetId: p.optional("assetId"), assignment: assignment, expirationTimestamp: p.amount("expirationTimestamp"), transportEndpoints: p.strings("transportEndpoints"), minConfirmations: p.number("minConfirmations", UInt8.self), encryption: nil))
+        return try rgbDto(w.witnessReceive(online: s.online, assetId: p.optional("assetId"), assignment: assignment, expirationTimestamp: p.amount("expirationTimestamp"), transportEndpoints: endpoints, minConfirmations: p.number("minConfirmations", UInt8.self), encryption: nil))
       }
-      return try rgbDto(w.blindReceive(online: s.online, assetId: p.optional("assetId"), assignment: assignment, expirationTimestamp: p.amount("expirationTimestamp"), transportEndpoints: p.strings("transportEndpoints"), minConfirmations: p.number("minConfirmations", UInt8.self), encryption: nil))
+      return try rgbDto(w.blindReceive(online: s.online, assetId: p.optional("assetId"), assignment: assignment, expirationTimestamp: p.amount("expirationTimestamp"), transportEndpoints: endpoints, minConfirmations: p.number("minConfirmations", UInt8.self), encryption: nil))
     case "decodeInvoice":
       let data = try RGBLib.Invoice(invoiceString: p.string("invoice")).invoiceData()
       let kind = try RGBLib.RecipientInfo(recipientId: data.recipientId).recipientType()
@@ -515,7 +553,11 @@ final class RgbLibSwiftHelper {
     case "issueAssetUda": return try rgbDto(w.issueAssetUda(ticker: p.string("ticker"), name: p.string("name"), details: p.optional("details"), precision: p.number("precision", UInt8.self), mediaFilePath: p.optional("mediaFilePath"), attachmentsFilePaths: p.strings("attachmentsFilePaths")))
     case "issueAssetIfa": return try rgbDto(w.issueAssetIfa(ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, inflationAmounts: p.strings("inflationAmounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, rejectListUrl: p.optional("rejectListUrl"), linkRight: false, linkedFromContract: nil))
     case "inflate": return try rgbDto(w.inflate(online: s.requireOnline(), assetId: p.string("assetId"), inflationAmounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self)))
-    case "burn": return try rgbDto(w.burn(online: s.requireOnline(), assetId: p.string("assetId"), amount: p.amount("amount"), burnReason: p.optional("burnReason"), feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self)))
+    case "burn":
+      guard RgbLibNetworkPolicy.permitsBurn(s.profile["network"] as! String) else {
+        throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Hosted Dev burns are unavailable")
+      }
+      return try rgbDto(w.burn(online: s.requireOnline(), assetId: p.string("assetId"), amount: p.amount("amount"), burnReason: p.optional("burnReason"), feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self)))
     case "failTransfers": return try w.failTransfers(online: s.requireOnline(), batchTransferIdx: p.has("batchTransferIdx") ? p.number("batchTransferIdx", Int32.self) : nil, noAssetOnly: p.bool("noAssetOnly"), skipSync: p.bool("skipSync"))
     case "refresh": return try w.refresh(online: s.requireOnline(), assetId: nil, filter: [], skipSync: p.bool("skipSync")).map { id, r -> [String: Any] in
       ["batchTransferIdx": NSNumber(value: id), "updatedStatus": r.updatedStatus.map { rgbEnum($0) as Any } ?? NSNull(), "failure": r.failure.map { ["name": rgbLibErrorCode($0), "message": "RGB Lib transfer refresh failed."] as Any } ?? NSNull()]
@@ -523,8 +565,9 @@ final class RgbLibSwiftHelper {
     case "deleteTransfers": return try w.deleteTransfers(batchTransferIdx: p.has("batchTransferIdx") ? p.number("batchTransferIdx", Int32.self) : nil, noAssetOnly: p.bool("noAssetOnly"))
     case "drainTo": return try w.drainTo(online: s.requireOnline(), address: p.string("address"), feeRate: p.amount("feeRate"))
     case "checkIndexerUrl":
-      guard !RgbLibNetworkPolicy.deploymentUnavailable(s.profile["network"] as! String) else {
-        throw RgbBridgeFailure(code: "DEPLOYMENT_UNQUALIFIED", message: "UTEXO Dev Signet is not qualified")
+      guard RgbLibNetworkPolicy.permitsIndexer(s.profile["network"] as! String,
+        kind: p.optional("indexerKind"), url: try p.string("indexerUrl")) else {
+        throw rgbUnqualifiedDev()
       }
       let protocolResult = try p.has("indexerKind")
         ? RGBLib.checkIndexerConfig(indexerConfig: indexerConfig(s,p), bitcoinNetwork: rgbNetworkFromName(s.profile["network"] as! String))

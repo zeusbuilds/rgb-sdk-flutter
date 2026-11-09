@@ -43,7 +43,11 @@ BFA.5 platform tests below do not qualify the new BFA.7 artifacts.
 
 ## November 7 Dev Signet follow-up
 
-The Iris chat's current configuration and WDK PR 23 supersede the historical
+The November 9 team-supplied issuer export and Iris `37003ff` supersede the
+unavailable-export finding below. See [the current hosted test profile](PUBLIC_API_REFERENCE.md)
+and [NOV-004](RELEASE_READINESS_TRACKER.md) for the current status.
+
+The Iris chat's November 7 configuration and WDK PR 23 superseded the historical
 BFA.5 hosted-test preparation. Dev now uses BFA.6 asset
 `rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE` (Bridged USDT / BUSDT).
 The issuer-approved contract bytes, SHA-256 and verified precision are absent

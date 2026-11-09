@@ -1,8 +1,18 @@
 import '../errors/rgb_sdk_exception.dart';
 
-// The reviewed deployment facts and unresolved prerequisites are recorded in
-// tool/dev_signet_deployment_requirements.json. This is a compatibility gate,
-// not a generic restriction on applications' independently qualified endpoints.
+// Keep these in sync with the Kotlin and Swift wrapper policies. The reviewed
+// deployment facts are recorded in tool/dev_signet_deployment_requirements.json.
+const utexoDevSignetDeployment = 'utexo-dev-busdt-20261109-v1';
+const utexoDevSignetIndexer = 'https://dev.esplora-01.mint.utexo.com';
+const utexoDevSignetProxy = 'rpcs://dev.rgb-proxy.utexo.com/json-rpc';
+const utexoDevSignetEvmChain = '42161';
+const utexoDevSignetEvmRpc = 'https://arb1.arbitrum.io/rpc';
+const utexoDevSignetMinMintLock = 2;
+const utexoDevSignetMaxMintLock = 7200;
+
+bool isUtexoDevSignetTransport(List<String> endpoints) =>
+    endpoints.length == 1 && endpoints.single == utexoDevSignetProxy;
+
 const utexoDevSignetServiceHosts = <String>{
   'dev.esplora-01.mint.utexo.com',
   'dev.rgb-proxy.utexo.com',
@@ -10,7 +20,7 @@ const utexoDevSignetServiceHosts = <String>{
   'rgb-proxy.dev.utexo.com',
 };
 
-/// Stops known Dev configuration before native connection or key access.
+/// Stops known Dev configuration outside the explicitly admitted RGB_L1 path.
 ///
 /// The `utexo` RGB_L1 profile means the distinct UTEXO Dev Signet chain. The
 /// legacy RLN facade also uses that spelling for an older service profile, so
@@ -33,9 +43,11 @@ void requireQualifiedUtexoDevSignet({
     return utexoDevSignetServiceHosts.contains(host);
   });
   if (customSignetProfile || knownDevEndpoint) {
-    throw const WalletException(
-      'UTEXO Dev Signet is not qualified for this native runtime.',
-      code: 'DEPLOYMENT_UNQUALIFIED',
-    );
+    unqualifiedUtexoDevSignet();
   }
 }
+
+Never unqualifiedUtexoDevSignet() => throw const WalletException(
+  'The dedicated UTEXO Dev Signet configuration is required.',
+  code: 'DEPLOYMENT_UNQUALIFIED',
+);

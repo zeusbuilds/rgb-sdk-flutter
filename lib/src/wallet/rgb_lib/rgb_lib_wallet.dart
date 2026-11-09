@@ -100,6 +100,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     final row = RgbLibWire(await _invoke('getRuntimeInfo'), 'runtime');
     final revocation = row.map['supportsDispatchedRgbRevocation'];
     final existingOnly = row.map['supportsExistingOnlyOpen'];
+    final hostedDev = row.map['supportsHostedDevSignet'];
     if (row.map.containsKey('supportsDispatchedRgbRevocation') &&
         revocation is! bool) {
       invalidRgbLibWire('runtime.supportsDispatchedRgbRevocation');
@@ -107,6 +108,9 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     if (row.map.containsKey('supportsExistingOnlyOpen') &&
         existingOnly is! bool) {
       invalidRgbLibWire('runtime.supportsExistingOnlyOpen');
+    }
+    if (row.map.containsKey('supportsHostedDevSignet') && hostedDev is! bool) {
+      invalidRgbLibWire('runtime.supportsHostedDevSignet');
     }
     final info = RgbLibRuntimeInfo(
       version: row.text('version'),
@@ -121,6 +125,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       durableOnchainRecovery: row.map['durableOnchainRecovery'] == true,
       supportsDispatchedRgbRevocation: revocation == true,
       supportsExistingOnlyOpen: existingOnly == true,
+      supportsHostedDevSignet: hostedDev == true,
     );
     if (info.supportsDispatchedRgbRevocation && !info.durableOnchainRecovery) {
       invalidRgbLibWire('runtime.supportsDispatchedRgbRevocation');
@@ -150,8 +155,16 @@ final class RgbLibWallet implements BurnCapabilityWallet {
 
   Future<void> _open({bool requireExistingStorage = false}) async {
     if (_identity != null) return;
-    requireQualifiedUtexoDevSignet(customSignetProfile: network == 'utexo');
+    if (network == 'utexo' && !params.allowUtexoDevSignet) {
+      unqualifiedUtexoDevSignet();
+    }
     final runtime = await getRuntimeInfo();
+    if (params.allowUtexoDevSignet &&
+        (!runtime.supportsHostedDevSignet ||
+            !runtime.contractRegistration ||
+            !runtime.durableOnchainRecovery)) {
+      unqualifiedUtexoDevSignet();
+    }
     if (requireExistingStorage && !runtime.supportsExistingOnlyOpen) {
       throw const RgbLibWalletException(
         'Opening existing storage is unavailable in this platform wrapper.',
@@ -182,6 +195,8 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         'dataDir': params.storageDirPath,
         'requireExisting': requireExistingStorage,
         'network': network,
+        if (params.allowUtexoDevSignet)
+          'devSignetDeployment': utexoDevSignetDeployment,
         'mnemonic': mnemonic,
         'accountXpubVanilla': keys?.accountXpubVanilla,
         'accountXpubColored': keys?.accountXpubColored,
@@ -243,8 +258,15 @@ final class RgbLibWallet implements BurnCapabilityWallet {
 
   Future<void> unlock(RgbLibUnlockParams params) => _accept(() async {
     _requireIdentity();
-    await _connect(resolveRgbLibOnline(network, params));
+    await _connect(_resolveOnline(params));
   });
+
+  RgbLibOnlineConfig _resolveOnline(RgbLibUnlockParams config) =>
+      resolveRgbLibOnline(
+        network,
+        config,
+        allowUtexoDevSignet: params.allowUtexoDevSignet,
+      );
 
   Future<void> _connect(RgbLibOnlineConfig config) async {
     final previous = _online;
@@ -265,13 +287,13 @@ final class RgbLibWallet implements BurnCapabilityWallet {
 
   Future<void> _ensureOnline() async {
     if (_online != null) return;
-    if (getRgbLibNetworkDefaults(network) == null) {
+    if (network == 'utexo' || getRgbLibNetworkDefaults(network) == null) {
       throw const RgbLibWalletException(
         'This network requires explicit online configuration.',
         code: 'WALLET_OFFLINE',
       );
     }
-    await _connect(resolveRgbLibOnline(network, RgbLibUnlockParams()));
+    await _connect(_resolveOnline(RgbLibUnlockParams()));
   }
 
   /// Opens a create-or-open session after shutdown and optionally connects it.
@@ -286,7 +308,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         code: 'WALLET_CONFIG_MISMATCH',
       );
     }
-    final config = params == null ? null : resolveRgbLibOnline(network, params);
+    final config = params == null ? null : _resolveOnline(params);
     await _open();
     if (config != null) await _connect(config);
   });
@@ -303,7 +325,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         code: 'WALLET_CONFIG_MISMATCH',
       );
     }
-    final config = params == null ? null : resolveRgbLibOnline(network, params);
+    final config = params == null ? null : _resolveOnline(params);
     await _open(requireExistingStorage: true);
     if (config != null) await _connect(config);
   });
@@ -351,15 +373,22 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     bool signing = false,
     bool burn = false,
     bool registration = false,
+    ({String invoice, String? selectedAssetId})? devRgbInvoice,
     Map<String, Object?> Function(String proxy)? proxyArguments,
   }) => _accept(() async {
     _requireIdentity();
     if ((signing && watchOnly) ||
-        (burn && _runtime?.capabilities.burn != true) ||
+        (burn && (network == 'utexo' || _runtime?.capabilities.burn != true)) ||
         (registration && _runtime?.contractRegistration != true)) {
       throw const RgbLibWalletException(
         'This wallet cannot sign the requested operation.',
         code: 'UNSUPPORTED_CAPABILITY',
+      );
+    }
+    if (devRgbInvoice != null) {
+      _validateDevInvoice(
+        await _decodeInvoice(devRgbInvoice.invoice),
+        selectedAssetId: devRgbInvoice.selectedAssetId,
       );
     }
     if (online || proxyArguments != null) await _ensureOnline();
@@ -424,10 +453,14 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       }, online: true);
 
   Future<RgbLibIndexerCheck> checkIndexerUrl(String indexerUrl) async {
-    requireQualifiedUtexoDevSignet(
-      customSignetProfile: network == 'utexo',
-      endpoints: [indexerUrl],
-    );
+    if (network == 'utexo' && params.allowUtexoDevSignet) {
+      if (indexerUrl != utexoDevSignetIndexer) unqualifiedUtexoDevSignet();
+    } else {
+      requireQualifiedUtexoDevSignet(
+        customSignetProfile: network == 'utexo',
+        endpoints: [indexerUrl],
+      );
+    }
     final configured = _online?.nativeArguments;
     final sameIndexer = configured?['indexerUrl'] == indexerUrl;
     return _call(
@@ -441,7 +474,11 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       },
       arguments: {
         'indexerUrl': indexerUrl,
-        'indexerKind': sameIndexer ? configured!['indexerKind'] : null,
+        'indexerKind': params.allowUtexoDevSignet
+            ? rgbLibNativeIndexerKind(network, 'esplora')
+            : sameIndexer
+            ? configured!['indexerKind']
+            : null,
         if (sameIndexer) ...{
           'username': configured!['username'],
           'password': configured['password'],
@@ -685,6 +722,36 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     arguments: {'invoice': _required(invoice, 'invoice')},
   );
 
+  Future<RgbLibInvoiceData> _decodeInvoice(String invoice) async => RgbLibWire(
+    await _invoke('decodeInvoice', {
+      'handle': _handle!,
+      'invoice': _required(invoice, 'invoice'),
+    }),
+    'invoice',
+  ).invoice(invoice);
+
+  void _validateDevInvoice(
+    RgbLibInvoiceData invoice, {
+    required String? selectedAssetId,
+  }) {
+    if (network != 'utexo') return;
+    if (!isUtexoDevSignetTransport(invoice.transportEndpoints)) {
+      throw const WalletValidationException(
+        'Invoice does not use the Dev Signet RGB proxy.',
+        field: 'invoice',
+      );
+    }
+    if (invoice.assetId == null &&
+        (selectedAssetId == null ||
+            invoice.assignment.type != 'Any' ||
+            invoice.assignment.amount != null)) {
+      throw const WalletValidationException(
+        'Choose the asset for this open invoice.',
+        field: 'invoice',
+      );
+    }
+  }
+
   /// Submits an RGB payment once, using the invoice's exact assignment.
   ///
   /// A transport failure may leave the outcome unknown. Do not automatically
@@ -736,6 +803,9 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         'skipSync': false,
       },
       signing: true,
+      devRgbInvoice: network == 'utexo'
+          ? (invoice: invoice, selectedAssetId: assetId)
+          : null,
       proxyArguments: (proxy) => {'senderTransportEndpoint': proxy},
     );
   }
@@ -836,7 +906,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         _closing == null &&
         !_closeRequired;
     return BfaCapabilities(
-      burn: ready && !watchOnly && capabilities.burn,
+      burn: ready && network != 'utexo' && !watchOnly && capabilities.burn,
       consignment: ready && capabilities.consignment,
       bfa: ready && capabilities.bfa,
     );
@@ -983,6 +1053,8 @@ Future<Object?> _invoke(
       'RGB_LIB_AssetNotFound' => 'ASSET_NOT_FOUND',
       'RGB_LIB_ContractIdMismatch' => 'CONTRACT_ID_MISMATCH',
       'RGB_LIB_EvmChainIdMismatch' => 'EVM_CHAIN_ID_MISMATCH',
+      'RGB_LIB_CannotEstimateFees' when method == 'estimateFeeRate' =>
+        'FEE_UNAVAILABLE',
       _ when raw.startsWith('RGB_LIB_Invalid') => 'INVALID_PARAMS',
       _ when raw.startsWith('RGB_LIB_Insufficient') => 'INSUFFICIENT_FUNDS',
       _ when _nativeCodes.contains(raw) => raw,

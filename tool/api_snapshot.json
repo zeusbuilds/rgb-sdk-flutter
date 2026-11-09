@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "description": "AST-normalized public API and bridge snapshot. Update only with a tracker row and migration note.",
   "dartExportedSurface": {
-    "count": 2438,
-    "hash": "6fc9d131bb0be8ddeb25868afd2af301412a14b5e5e2d823abebaa052ac243fd",
+    "count": 2440,
+    "hash": "99dd7f20a177bbadc02a043b7d0cc3a8e522cdf55bc3b3028191cb7fbc5d951b",
     "files": [
       "lib/rgb_sdk_flutter.dart",
       "lib/rgb_sdk_flutter_advanced.dart",
@@ -272,8 +272,8 @@
     ]
   },
   "nativeBridgeSurface": {
-    "count": 735,
-    "hash": "461146ba8af0604b30aa9bbfd34e7a69110115df5ada66472806bdd1683565ab",
+    "count": 751,
+    "hash": "da939f08a625a69893ae0d900db2e2bd152fef6bc238ff760c9846bb257b3650",
     "files": [
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbSdkFlutterPlugin.kt",
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnAssetMapper.kt",

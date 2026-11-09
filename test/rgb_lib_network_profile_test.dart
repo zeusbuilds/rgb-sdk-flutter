@@ -24,6 +24,7 @@ void main() {
         String? expected = 'rgb:approved',
         String? registered = 'rgb:approved',
         String? invoiceAsset = 'rgb:approved',
+        bool invoiceAllowsAssetSelection = false,
       }) => rgbLibInvoiceMatchesProfile(
         logicalNetwork: logical,
         invoiceNetwork: invoice,
@@ -31,9 +32,26 @@ void main() {
         expectedAssetId: expected,
         registeredAssetId: registered,
         invoiceAssetId: invoiceAsset,
+        invoiceAllowsAssetSelection: invoiceAllowsAssetSelection,
       );
       expect(matches(), isTrue);
       expect(matches(invoiceAsset: null), isFalse);
+      expect(
+        matches(invoiceAsset: null, invoiceAllowsAssetSelection: true),
+        isTrue,
+      );
+      expect(
+        matches(
+          invoiceAsset: null,
+          invoiceAllowsAssetSelection: true,
+          registered: null,
+        ),
+        isFalse,
+      );
+      expect(
+        matches(invoiceAsset: 'rgb:other', invoiceAllowsAssetSelection: true),
+        isFalse,
+      );
       expect(matches(invoice: 'utexo'), isFalse);
       expect(matches(invoice: 'mainnet'), isFalse);
       expect(matches(resolver: 'esplora'), isFalse);

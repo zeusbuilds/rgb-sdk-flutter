@@ -1,10 +1,13 @@
 {
   "schemaVersion": 1,
   "profile": "utexo-dev-signet",
-  "reviewedAt": "2026-11-07",
-  "enabled": false,
+  "reviewedAt": "2026-11-09",
+  "enabled": true,
   "failureCode": "DEPLOYMENT_UNQUALIFIED",
-  "formerServiceHosts": ["esplora-api.utexo.com", "rgb-proxy.dev.utexo.com"],
+  "formerServiceHosts": [
+    "esplora-api.utexo.com",
+    "rgb-proxy.dev.utexo.com"
+  ],
   "bitcoin": {
     "network": "signet",
     "sdkRgbL1Network": "utexo",
@@ -19,15 +22,31 @@
     "proxyEndpoint": "rpcs://dev.rgb-proxy.utexo.com/json-rpc",
     "proxyProtocol": "1.0",
     "requiredSchemaGeneration": "BFA.6",
-    "schemaCompatibleGenerations": ["BFA.6", "BFA.7"],
+    "schemaCompatibleGenerations": [
+      "BFA.6",
+      "BFA.7"
+    ],
     "reportedDeployedAssetId": "rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE",
-    "approvedAsset": null,
-    "approvedContractBase64": null,
-    "approvedContractSha256": null
+    "approvedAsset": {
+      "assetId": "rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE",
+      "nativeName": "Bridged USDT",
+      "nativeTicker": "BUSDT",
+      "precision": 6
+    },
+    "approvedContractBase64": "UkdCAENPTgEAAADcjTFlURCdDFhWTu8OeHm421DJR+yZOHDp1f2f4a9vmnYA7moAAAAADQBzc2k6YW5vbnltb3VzAwAABtEHAQADAAAAALkLAQANAAxCcmlkZ2VkIFVTRFS9CwEAAQAGwAsBAB0AALGkAAAAAAAAY3LuL4bDpVEpBjVzayWFUSSTLu3CCwEAHQABsaQAAAAAAABtCBMNj7qcbN6tSU0JWpe+gWou3cMLAQAGAAVCVVNEVAEArQ8ACgAAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwAAAAAugHJ1xwaLG8AtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwBAAAAqSrcBLL8FxEAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwDAAAA1trf1VhUZloAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwEAAAAEGhGuCFJ3VgAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwFAAAAJEX3AKnBxzQAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwGAAAA+TcMbm5HEPIAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwHAAAA9zt/m2NTQckAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwIAAAAqaJKupqY69YAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwJAAAA2u72Xjg5gYsAtEoGYNVFsU+VN5XRKwFpygl8/MHSShxv+/B+nMpKRSwKAAAALVggornxb4wAAAAA",
+    "approvedContractSha256": "60a1b4f0d79706a7a51c6388fa14b951e119bae1ceffd811f4ebc62249817c4c",
+    "issuerExport": {
+      "bytes": 691,
+      "sha256": "9307e39016e6373bd0ee1ea9fa5d6a4130120513d48da9268777893e150344e9",
+      "rgb_library_revision": "5010eefa355beb9c42a4c1b69883f7651241a111"
+    }
   },
   "backingChain": {
     "chainId": "42161",
-    "rpcUrl": "https://arb1.arbitrum.io/rpc"
+    "rpcUrl": "https://arb1.arbitrum.io/rpc",
+    "minMintLockBlocks": 2,
+    "maxMintLockBlocks": 7200,
+    "bridgeProxy": "0x6372ee2f86c3a551290635736b25855124932eed"
   },
   "bundledRgbL1": {
     "generation": "BFA.7",
@@ -48,19 +67,20 @@
     "sourceE2eRun": "41698713237"
   },
   "unresolvedRequirements": [
-    "Funded mobile qualification of the exact matching BFA.7 iOS and Android artifacts",
-    "Hosted Dev qualification of exact-ID/schema/metadata standalone contract registration",
-    "Interruption, reorg and backup-freshness qualification of durable payment recovery",
-    "Issuer-approved current contract export, digest and exact native metadata",
+    "Funded iOS and Android qualification against this hosted Dev deployment",
     "Matched gateway, signer, proxy and backing-contract deployment qualification",
-    "Funded wallet and bridge acceptance against the exact deployment"
+    "Hosted bridge pairing, mint settlement, direct V1 burn proof and payout acceptance",
+    "Freshness authority and old-copy retirement for restored RGB spending"
   ],
   "evidence": {
-    "referenceProfile": "Iris onchain dev-signet-profile.json, hostedTestingEnabled=false",
+    "referenceProfile": "Iris 37003ff (dedicated hosted Dev Android test build); 7f9ca46 (offline registration)",
     "referenceNativeSource": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
     "deploymentPullRequest": "https://github.com/UTEXO-Protocol/devops/pull/217",
     "readinessPullRequest": "https://github.com/UTEXO-Protocol/devops/pull/218",
     "latestReferencedE2eRun": "https://github.com/UTEXO-Protocol/bridge/actions/runs/42261217049",
-    "latestReferencedE2eOutcome": "UI timeout waiting for Confirm and sign; settlement not qualified"
-  }
+    "latestReferencedE2eOutcome": "UI timeout waiting for Confirm and sign; settlement not qualified",
+    "wdkProfileSource": "337ae62e48e5eb8b690a77ccbfda4bb6dc2a9add"
+  },
+  "enablement": "Explicit dedicated hosted test profile only",
+  "deploymentRevision": "utexo-dev-busdt-20261109-v1"
 }

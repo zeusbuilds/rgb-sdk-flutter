@@ -21,6 +21,7 @@ final class RgbLibWalletParams {
     this.witnessVersion = RgbLibWitnessVersion.taproot,
     this.maxAllocationsPerUtxo = 5,
     this.reuseAddresses = false,
+    this.allowUtexoDevSignet = false,
   });
 
   final String network;
@@ -33,6 +34,10 @@ final class RgbLibWalletParams {
   /// Reuse only a freshly native-derived address within the current open session.
   /// Reopening derives from native again; all previously derived addresses remain valid.
   final bool reuseAddresses;
+
+  /// Explicitly opens the dedicated `utexo` Dev Signet profile for testing.
+  /// Online access still requires its exact hosted endpoints and backing policy.
+  final bool allowUtexoDevSignet;
 }
 
 enum RgbLibWitnessVersion {
@@ -181,8 +186,7 @@ final class RgbLibUnlockParams {
 
 /// SDK beta.40 RGB_L1 defaults, kept separate from legacy RLN proxy defaults.
 ///
-/// UTEXO Dev Signet (`utexo`) is gated while its current BFA deployment and
-/// contract export are incompatible with the pinned native generation.
+/// UTEXO Dev Signet (`utexo`) requires explicit wallet and online configuration.
 NetworkEndpoints? getRgbLibNetworkDefaults(String network) {
   requireQualifiedUtexoDevSignet(customSignetProfile: network == 'utexo');
   final indexer = switch (network) {
@@ -213,6 +217,9 @@ void validateRgbLibWalletParams(RgbLibWalletParams params) {
   if (params.maxAllocationsPerUtxo < 1 ||
       params.maxAllocationsPerUtxo > 0xffffffff) {
     invalidRgbLibConfig('Invalid maximum allocations per UTXO.');
+  }
+  if (params.allowUtexoDevSignet && params.network != 'utexo') {
+    invalidRgbLibConfig('Dev Signet requires the utexo wallet profile.');
   }
 }
 
@@ -275,23 +282,40 @@ typedef RgbLibOnlineConfig = ({
 
 RgbLibOnlineConfig resolveRgbLibOnline(
   String network,
-  RgbLibUnlockParams params,
-) {
-  requireQualifiedUtexoDevSignet(
-    customSignetProfile: network == 'utexo',
-    endpoints: [
-      params.indexer?.url,
-      params.indexerUrl,
-      params.proxyEndpoint,
-      ...params.proxyAuthKeys.keys,
-      ...params.evmRpcUrls.values,
-      ...params.evmChains.values.map((chain) => chain.rpcUrl),
-    ],
-  );
+  RgbLibUnlockParams params, {
+  bool allowUtexoDevSignet = false,
+}) {
+  final dev = network == 'utexo';
+  if (dev && allowUtexoDevSignet) {
+    final chain = params.evmChains[utexoDevSignetEvmChain];
+    if ((params.indexer?.url ?? params.indexerUrl) != utexoDevSignetIndexer ||
+        (params.indexer != null &&
+            params.indexer!.kind != RgbLibIndexerKind.esplora) ||
+        params.proxyEndpoint != utexoDevSignetProxy ||
+        params.evmChains.length != 1 ||
+        chain?.rpcUrl != utexoDevSignetEvmRpc ||
+        chain?.minMintLockBlocks != utexoDevSignetMinMintLock ||
+        chain?.maxMintLockBlocks != utexoDevSignetMaxMintLock ||
+        params.proxyAuthKeys.isNotEmpty) {
+      unqualifiedUtexoDevSignet();
+    }
+  } else {
+    requireQualifiedUtexoDevSignet(
+      customSignetProfile: dev,
+      endpoints: [
+        params.indexer?.url,
+        params.indexerUrl,
+        params.proxyEndpoint,
+        ...params.proxyAuthKeys.keys,
+        ...params.evmRpcUrls.values,
+        ...params.evmChains.values.map((chain) => chain.rpcUrl),
+      ],
+    );
+  }
   if (params.indexer != null && params.indexerUrl != null) {
     invalidRgbLibConfig('Provide either indexer or indexerUrl.');
   }
-  final defaults = getRgbLibNetworkDefaults(network);
+  final defaults = dev ? null : getRgbLibNetworkDefaults(network);
   final endpoint = params.indexerUrl ?? defaults?.indexerUrl;
   final indexer =
       params.indexer ??
@@ -359,6 +383,7 @@ RgbLibOnlineConfig resolveRgbLibOnline(
     nativeArguments: {
       'indexerKind': nativeKind,
       'indexerUrl': indexer.url,
+      if (dev) 'proxyEndpoint': proxy,
       'username': indexer.username,
       'password': indexer.password,
       'cookieFile': indexer.cookieFile,

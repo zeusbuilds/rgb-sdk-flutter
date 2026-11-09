@@ -324,13 +324,8 @@ extension RgbLibDurableOperations on RgbLibWallet {
         field: 'witnessBlinding',
       );
     }
-    final invoice = RgbLibWire(
-      await _invoke('decodeInvoice', {
-        'handle': _handle!,
-        'invoice': _required(request.invoice, 'invoice'),
-      }),
-      'invoice',
-    ).invoice(request.invoice);
+    final invoice = await _decodeInvoice(request.invoice);
+    _validateDevInvoice(invoice, selectedAssetId: request.assetId);
     if (invoice.network != rgbLibNativeNetwork(network) ||
         (invoice.assetId != null &&
             request.assetId != null &&
@@ -382,8 +377,8 @@ extension RgbLibDurableOperations on RgbLibWallet {
     await _ensureOnline();
     String? registeredAsset;
     if (network == 'utexo') {
-      // The closed deployment gate must be deliberately reviewed before this
-      // branch can execute. Neither invoice text nor an alias proves a chain.
+      // Neither invoice text nor an alias proves a chain. The connected Dev
+      // resolver and an actual native metadata lookup supply that evidence.
       RgbLibWire(
         await _invoke('getAssetMetadata', {
           'handle': _handle!,
@@ -400,6 +395,8 @@ extension RgbLibDurableOperations on RgbLibWallet {
       expectedAssetId: assetId,
       registeredAssetId: registeredAsset,
       invoiceAssetId: invoice.assetId,
+      invoiceAllowsAssetSelection:
+          request.assetId != null && assignment.type == 'Any',
     )) {
       throw const WalletValidationException(
         'Invoice does not match the verified wallet profile.',

@@ -58,6 +58,7 @@ final class RgbLibRuntimeInfo {
     this.durableOnchainRecovery = false,
     this.supportsDispatchedRgbRevocation = false,
     this.supportsExistingOnlyOpen = false,
+    this.supportsHostedDevSignet = false,
   });
 
   static const expectedVersion =
@@ -92,6 +93,9 @@ final class RgbLibRuntimeInfo {
   /// The compiled platform wrapper can reject absent storage without creating
   /// a native profile. This is independent of the Rust archive capabilities.
   final bool supportsExistingOnlyOpen;
+
+  /// The platform wrapper admits the explicitly configured hosted Dev profile.
+  final bool supportsHostedDevSignet;
 
   RgbLibBackupRecoveryCapabilities get backupRecovery =>
       const RgbLibBackupRecoveryCapabilities._();

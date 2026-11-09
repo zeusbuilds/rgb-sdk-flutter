@@ -210,6 +210,11 @@ abstract final class RgbLibRecoverableCodec {
         request['senderTransportEndpoint'],
         'senderTransportEndpoint',
       );
+      if (network == 'utexo' &&
+          (!isUtexoDevSignetTransport(endpoints) ||
+              request['senderTransportEndpoint'] != utexoDevSignetProxy)) {
+        _recoverableInvalid('transportEndpoints');
+      }
       if (request['address'] != null ||
           endpoints.isEmpty ||
           request['expirationTimestamp'] == null ||

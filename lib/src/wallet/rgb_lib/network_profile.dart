@@ -1,5 +1,4 @@
 /// Pure logical-to-native profile selection. It grants no deployment approval.
-/// The public entry points retain the unconditional Dev qualification gate.
 String rgbLibNativeNetwork(String logicalNetwork) =>
     logicalNetwork == 'utexo' ? 'signet' : logicalNetwork;
 
@@ -25,6 +24,7 @@ bool rgbLibInvoiceMatchesProfile({
   required String? expectedAssetId,
   required String? registeredAssetId,
   required String? invoiceAssetId,
+  bool invoiceAllowsAssetSelection = false,
 }) {
   if (logicalNetwork != 'utexo') {
     return invoiceNetwork == logicalNetwork &&
@@ -41,5 +41,6 @@ bool rgbLibInvoiceMatchesProfile({
       expectedAssetId != null &&
       expectedAssetId.isNotEmpty &&
       registeredAssetId == expectedAssetId &&
-      invoiceAssetId == expectedAssetId;
+      (invoiceAssetId == expectedAssetId ||
+          (invoiceAssetId == null && invoiceAllowsAssetSelection));
 }

@@ -7,6 +7,25 @@ were removed because they overlapped and had drifted from the implementation.
 
 ## Document Control
 
+### November 9 hosted Dev Signet profile
+
+The team supplied the current Dev BUSDT issuer export. Iris verified the same
+asset as a genesis-only wallet contract on BFA.7. The SDK now admits that hosted
+test profile with an explicit `RgbLibWalletParams.allowUtexoDevSignet` opt-in,
+the exact Dev Esplora and RGB proxy, and the Arbitrum `42161` RPC policy. The
+wrapper checks the Dev profile revision before opening storage and the native
+indexer verifies the chain checkpoint. The `.2` BFA.7 archives already contain
+the checkpoint implementation.
+
+API change/migration note for NOV-004. The SDK adds the optional wallet flag
+and the additive `RgbLibRuntimeInfo.supportsHostedDevSignet` wrapper capability.
+Existing consumers keep their defaults. Dedicated Dev consumers must use an
+explicit online configuration and register the reviewed BFA contract. The
+`FEE_UNAVAILABLE` estimate code identifies an actual missing native fee quote.
+The exact network, contract and outstanding Dev bridge evidence are recorded in
+[`tool/dev_signet_deployment_requirements.json`](../tool/dev_signet_deployment_requirements.json).
+Mainnet activation and restored snapshot spending retain their separate gates.
+
 ### November 8 RGB_L1 successor qualification
 
 The `.2` native candidate is separately sealed as
@@ -60,7 +79,7 @@ See [the source audit and dispositions](UPSTREAM_PARITY_BETA40.md).
 | NOV-001 | P1 | Verified | The beta.40 source, npm archive, and BFA.5 native provenance are pinned. Flutter has typed RGB_L1 session, exact amount, receive, transfer, issuance, backup and maintenance APIs. Existing RLN compatibility checks are still pinned independently. | Continue reviewing upstream changes against the immutable reference and keep separate native artifact evidence. |
 | NOV-002 | P0 | In progress | BFA.7 Flutter overlay implements authenticated native exact-payment identity, dispatch boundary, read-only status, cancellation tombstones and receipt recovery. Native fault/restart/backup tests pass. Restored snapshots remain fenced because an old backup cannot prove absence of a later payment. Aster has the adapter but stays gated. | Qualify funded mobile interruption/reorg cases and a freshness authority for unrestricted restored-wallet spending. No status or restart may replay End, proxy submission or broadcast. |
 | NOV-003 | P0 | In progress | Patched BFA.7 UniFFI lock has zero known vulnerabilities and zero unsound notices at the recorded RustSec revision; three unmaintained dependencies remain disclosed. The exact `.2` converter's six Apple framework/architecture pairs have no DiskSpace imports and retain fcntl/fsync. Unreferenced Rustix calls remain in static inputs; other linking configurations do not inherit that result. Dual-engine packages retain independent RLN security/privacy gates. | Final signed-app required-API and aggregate privacy evidence, plus the independent legacy RLN review, remain required. Advisory or component remediation alone does not approve a release. |
-| NOV-004 | P0 | In progress | BFA.7 native standalone genesis registration and exact Aster metadata bootstrap are implemented. Proxy 1.0, issuer-approved current contracts, backing deployment and funded acceptance remain required; historical BFA.5 exports cannot authenticate Dev or mainnet assets. | Obtain approved current export/hash/name/ticker/precision/backing contracts and explicit EVM mint-lock policy, then qualify exact BTC/USDT receive/send/history/restart on both mobile platforms. |
+| NOV-004 | P0 | In progress | BFA.7 native standalone genesis registration and exact Aster metadata bootstrap are implemented. The exact issuer-approved Dev BUSDT export and its normalized BFA.7 genesis are available with their separate digests. The dedicated hosted Dev wallet profile requires explicit activation and its exact configuration. | Qualify funded hosted Dev BTC/USDT receive/send/history/restart, bridge mint and burn/payout on both mobile platforms. Obtain and qualify the corresponding approved mainnet deployment separately. |
 | NOV-005 | P0 | Verified | Actual Aster qualification found its ownership marker in the SDK required-empty native root. A dedicated native child fixes that integration. READY opens require existing storage, authenticated profile/cohort checks and a compiled-wrapper capability. Bounded strict profile readers reject corrupt input instead of admitting new state or exhausting memory. Fourteen separate offline wrapper/device cases pass, followed by actual Aster funded flow and distinct process-cold reopen on both platforms. | Preserve old/partial state and reject missing storage before replacement. Qualification does not lift production/restore/Dev gates. See the API migration note and exact evidence above. |
 
 ### October 16 Production Privacy Disposition
@@ -816,8 +835,8 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 
 | Measure | Count |
 | --- | ---: |
-| Total tracked findings | 292 |
-| P0 | 13 |
+| Total tracked findings | 293 |
+| P0 | 14 |
 | P1 | 200 |
 | P2 | 79 |
 | P3 | 0 |
@@ -826,7 +845,7 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 | Blocked upstream | 3 |
 | Needs decision | 0 |
 | Accepted constraint | 7 |
-| Verified | 254 |
+| Verified | 255 |
 
 This rollup is generated from all finding rows; verified code is not equivalent
 to clean-candidate platform qualification. Seven accepted constraints remain.

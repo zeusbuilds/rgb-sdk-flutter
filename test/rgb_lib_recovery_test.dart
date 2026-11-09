@@ -17,6 +17,7 @@ const _operation = 'cccccccccccccccccccccccccccccccc';
 const _asset = 'rgb:A6k89KtR-e3oXqRP-uH3jUrz-LU_sYL3-hMZ0k3O-6u8DXbE';
 const _txid =
     'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+const _devProxy = 'rpcs://dev.rgb-proxy.utexo.com/json-rpc';
 
 Map<String, Object?> _status(String requestJson, String phase) {
   final envelope = jsonDecode(requestJson) as Map<String, dynamic>;
@@ -44,6 +45,14 @@ void main() {
   var phase = 'absent';
   var invoiceExpiry = 2000000000;
   var capabilities = true;
+  var dev = false;
+  var devInvoiceEndpoints = const [_devProxy];
+  String? devInvoiceAssetId = _asset;
+  const fixedAssignment = {
+    'type': 'Fungible',
+    'amount': '18446744073709551615',
+  };
+  Map<String, String> devInvoiceAssignment = fixedAssignment;
 
   Object? reply(MethodCall call) => switch (call.method) {
     'getRuntimeInfo' => {
@@ -60,11 +69,12 @@ void main() {
       'consignment': true,
       'contractRegistration': capabilities,
       'durableOnchainRecovery': capabilities,
+      'supportsHostedDevSignet': dev,
     },
     'openWallet' => 'native-handle',
     'getWalletIdentity' => {
       'id': _binding,
-      'network': 'regtest',
+      'network': dev ? 'utexo' : 'regtest',
       'masterFingerprint': 'a1b2c3d4',
       'recoveryCohort': cohort,
     },
@@ -73,15 +83,27 @@ void main() {
       'recipientId': 'native-witness-recipient',
       'recipientType': 'Witness',
       'assetSchema': 'Bfa',
-      'assetId': _asset,
-      'assignment': {'type': 'Fungible', 'amount': '18446744073709551615'},
+      'assetId': dev ? devInvoiceAssetId : _asset,
+      'assignment': dev ? devInvoiceAssignment : fixedAssignment,
       'assignmentName': null,
-      'network': 'regtest',
+      'network': dev ? 'signet' : 'regtest',
       'expirationTimestamp': invoiceExpiry.toString(),
-      'transportEndpoints': ['rpc://127.0.0.1:29300/json-rpc'],
+      'transportEndpoints': dev
+          ? devInvoiceEndpoints
+          : ['rpc://127.0.0.1:29300/json-rpc'],
       'publicKey': _publicKey,
       'encryption': 'Required',
       'unknownQueryParams': <Map<String, Object?>>[],
+    },
+    'getAssetMetadata' => {
+      'assetSchema': 'Bfa',
+      'initialSupply': '0',
+      'maxSupply': '18446744073709551615',
+      'knownCirculatingSupply': '0',
+      'timestamp': '1',
+      'name': 'Bridged USDT',
+      'ticker': 'BUSDT',
+      'precision': 6,
     },
     'prepareOnchainSend' ||
     'commitOnchainSend' ||
@@ -115,17 +137,29 @@ void main() {
 
   Future<RgbLibWallet> wallet() async {
     final session = RgbLibWallet(
-      params: const RgbLibWalletParams(
-        network: 'regtest',
+      params: RgbLibWalletParams(
+        network: dev ? 'utexo' : 'regtest',
         storageDirPath: '/private/new-bfa7-wallet',
+        allowUtexoDevSignet: dev,
       ),
       keys: RgbLibKeys.reader(() => 'test-only-key-source'),
     );
     await session.init();
     await session.unlock(
       RgbLibUnlockParams(
-        indexerUrl: 'tcp://127.0.0.1:29302',
-        proxyEndpoint: 'rpc://127.0.0.1:29300/json-rpc',
+        indexerUrl: dev
+            ? 'https://dev.esplora-01.mint.utexo.com'
+            : 'tcp://127.0.0.1:29302',
+        proxyEndpoint: dev ? _devProxy : 'rpc://127.0.0.1:29300/json-rpc',
+        evmChains: dev
+            ? const {
+                '42161': RgbLibEvmChain(
+                  rpcUrl: 'https://arb1.arbitrum.io/rpc',
+                  minMintLockBlocks: 2,
+                  maxMintLockBlocks: 7200,
+                ),
+              }
+            : const {},
       ),
     );
     addTearDown(session.destroy);
@@ -138,6 +172,10 @@ void main() {
     phase = 'absent';
     invoiceExpiry = 2000000000;
     capabilities = true;
+    dev = false;
+    devInvoiceEndpoints = const [_devProxy];
+    devInvoiceAssetId = _asset;
+    devInvoiceAssignment = fixedAssignment;
     dispatch = reply;
     messenger.setMockMethodCallHandler(_channel, (call) async {
       calls.add(call);
@@ -474,6 +512,129 @@ void main() {
       expect(
         payload['senderTransportEndpoint'],
         'rpc://127.0.0.1:29300/json-rpc',
+      );
+    },
+  );
+
+  test('Dev rejects injected invoice and restored command proxies', () async {
+    dev = true;
+    final session = await wallet();
+    const request = RgbSendRequest(
+      invoice: 'rgb:native-validated-invoice',
+      assetId: _asset,
+      feeRate: 2,
+      witnessAmountSat: 1000,
+    );
+    final invalid = isA<WalletValidationException>();
+    for (final endpoints in [
+      <String>[],
+      ['rpcs://outside.example/json-rpc'],
+      [_devProxy, 'rpcs://outside.example/json-rpc'],
+    ]) {
+      devInvoiceEndpoints = endpoints;
+      await expectLater(
+        session.createRecoverableRgbSendCommand(
+          operationId: _operation,
+          request: request,
+        ),
+        throwsA(invalid),
+      );
+      await expectLater(
+        session.onchainSend(
+          invoice: request.invoice,
+          assetId: _asset,
+          feeRate: 2,
+          witnessAmountSat: 1000,
+        ),
+        throwsA(invalid),
+      );
+    }
+    expect(
+      calls.where(
+        (call) => {'send', 'prepareOnchainSend'}.contains(call.method),
+      ),
+      isEmpty,
+    );
+
+    devInvoiceEndpoints = const [_devProxy];
+    final command = await session.createRecoverableRgbSendCommand(
+      operationId: _operation,
+      request: request,
+    );
+    expect(
+      RecoverableOnchainSendCommand.fromJson(command.requestJson).requestJson,
+      command.requestJson,
+    );
+    for (final field in ['transportEndpoints', 'senderTransportEndpoint']) {
+      final envelope = jsonDecode(command.requestJson) as Map<String, dynamic>;
+      final payload = envelope['request'] as Map<String, dynamic>;
+      payload[field] = field == 'transportEndpoints'
+          ? ['rpcs://outside.example/json-rpc']
+          : 'rpcs://outside.example/json-rpc';
+      payload.remove('fingerprint');
+      payload['fingerprint'] = crypto.sha256
+          .convert(utf8.encode(jsonEncode(envelope)))
+          .toString();
+      expect(
+        () => RecoverableOnchainSendCommand.fromJson(jsonEncode(envelope)),
+        throwsA(invalid),
+      );
+    }
+  });
+
+  test(
+    'Dev open invoice requires explicit selection and native registration',
+    () async {
+      dev = true;
+      devInvoiceAssetId = null;
+      final session = await wallet();
+      Future<RecoverableOnchainSendCommand> create(String? selectedAssetId) =>
+          session.createRecoverableRgbSendCommand(
+            operationId: _operation,
+            request: RgbSendRequest(
+              invoice: 'rgb:native-validated-open-invoice',
+              assetId: selectedAssetId,
+              feeRate: 2,
+              witnessAmountSat: 1000,
+            ),
+            exactAmount: BigInt.from(1234567),
+          );
+      await expectLater(
+        create(_asset),
+        throwsA(isA<WalletValidationException>()),
+      );
+      devInvoiceAssignment = const {'type': 'Any'};
+      await expectLater(
+        create(null),
+        throwsA(isA<WalletValidationException>()),
+      );
+      dispatch = (call) {
+        if (call.method == 'getAssetMetadata') {
+          throw PlatformException(code: 'RGB_LIB_AssetNotFound');
+        }
+        return reply(call);
+      };
+      await expectLater(
+        create(_asset),
+        throwsA(
+          isA<RgbLibWalletException>().having(
+            (error) => error.code,
+            'code',
+            'ASSET_NOT_FOUND',
+          ),
+        ),
+      );
+      dispatch = reply;
+      final command = await create(_asset);
+      final payload =
+          (jsonDecode(command.requestJson) as Map<String, dynamic>)['request']
+              as Map<String, dynamic>;
+      expect(payload['assetId'], _asset);
+      expect(payload['amount'], '1234567');
+      expect(payload['transportEndpoints'], [_devProxy]);
+      expect(
+        calls.where((call) => call.method == 'prepareOnchainSend'),
+        isEmpty,
       );
     },
   );

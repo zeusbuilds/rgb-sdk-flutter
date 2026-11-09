@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rgb_sdk_flutter/rgb_sdk_flutter_advanced.dart';
 import 'package:rgb_sdk_flutter/src/wallet/dev_signet_policy.dart';
@@ -15,17 +16,25 @@ void main() {
     'DEPLOYMENT_UNQUALIFIED',
   );
 
-  test('reviewed Dev requirements remain unadmitted and match the runtime', () {
+  test('reviewed Dev contract and deployment match the runtime', () {
     final requirements = _json('tool/dev_signet_deployment_requirements.json');
     final nativeBaseline = _json('tool/rgb_lib_native_baseline.json');
     final bitcoin = requirements['bitcoin'] as Map<String, Object?>;
     final rgb = requirements['rgb'] as Map<String, Object?>;
+    final backing = requirements['backingChain'] as Map<String, Object?>;
     final bundled = requirements['bundledRgbL1'] as Map<String, Object?>;
     final historical =
         requirements['historicalEvidence'] as Map<String, Object?>;
-    expect(requirements['enabled'], isFalse);
+    expect(requirements['enabled'], isTrue);
     expect(requirements['failureCode'], 'DEPLOYMENT_UNQUALIFIED');
+    expect(requirements['deploymentRevision'], utexoDevSignetDeployment);
     expect(bitcoin['sdkRgbL1Network'], 'utexo');
+    expect(bitcoin['indexerUrl'], utexoDevSignetIndexer);
+    expect(rgb['proxyEndpoint'], utexoDevSignetProxy);
+    expect(backing['chainId'], utexoDevSignetEvmChain);
+    expect(backing['rpcUrl'], utexoDevSignetEvmRpc);
+    expect(backing['minMintLockBlocks'], utexoDevSignetMinMintLock);
+    expect(backing['maxMintLockBlocks'], utexoDevSignetMaxMintLock);
     expect(utexoDevSignetServiceHosts, {
       Uri.parse(bitcoin['indexerUrl']! as String).host,
       Uri.parse(rgb['proxyEndpoint']! as String).host,
@@ -33,9 +42,20 @@ void main() {
     });
     expect(rgb['proxyProtocol'], '1.0');
     expect(rgb['schemaCompatibleGenerations'], ['BFA.6', 'BFA.7']);
-    expect(rgb['approvedAsset'], isNull);
-    expect(rgb['approvedContractBase64'], isNull);
-    expect(rgb['approvedContractSha256'], isNull);
+    expect(rgb['approvedAsset'], {
+      'assetId': rgb['reportedDeployedAssetId'],
+      'nativeName': 'Bridged USDT',
+      'nativeTicker': 'BUSDT',
+      'precision': 6,
+    });
+    final approvedBytes = base64Decode(
+      rgb['approvedContractBase64']! as String,
+    );
+    expect(approvedBytes.length, 648);
+    expect(
+      crypto.sha256.convert(approvedBytes).toString(),
+      rgb['approvedContractSha256'],
+    );
     expect(bundled['generation'], 'BFA.7');
     expect(bundled['sourceRevision'], nativeBaseline['sourceRevision']);
     expect(bundled['sourceRevision'], RgbLibRuntimeInfo.expectedSourceRevision);
@@ -49,6 +69,66 @@ void main() {
       (bitcoin['checkpoint']! as Map<String, Object?>)['blockHash'],
       isNot(bitcoin['publicSignetBlockOne']),
     );
+  });
+
+  test('opted-in Dev resolves only the reviewed hosted tuple', () {
+    const policy = RgbLibEvmChain(
+      rpcUrl: utexoDevSignetEvmRpc,
+      minMintLockBlocks: utexoDevSignetMinMintLock,
+      maxMintLockBlocks: utexoDevSignetMaxMintLock,
+    );
+    RgbLibUnlockParams config({
+      RgbLibIndexer indexer = const RgbLibIndexer.esplora(
+        utexoDevSignetIndexer,
+      ),
+      String proxy = utexoDevSignetProxy,
+      Map<String, RgbLibEvmChain> chains = const {
+        utexoDevSignetEvmChain: policy,
+      },
+      Map<String, String> auth = const {},
+    }) => RgbLibUnlockParams(
+      indexer: indexer,
+      proxyEndpoint: proxy,
+      evmChains: chains,
+      proxyAuthKeys: auth,
+    );
+
+    expect(() => resolveRgbLibOnline('utexo', config()), throwsA(unavailable));
+    final online = resolveRgbLibOnline(
+      'utexo',
+      config(),
+      allowUtexoDevSignet: true,
+    );
+    expect(online.nativeArguments['indexerKind'], 'devSignetEsplora');
+    expect(online.nativeArguments['proxyEndpoint'], utexoDevSignetProxy);
+    expect(online.proxyEndpoint, utexoDevSignetProxy);
+    for (final invalid in [
+      config(
+        indexer: const RgbLibIndexer.esplora(
+          'https://mempool.space/signet/api',
+        ),
+      ),
+      config(indexer: const RgbLibIndexer.electrum(utexoDevSignetIndexer)),
+      config(indexer: const RgbLibIndexer.esplora('$utexoDevSignetIndexer/')),
+      config(proxy: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc'),
+      config(chains: const {}),
+      config(chains: const {'31337': policy}),
+      config(
+        chains: const {
+          utexoDevSignetEvmChain: RgbLibEvmChain(
+            rpcUrl: utexoDevSignetEvmRpc,
+            minMintLockBlocks: 2,
+            maxMintLockBlocks: 512,
+          ),
+        },
+      ),
+      config(auth: {utexoDevSignetProxy: 'a' * 64}),
+    ]) {
+      expect(
+        () => resolveRgbLibOnline('utexo', invalid, allowUtexoDevSignet: true),
+        throwsA(unavailable),
+      );
+    }
   });
 
   test('known Dev services cannot be assigned to another network', () {

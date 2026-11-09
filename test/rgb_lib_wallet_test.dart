@@ -36,11 +36,18 @@ void main() {
   late FutureOr<Object?> Function(MethodCall) dispatch;
   const path = '/private/wallet';
 
-  RgbLibWallet wallet({String network = 'mainnet', RgbLibKeys? keys}) =>
-      RgbLibWallet(
-        params: RgbLibWalletParams(network: network, storageDirPath: path),
-        keys: keys ?? RgbLibKeys.mnemonic('test key source'),
-      );
+  RgbLibWallet wallet({
+    String network = 'mainnet',
+    RgbLibKeys? keys,
+    bool allowUtexoDevSignet = false,
+  }) => RgbLibWallet(
+    params: RgbLibWalletParams(
+      network: network,
+      storageDirPath: path,
+      allowUtexoDevSignet: allowUtexoDevSignet,
+    ),
+    keys: keys ?? RgbLibKeys.mnemonic('test key source'),
+  );
 
   setUp(() {
     calls.clear();
@@ -490,6 +497,129 @@ void main() {
     expect(calls, isEmpty);
   });
 
+  test('explicit hosted Dev requires a current wrapper before keys', () async {
+    var reads = 0;
+    final session = wallet(
+      network: 'utexo',
+      allowUtexoDevSignet: true,
+      keys: RgbLibKeys.reader(() {
+        reads++;
+        return 'private test-only key source';
+      }),
+    );
+    await expectLater(
+      session.init(),
+      throwsA(_walletCode('DEPLOYMENT_UNQUALIFIED')),
+    );
+    expect(reads, 0);
+    expect(calls.map((call) => call.method), ['getRuntimeInfo']);
+    await session.destroy();
+  });
+
+  test(
+    'explicit hosted Dev validates config and dispatches its resolver',
+    () async {
+      const indexer = 'https://dev.esplora-01.mint.utexo.com';
+      const proxy = 'rpcs://dev.rgb-proxy.utexo.com/json-rpc';
+      dispatch = (call) => switch (call.method) {
+        'getRuntimeInfo' => {
+          ..._runtime,
+          'nativeOverlay': 'flutter-bfa7-durable-v1',
+          'contractRegistration': true,
+          'durableOnchainRecovery': true,
+          'supportsHostedDevSignet': true,
+          'supportsExistingOnlyOpen': true,
+        },
+        'getWalletIdentity' => {
+          ..._identity,
+          'network': 'utexo',
+          'id': 'a' * 64,
+          'recoveryCohort': 'b' * 32,
+        },
+        'checkIndexerUrl' => 'esplora',
+        _ => _defaultReply(call.method),
+      };
+      final session = wallet(network: 'utexo', allowUtexoDevSignet: true);
+      await expectLater(
+        session.openExisting(RgbLibUnlockParams(indexerUrl: indexer)),
+        throwsA(_walletCode('DEPLOYMENT_UNQUALIFIED')),
+      );
+      expect(calls, isEmpty);
+      await session.init();
+      expect(
+        calls[1].arguments['devSignetDeployment'],
+        'utexo-dev-busdt-20261109-v1',
+      );
+      expect(await session.checkIndexerUrl(indexer), (
+        indexerProtocol: 'esplora',
+      ));
+      expect(calls.last.arguments['indexerKind'], 'devSignetEsplora');
+      final capabilities = await session.getBfaCapabilities();
+      expect(capabilities.bfa, isTrue);
+      expect(capabilities.burn, isFalse);
+      await expectLater(
+        session.burn(
+          const BurnParams(
+            assetId: _assetId,
+            amount: '1',
+            feeRate: 1,
+            minConfirmations: 3,
+          ),
+        ),
+        throwsA(_code('UNSUPPORTED_CAPABILITY')),
+      );
+      await expectLater(
+        session.getBtcBalance(),
+        throwsA(_code('WALLET_OFFLINE')),
+      );
+      expect(calls.last.method, 'checkIndexerUrl');
+      await session.unlock(
+        RgbLibUnlockParams(
+          indexerUrl: indexer,
+          proxyEndpoint: proxy,
+          evmChains: const {
+            '42161': RgbLibEvmChain(
+              rpcUrl: 'https://arb1.arbitrum.io/rpc',
+              minMintLockBlocks: 2,
+              maxMintLockBlocks: 7200,
+            ),
+          },
+        ),
+      );
+      expect(calls.last.method, _online);
+      expect(calls.last.arguments['indexerKind'], 'devSignetEsplora');
+      expect(calls.last.arguments['proxyEndpoint'], proxy);
+      expect(calls.last.arguments['evmMaxMintLockBlocks'], ['7200']);
+      expect((await session.getWalletIdentity()).network, 'utexo');
+      await session.destroy();
+    },
+  );
+
+  test(
+    'only the native missing estimate code maps to FEE_UNAVAILABLE',
+    () async {
+      String feeCode = 'RGB_LIB_CannotEstimateFees';
+      dispatch = (call) {
+        if (call.method == 'estimateFeeRate') {
+          throw PlatformException(code: feeCode);
+        }
+        return _defaultReply(call.method);
+      };
+      final session = wallet();
+      await session.init();
+      await expectLater(
+        session.estimateFeeRate(1),
+        throwsA(_code('FEE_UNAVAILABLE')),
+      );
+      feeCode = 'RGB_LIB_Indexer';
+      await expectLater(
+        session.estimateFeeRate(1),
+        throwsA(_code('NATIVE_ERROR')),
+      );
+      await session.destroy();
+    },
+  );
+
   test('public Signet retains its own chain identity', () async {
     dispatch = (call) => call.method == 'getWalletIdentity'
         ? {..._identity, 'network': 'signet'}
@@ -564,6 +694,9 @@ void main() {
 
 TypeMatcher<RgbLibWalletException> _code(String value) =>
     isA<RgbLibWalletException>().having((error) => error.code, 'code', value);
+
+TypeMatcher<WalletException> _walletCode(String value) =>
+    isA<WalletException>().having((error) => error.code, 'code', value);
 
 Object? _defaultReply(String method) => switch (method) {
   'getRuntimeInfo' => _runtime,
