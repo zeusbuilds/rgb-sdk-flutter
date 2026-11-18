@@ -10,7 +10,30 @@ import 'network_profile.dart';
 
 /// Stable failure categories for the native on-chain wallet.
 final class RgbLibWalletException extends WalletException {
-  const RgbLibWalletException(super.message, {required super.code});
+  const RgbLibWalletException(
+    super.message, {
+    required super.code,
+    this.operation,
+    String? nativeCode,
+  }) : _nativeCode = nativeCode;
+
+  @override
+  final String? operation;
+
+  final String? _nativeCode;
+
+  /// An allowlisted BFA error variant without its native message or payload.
+  @override
+  String? get nativeCode => switch (_nativeCode) {
+    'MintLockExpired' ||
+    'MintLockNotFound' ||
+    'NoClaimResolver' ||
+    'CannotLinkToItself' ||
+    'InvalidEvmChain' => _nativeCode,
+    _ => null,
+  };
+
+  String get protocol => 'RGB_L1';
 }
 
 /// Parameters bound to the native on-chain wallet's storage profile.
@@ -158,33 +181,76 @@ final class RgbLibEvmChain {
   final int maxMintLockBlocks;
 }
 
+/// The allowed reservation lifetime, measured in blocks on the backing EVM chain.
+typedef RgbLibMintLockBlocks = ({int min, int max});
+
+/// RGB_L1 default bounds for an EVM RPC without an explicit lock policy.
+const defaultRgbLibEvmMintLockBlocks = (min: 1200, max: 28800);
+
 /// Configuration for an RGB_L1 online session, with protocol 1.0 RGB transport.
 final class RgbLibUnlockParams {
   RgbLibUnlockParams({
     this.indexer,
     this.indexerUrl,
     this.proxyEndpoint,
-    Map<String, String> evmRpcUrls = const {},
-    Map<String, RgbLibEvmChain> evmChains = const {},
-    Map<String, String> proxyAuthKeys = const {},
-  }) : evmRpcUrls = Map.unmodifiable(evmRpcUrls),
-       evmChains = Map.unmodifiable(evmChains),
-       proxyAuthKeys = Map.unmodifiable(proxyAuthKeys);
+    Map<String, String>? evmRpcUrls,
+    Map<String, RgbLibMintLockBlocks>? evmMintLockBlocks,
+    Map<String, RgbLibEvmChain>? evmChains,
+    Map<String, String>? proxyAuthKeys,
+  }) : _evmRpcUrls = evmRpcUrls == null ? null : Map.unmodifiable(evmRpcUrls),
+       _evmMintLockBlocks = evmMintLockBlocks == null
+           ? null
+           : Map.unmodifiable(evmMintLockBlocks),
+       _evmChains = evmChains == null ? null : Map.unmodifiable(evmChains),
+       _proxyAuthKeys = proxyAuthKeys == null
+           ? null
+           : Map.unmodifiable(proxyAuthKeys);
 
   final RgbLibIndexer? indexer;
   final String? indexerUrl;
   final String? proxyEndpoint;
 
-  /// Legacy source-compatible RPC map. Each entry must also have an identical
-  /// RPC and explicit mint-lock budget in [evmChains]; a bare map fails closed.
-  final Map<String, String> evmRpcUrls;
+  final Map<String, String>? _evmRpcUrls;
+  final Map<String, RgbLibMintLockBlocks>? _evmMintLockBlocks;
+  final Map<String, RgbLibEvmChain>? _evmChains;
+  final Map<String, String>? _proxyAuthKeys;
+
+  /// Backing-chain RPC URLs keyed by decimal EVM chain ID.
+  Map<String, String> get evmRpcUrls => _evmRpcUrls ?? const {};
+
+  /// Optional per-RPC overrides of [defaultRgbLibEvmMintLockBlocks].
+  Map<String, RgbLibMintLockBlocks> get evmMintLockBlocks =>
+      _evmMintLockBlocks ?? const {};
 
   /// Deployment-approved backing-chain RPC and mint reservation policies.
-  final Map<String, RgbLibEvmChain> evmChains;
-  final Map<String, String> proxyAuthKeys;
+  Map<String, RgbLibEvmChain> get evmChains => _evmChains ?? const {};
+  Map<String, String> get proxyAuthKeys => _proxyAuthKeys ?? const {};
 }
 
-/// SDK beta.40 RGB_L1 defaults, kept separate from legacy RLN proxy defaults.
+RgbLibUnlockParams mergeRgbLibOnline(
+  RgbLibUnlockParams base,
+  RgbLibUnlockParams override,
+) {
+  final overridesIndexer =
+      override.indexer != null || override.indexerUrl != null;
+  final overridesChains =
+      override._evmRpcUrls != null || override._evmChains != null;
+  return RgbLibUnlockParams(
+    indexer: overridesIndexer ? override.indexer : base.indexer,
+    indexerUrl: overridesIndexer ? override.indexerUrl : base.indexerUrl,
+    proxyEndpoint: override.proxyEndpoint ?? base.proxyEndpoint,
+    evmRpcUrls:
+        override._evmRpcUrls ?? (overridesChains ? null : base._evmRpcUrls),
+    evmChains:
+        override._evmChains ?? (overridesChains ? null : base._evmChains),
+    evmMintLockBlocks:
+        override._evmMintLockBlocks ??
+        (override._evmChains != null ? null : base._evmMintLockBlocks),
+    proxyAuthKeys: override._proxyAuthKeys ?? base._proxyAuthKeys,
+  );
+}
+
+/// RGB_L1 defaults, kept separate from legacy RLN proxy defaults.
 ///
 /// UTEXO Dev Signet (`utexo`) requires explicit wallet and online configuration.
 NetworkEndpoints? getRgbLibNetworkDefaults(String network) {
@@ -340,20 +406,14 @@ RgbLibOnlineConfig resolveRgbLibOnline(
         defaults?.proxyEndpoint ??
         invalidRgbLibConfig('An explicit RGB proxy is required.'),
   );
-  for (final entry in params.evmRpcUrls.entries) {
-    if (params.evmChains[entry.key]?.rpcUrl != entry.value) {
-      invalidRgbLibConfig(
-        'BFA.7 requires an explicit mint lock policy for each EVM RPC.',
-      );
-    }
-  }
-  final chains = params.evmChains.keys.toList()..sort();
+  final evmChains = _resolveEvmChains(params, explicitOnly: dev);
+  final chains = evmChains.keys.toList()..sort();
   for (final chain in chains) {
     if (!RegExp(r'^[1-9][0-9]{0,19}$').hasMatch(chain) ||
         BigInt.parse(chain) > BigInt.parse('18446744073709551615')) {
       invalidRgbLibConfig('EVM chain IDs must be positive UInt64 decimals.');
     }
-    final policy = params.evmChains[chain]!;
+    final policy = evmChains[chain]!;
     _url(policy.rpcUrl, {'https', 'http'}, 'EVM RPC');
     if (policy.minMintLockBlocks < 2 ||
         policy.maxMintLockBlocks < policy.minMintLockBlocks) {
@@ -388,19 +448,50 @@ RgbLibOnlineConfig resolveRgbLibOnline(
       'password': indexer.password,
       'cookieFile': indexer.cookieFile,
       'evmChainIds': chains,
-      'evmRpcUrls': [
-        for (final chain in chains) params.evmChains[chain]!.rpcUrl,
-      ],
+      'evmRpcUrls': [for (final chain in chains) evmChains[chain]!.rpcUrl],
       'evmMinMintLockBlocks': [
         for (final chain in chains)
-          params.evmChains[chain]!.minMintLockBlocks.toString(),
+          evmChains[chain]!.minMintLockBlocks.toString(),
       ],
       'evmMaxMintLockBlocks': [
         for (final chain in chains)
-          params.evmChains[chain]!.maxMintLockBlocks.toString(),
+          evmChains[chain]!.maxMintLockBlocks.toString(),
       ],
       'proxyEndpoints': proxies,
       'proxyAuthKeys': [for (final proxy in proxies) auth[proxy]!],
     },
   );
+}
+
+Map<String, RgbLibEvmChain> _resolveEvmChains(
+  RgbLibUnlockParams params, {
+  required bool explicitOnly,
+}) {
+  final resolved = {...params.evmChains};
+  for (final chain in params.evmMintLockBlocks.keys) {
+    if (!params.evmRpcUrls.containsKey(chain)) {
+      invalidRgbLibConfig('EVM mint lock bounds require a matching RPC URL.');
+    }
+  }
+  for (final entry in params.evmRpcUrls.entries) {
+    final existing = resolved[entry.key];
+    final bounds = params.evmMintLockBlocks[entry.key];
+    if (existing != null) {
+      if (existing.rpcUrl != entry.value ||
+          (bounds != null &&
+              (existing.minMintLockBlocks != bounds.min ||
+                  existing.maxMintLockBlocks != bounds.max))) {
+        invalidRgbLibConfig('Conflicting EVM RPC or mint lock policies.');
+      }
+      continue;
+    }
+    if (explicitOnly) unqualifiedUtexoDevSignet();
+    final lock = bounds ?? defaultRgbLibEvmMintLockBlocks;
+    resolved[entry.key] = RgbLibEvmChain(
+      rpcUrl: entry.value,
+      minMintLockBlocks: lock.min,
+      maxMintLockBlocks: lock.max,
+    );
+  }
+  return resolved;
 }

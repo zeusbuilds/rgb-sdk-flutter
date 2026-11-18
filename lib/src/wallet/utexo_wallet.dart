@@ -25,11 +25,21 @@ import 'lightning_policy.dart';
 import 'network_defaults.dart';
 import 'recoverable_storage.dart';
 import 'rgb_lib/config.dart' show rgbLibLocalFile;
-import 'rgb_lib/wire.dart' show RgbLibAssetMetadata, RgbLibWire;
+import 'rgb_lib/rgb_lib_wallet.dart';
+import 'rgb_lib/wire.dart'
+    show
+        RgbLibAssetMetadata,
+        RgbLibAssetSchema,
+        RgbLibReceivedMint,
+        RgbLibReceiveAssignment,
+        RgbLibReceiveData,
+        RgbLibWire;
 import 'rln_signers.dart';
 import 'utexo_wallet_types.dart';
 import 'wallet_policy.dart';
 
+part 'rln_wallet_backend.dart';
+part 'rgb_lib/utexo_wallet_adapter.dart';
 part 'utexo_wallet_lifecycle.dart';
 part 'utexo_wallet_lsp_apay.dart';
 part 'utexo_wallet_onchain.dart';
@@ -60,103 +70,12 @@ bool _requiredNativeBool(RlnMap response, String field, String typeName) {
   );
 }
 
-enum _WalletLifecycleState {
-  uninitialized,
-  initializing,
-  initialized,
-  unlocking,
-  unlocked,
-  shutDown,
-  destroying,
-  disposed,
-}
-
-abstract class _UtexoWalletInternals {
-  UtexoWallet get _walletSelf;
-  UtexoWalletConfig get _config;
-  RlnClient get _client;
-  RLNBinding get _binding;
-  RlnSigner? get _signer;
-  set _signer(RlnSigner? value);
-  int? get _nodeId;
-  set _nodeId(int? value);
-  bool get _nodeCreated;
-  set _nodeCreated(bool value);
-  _WalletLifecycleState get _lifecycleState;
-  set _lifecycleState(_WalletLifecycleState value);
-  bool get _cleanupRequired;
-  set _cleanupRequired(bool value);
-  Future<void>? get _initInFlight;
-  set _initInFlight(Future<void>? value);
-  Future<void>? get _unlockInFlight;
-  set _unlockInFlight(Future<void>? value);
-  Future<void> get _lifecycleQueue;
-  set _lifecycleQueue(Future<void> value);
-  bool? get _resolvedEnableVirtualChannelsV0;
-  set _resolvedEnableVirtualChannelsV0(bool? value);
-  List<String>? get _resolvedVirtualPeerPubkeys;
-  set _resolvedVirtualPeerPubkeys(List<String>? value);
-  String? get _resolvedLspBaseUrl;
-  set _resolvedLspBaseUrl(String? value);
-  bool get _passwordSignerPasswordConsumed;
-  set _passwordSignerPasswordConsumed(bool value);
-
-  bool get isInitialized;
-  bool get isUnlocked;
-  WalletCapabilities get capabilities;
-  PsbtWalletCarrier? get psbt;
-  BeginEndWalletCarrier? get beginEnd;
-
-  RlnSigner _ensureSigner({String? password, String? mnemonic});
-  void _validateSignerCanUnlock({String? password});
-  void _markPasswordSignerConsumed(RlnSigner signer);
-  Future<int> _createNode();
-  String? _resolvedNodeLspBaseUrl();
-  UtexoUnlockConfig _resolveUnlockConfig(UtexoUnlockConfig config);
-  Future<RlnInvoice> _rgbInvoice(
-    RgbInvoiceRequest request, {
-    required bool witness,
-  });
-  RlnMap _asRlnMap(Object? value);
-  int _requireNode();
-  int _requireUnlockedNode();
-  void _ensureInitialized();
-  void _ensureActive();
-  void _assertLightningEnabled();
-  void _ensureNotDisposed();
-  Future<T> _withLifecycle<T>(Future<T> Function() operation);
-  void _requireNonEmpty(String value, String field);
-  void _validateConfig();
-  void _requirePositive(int value, String field);
-  void _requireNonNegative(int value, String field);
-  void _requireNonNegativeOptional(int? value, String field);
-  void _requireUInt8(int value, String field);
-  void _requireUInt8Optional(int? value, String field);
-  void _requireUInt16(int value, String field);
-  void _requireUInt16Optional(int? value, String field);
-  void _requireUInt32(int value, String field);
-  void _requireUInt32Optional(int? value, String field);
-  void _requireFeeRate(double value, String field);
-  void _ensureRgbUtxoCreationSupported();
-  void _ensureRgbAssetIssuanceSupported(String operation);
-  void _requireSupportedRgbSendSkipSync(bool skipSync);
-  Future<RlnSendResult> _sendRgb(RgbSendRequest request);
-  void _ensureVirtualChannelsMutable();
-  void _enableVirtualChannelsForPeer(String peerPubkey);
-}
-
-class UtexoWallet extends _UtexoWalletInternals
-    with
-        _UtexoWalletLifecycle,
-        _UtexoWalletLspApay,
-        _UtexoWalletOnchain,
-        _UtexoWalletAssetMedia,
-        _UtexoWalletBfa,
-        _UtexoWalletLightning,
-        _UtexoWalletGuards
+/// A wallet bound to a single native engine for its entire lifetime.
+///
+/// The original constructor selects the RLN engine. Use [UtexoWallet.rgbLib]
+/// to select a configured rgb-lib engine, including its own storage and keys.
+class UtexoWallet extends _RlnWalletBackend
     implements ILspWallet, BurnCapabilityWallet {
-  static const _defaultOperationTimeouts = RlnOperationTimeoutPolicy();
-
   UtexoWallet({
     required UtexoWalletConfig config,
     RlnOperationTimeoutPolicy? operationTimeouts,
@@ -167,102 +86,63 @@ class UtexoWallet extends _UtexoWalletInternals
          signer: signer,
        );
 
-  UtexoWallet._({
+  /// Explicitly selects the legacy RGB Lightning Node engine.
+  UtexoWallet.rln({
     required UtexoWalletConfig config,
-    RlnClient? client,
-    RLNBinding? binding,
     RlnOperationTimeoutPolicy? operationTimeouts,
     RlnSigner? signer,
-  }) : _config = config,
-       _signer = signer {
-    final resolvedClient = client ?? binding?.client ?? RlnClient();
-    if (binding != null &&
-        client != null &&
-        !identical(binding.client, client)) {
-      WalletInputPolicy.requireCompatibleNativeOwner(
-        binding: binding.client,
-        client: client,
-      );
-    }
-    _client = resolvedClient;
-    _binding =
-        binding ??
-        RLNBinding(
-          client: resolvedClient,
-          operationTimeouts: operationTimeouts ?? _defaultOperationTimeouts,
-        );
-  }
+  }) : this._(
+         config: config,
+         operationTimeouts: operationTimeouts,
+         signer: signer,
+       );
+
+  /// Wraps one configured on-chain RGB_L1 engine without opening it.
+  ///
+  /// The facade and [engine] share a session and lifecycle. Use the engine's
+  /// typed API for RGB_L1 network configuration and capabilities.
+  factory UtexoWallet.rgbLib({required RgbLibWallet engine}) =>
+      _RgbLibWalletFacade(engine);
+
+  UtexoWallet._({
+    required super.config,
+    super.client,
+    super.binding,
+    super.operationTimeouts,
+    super.signer,
+  });
+
+  UtexoWallet._withoutRln() : super.withoutRln();
 
   @override
   UtexoWallet get _walletSelf => this;
+}
 
-  @override
-  final UtexoWalletConfig _config;
+/// Engine selection and RGB_L1 capabilities on a [UtexoWallet].
+///
+/// An extension keeps existing implementations of the wallet interface source
+/// compatible. Each accessor refers to the selected session only.
+extension UtexoWalletEngineAccess on UtexoWallet {
+  /// The selected native protocol (`RGB_L1` or `RGB_LN`).
+  String get protocol => rgbLibEngine?.protocol ?? 'RGB_LN';
 
-  /// Canonical native network used by decoded RGB and Lightning invoices.
-  @override
-  String get network => normalizeNativeRlnNetwork(_config.network);
-  @override
-  late final RlnClient _client;
-  @override
-  late final RLNBinding _binding;
-  @override
-  RlnSigner? _signer;
+  /// The selected on-chain engine, or null for an RLN wallet.
+  RgbLibWallet? get rgbLibEngine => switch (this) {
+    _RgbLibWalletFacade(:final _rgbLibEngine) => _rgbLibEngine,
+    _ => null,
+  };
 
-  @override
-  int? _nodeId;
-  @override
-  bool _nodeCreated = false;
-  @override
-  _WalletLifecycleState _lifecycleState = _WalletLifecycleState.uninitialized;
-  @override
-  bool _cleanupRequired = false;
-  @override
-  Future<void>? _initInFlight;
-  @override
-  Future<void>? _unlockInFlight;
-  @override
-  Future<void> _lifecycleQueue = Future<void>.value();
-  @override
-  bool? _resolvedEnableVirtualChannelsV0;
-  @override
-  List<String>? _resolvedVirtualPeerPubkeys;
-  @override
-  String? _resolvedLspBaseUrl;
-  @override
-  bool _passwordSignerPasswordConsumed = false;
-  @override
-  PsbtWalletCarrier? get psbt => null;
-  @override
-  BeginEndWalletCarrier? get beginEnd => null;
-
-  int get nodeId => _requireNode();
-
-  @override
-  bool get isInitialized =>
-      !_cleanupRequired &&
-      (_lifecycleState == _WalletLifecycleState.initialized ||
-          _lifecycleState == _WalletLifecycleState.unlocking ||
-          _lifecycleState == _WalletLifecycleState.unlocked);
-  @override
-  bool get isUnlocked => _lifecycleState == _WalletLifecycleState.unlocked;
-  bool get isShutdown => _lifecycleState == _WalletLifecycleState.shutDown;
-  bool isDisposed() => _lifecycleState == _WalletLifecycleState.disposed;
-  @override
-  WalletCapabilities get capabilities {
-    final supportsExternalSignerRgbAssetFlows =
-        _signer is! NativeExternalRlnSigner;
-    return WalletCapabilities(
-      psbtSigning: psbt != null,
-      beginEndFlows: beginEnd != null,
-      rgbUtxoCreation: supportsExternalSignerRgbAssetFlows,
-      rgbAssetIssuance: supportsExternalSignerRgbAssetFlows,
-    );
-  }
-
-  String getNetwork() {
-    _ensureActive();
-    return _config.network;
+  /// Inspects native mint lock requirements for a receive recipient.
+  /// A null result means no observation exists. Use only with RGB_L1.
+  Future<RgbLibReceivedMint?> getReceivedMint(String recipientId) async {
+    final engine = rgbLibEngine;
+    if (engine == null) {
+      throw const UnsupportedWalletFeatureException(
+        'getReceivedMint requires an RGB_L1 wallet.',
+        feature: 'getReceivedMint',
+      );
+    }
+    return engine.getReceivedMint(recipientId);
   }
 }
 

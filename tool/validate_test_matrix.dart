@@ -639,17 +639,18 @@ Set<String> _extractPublicClassMethods(String relativePath, String className) {
     );
   }
   if (className == 'UtexoWallet') {
+    const scopes = <(String, String)>[
+      ('class', '_RlnWalletBackend'),
+      ('mixin', '_UtexoWallet'),
+      ('extension', 'UtexoWalletEngineAccess'),
+      ('extension', 'UtexoWalletRawApi'),
+    ];
     for (final libraryFile in files) {
-      methods.addAll(
-        _extractPublicMembersFromScope(libraryFile, 'mixin', '_UtexoWallet'),
-      );
-      methods.addAll(
-        _extractPublicMembersFromScope(
-          libraryFile,
-          'extension',
-          'UtexoWalletRawApi',
-        ),
-      );
+      for (final (keyword, scope) in scopes) {
+        methods.addAll(
+          _extractPublicMembersFromScope(libraryFile, keyword, scope),
+        );
+      }
     }
   } else if (className == 'UtexoLsp') {
     const mixins = <String>[
@@ -723,6 +724,7 @@ Set<String> _extractPublicMembersFromScope(
         trimmed.startsWith('return ') ||
         trimmed.startsWith('await ') ||
         trimmed.startsWith('final ') ||
+        trimmed.startsWith('late ') ||
         trimmed.startsWith('var ') ||
         trimmed.startsWith('factory ') ||
         trimmed.startsWith('static ') ||

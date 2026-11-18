@@ -1,0 +1,15 @@
+diff --git a/src/api/evm.rs b/src/api/evm.rs
+index 0633f63..cdd6dba 100644
+--- a/src/api/evm.rs
++++ b/src/api/evm.rs
+@@ -284,7 +284,9 @@ impl EvmClient {
+             Duration::from_secs(CONNECT_TIMEOUT),
+             Duration::from_secs(READ_WRITE_TIMEOUT),
+         )
+-        .map_err(|_| Self::req_err("endpoint is outside the network policy"))?;
++        .map_err(|_| Error::Network {
++            details: s!("EVM RPC: endpoint is outside the network policy"),
++        })?;
+         Ok(Self {
+             client,
+             rpc_url: rpc_url.into(),

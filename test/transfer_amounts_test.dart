@@ -69,6 +69,19 @@ void main() {
       throwsA(isA<NativeProtocolException>()),
     );
   });
+  test('legacy RLN change output populates the shared change outputs list', () {
+    final txid = 'ab' * 32;
+    final transfer = RlnTransfer.fromMap({
+      'idx': 1,
+      'status': 'Settled',
+      'kind': 'Send',
+      'assignments': <Object>[],
+      'transportEndpoints': <Object>[],
+      'changeUtxo': '$txid:2',
+    }).toCore();
+    final output = transfer.changeUtxos.single;
+    expect((output.txid, output.vout), (txid, 2));
+  });
   test('malformed native amounts fail closed before exposing history', () {
     for (final kind in ['Fungible', 'InflationRight']) {
       for (final invalid in [

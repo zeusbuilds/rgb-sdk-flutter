@@ -20,7 +20,7 @@ internal class RgbLibOperationPolicyTest {
 
   @Test fun pendingPaymentsRetainObservationRecoveryAndBackup() {
     for (operation in listOf("getBtcBalance", "getAssetMetadata", "getReceivedMint", "listOnchainSendReceipts", "onchainRecoveryState",
-        "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend", "sync", "refresh", "backup")) {
+        "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend", "sync", "refresh", "backup", "exportBackup")) {
       var calls = 0
       RgbLibOperationPolicy.perform(operation, { throw Pending() }) { calls++ }
       assertEquals(1, calls, operation)

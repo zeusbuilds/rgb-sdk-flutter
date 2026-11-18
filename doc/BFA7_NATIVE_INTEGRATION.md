@@ -39,10 +39,11 @@ or a balance**. Aster additionally checks the approved export SHA-256 and exact
 native BFA name, ticker and precision before issuing an asset-bound witness
 invoice. A display symbol never authenticates an asset.
 
-BFA.7 online configuration requires an explicit EVM chain ID, RPC endpoint,
-and minimum/maximum mint-lock block policy. These bounds describe the **EVM
-backing chain's blocks**. They cannot be inferred from a Bitcoin network name
-or copied from an unrelated test fixture. `getReceivedMint` exposes the six
+BFA.7 online configuration requires an explicit EVM chain ID and RPC endpoint.
+The SDK supplies the upstream 1,200 to 28,800 block window unless the caller
+sets a policy for that chain. The hosted Dev deployment still requires its
+exact reviewed RPC and lock window. These limits use **EVM backing-chain
+blocks**. `getReceivedMint` exposes the six
 actual native mint fields with exact unsigned amounts; it does not invent an
 asset identifier absent from the native record.
 

@@ -143,6 +143,7 @@ Map<String, Object?> _buildSnapshot() {
     ),
     'stableWalletSurface': _dartMemberSurface(<String>[
       'lib/src/wallet/utexo_wallet.dart',
+      'lib/src/wallet/rln_wallet_backend.dart',
       'lib/src/wallet/utexo_wallet_bfa.dart',
       'lib/src/wallet/utexo_wallet_lifecycle.dart',
       'lib/src/wallet/utexo_wallet_lsp_apay.dart',

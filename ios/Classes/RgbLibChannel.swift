@@ -71,7 +71,12 @@ final class RgbLibChannel {
         }
         return
       }
-      DispatchQueue.main.async { result(value is NSNull ? nil : value) }
+      let responseValue: Any? = switch value {
+      case let bytes as Data: FlutterStandardTypedData(bytes: bytes)
+      case is NSNull: nil
+      default: value
+      }
+      DispatchQueue.main.async { result(responseValue) }
     }
     #else
     result(FlutterError(code: "NATIVE_BACKEND_UNAVAILABLE", message: "RGB Lib native library is unavailable.", details: nil))

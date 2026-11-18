@@ -253,6 +253,7 @@ void main() {
         BigInt.parse('18446744073709551615'),
       );
       expect(core.bfa.single.balance.settled, core.bfa.single.initialSupply);
+      expect(core.bfa.single.knownCirculatingSupply, isNull);
       expect(core.bfa.single.rejectListUrl, 'https://example/list');
       expect(core.assetIds, ['rgb:bfa']);
       expect(() => core.bfa.clear(), throwsUnsupportedError);

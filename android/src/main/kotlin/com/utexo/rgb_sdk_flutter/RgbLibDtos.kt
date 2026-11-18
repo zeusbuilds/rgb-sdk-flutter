@@ -131,7 +131,7 @@ internal fun rgbDto(v: Transfer): Map<String, Any?> {
     "txid" to v.txid?.let { it },
     "recipientId" to v.recipientId?.let { it },
     "receiveUtxo" to v.receiveUtxo?.let { rgbDto(it) },
-    "changeUtxo" to v.changeUtxos.singleOrNull()?.let { rgbDto(it) },
+    "changeUtxo" to v.changeUtxos.firstOrNull()?.let { rgbDto(it) },
     "changeUtxos" to v.changeUtxos.map { rgbDto(it) },
     "expiration" to v.expirationTimestamp?.let { it.toString() },
     "transportEndpoints" to v.transportEndpoints.map { rgbDto(it) },
@@ -287,7 +287,7 @@ internal fun rgbDto(v: AssetBfa): Map<String, Any?> {
   result["schema"] = "Bfa"
   result["issuedSupply"] = null
   result["maxSupply"] = null
-  result["knownCirculatingSupply"] = null
+  result["knownCirculatingSupply"] = v.knownCirculatingSupply.toString()
   result["token"] = null
   return result
 }

@@ -1,0 +1,21 @@
+diff --git a/src/wallet/objects.rs b/src/wallet/objects.rs
+index 79dfe60..916eaba 100644
+--- a/src/wallet/objects.rs
++++ b/src/wallet/objects.rs
+@@ -851,6 +851,8 @@ pub struct AssetBFA {
+     pub details: Option<String>,
+     /// Precision, also known as divisibility, of the asset
+     pub precision: u8,
++    /// Supply recorded in the original asset contract
++    pub initial_supply: u64,
+     /// Known circulating supply: the amount locked on the bridge contract and not released, as
+     /// the contract accounted it when the wallet last read it (ending a mint or receiving the
+     /// asset), 0 if it never did. It includes the locks of mints not completed (yet) and the ones
+@@ -909,6 +911,7 @@ impl AssetBFA {
+             name: asset.name.clone(),
+             details: asset.details.clone(),
+             precision: asset.precision,
++            initial_supply: asset.initial_supply.parse::<u64>().unwrap(),
+             known_circulating_supply,
+             timestamp: asset.timestamp,
+             added_at: asset.added_at,

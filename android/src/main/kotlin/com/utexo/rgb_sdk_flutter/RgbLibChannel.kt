@@ -12,7 +12,7 @@ internal class RgbLibChannel(binding: FlutterPlugin.FlutterPluginBinding) {
     private val main = Handler(Looper.getMainLooper())
     private val channel = MethodChannel(binding.binaryMessenger, NAME)
     private val assets = binding.applicationContext.assets
-    private val store = RgbLibSessionStore {
+    private val store = RgbLibSessionStore(binding.applicationContext.cacheDir) {
         runCatching {
             assets.open("rgb-lib-bfa-version.json").bufferedReader().use { it.readText() }
         }.getOrNull()

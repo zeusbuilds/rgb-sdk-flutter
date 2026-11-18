@@ -10,7 +10,7 @@ internal object RgbLibOperationPolicy {
     "closeWallet", "getWalletIdentity", "getPublicKeys", "getReceivedMint", "goOnline", "getBtcBalance",
     "getAssetBalance", "listAssets", "getAssetMetadata", "listUnspents", "listTransactions",
     "listTransfers", "decodeInvoice", "checkIndexerUrl", "sync", "estimateFeeRate",
-    "getNetworkInfo", "refresh", "backup", "getConsignmentPath", "getConsignment",
+    "getNetworkInfo", "refresh", "backup", "exportBackup", "getConsignmentPath", "getConsignment",
     "prepareOnchainSend", "commitOnchainSend", "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend",
     "onchainRecoveryState", "listOnchainSendReceipts",
     "bridgeBlindReceive", "prepareBridgeBurn", "commitBridgeBurn", "observeBridgeBurn", "cancelBridgeBurn", "bridgeBurnProof"

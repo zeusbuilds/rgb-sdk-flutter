@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the immutable Flutter BFA.7 overlay without operating any wallet/stack.
+"""Build an immutable Flutter BFA native overlay without operating any wallet/stack.
 
 The tracked source manifest and overlay are the admission boundary. Existing
 source/build directories are verified, never reset or silently overwritten.
@@ -31,18 +31,25 @@ SQLITE = WORK / "sqlite3-sys"
 TARGET = WORK / "target"
 GENERATED = WORK / "generated"
 ARTIFACTS = WORK / "artifacts"
+BFA7_REVISION = "9ec49c08be2e68f08521281e3efbd760ec989cb9"
+BFA8_REVISION = "cafe66e49d58038a69dd05f8065e3fe96a9d1601"
+BFA8_MANIFEST = "source-bfa8-manifest.json"
 
 
-def use_bridge_candidate():
+def use_candidate(manifest_name, work_directory):
     global MANIFEST, WORK, SOURCE, ESPLORA, SQLITE, TARGET, GENERATED, ARTIFACTS
-    MANIFEST = NATIVE / "source-bridge-manifest.json"
-    WORK = ROOT / ".buildlog/bfa7-bridge"
+    MANIFEST = NATIVE / manifest_name
+    WORK = ROOT / ".buildlog" / work_directory
     SOURCE = WORK / "source"
     ESPLORA = WORK / "esplora-client"
     SQLITE = WORK / "sqlite3-sys"
     TARGET = WORK / "target"
     GENERATED = WORK / "generated"
     ARTIFACTS = WORK / "artifacts"
+
+
+def use_bridge_candidate():
+    use_candidate("source-bridge-manifest.json", "bfa7-bridge")
 
 
 def digest(path):
@@ -55,8 +62,9 @@ def digest(path):
 
 def read_manifest():
     manifest = json.loads(MANIFEST.read_text())
-    if manifest["source"]["revision"] != "9ec49c08be2e68f08521281e3efbd760ec989cb9":
-        raise ValueError("BFA.7 source revision requires an explicit tooling review.")
+    revision = BFA8_REVISION if MANIFEST.name == BFA8_MANIFEST else BFA7_REVISION
+    if manifest["source"]["revision"] != revision:
+        raise ValueError("Native source revision requires an explicit tooling review.")
     return manifest
 
 
@@ -75,10 +83,10 @@ def git(directory, *args):
     return run("git", "-c", "core.hooksPath=/dev/null", "-C", directory, *args)
 
 
-def checked_patch(entry):
+def checked_patch(entry, description="Native patch"):
     path = (NATIVE / entry["path"]).resolve(strict=True)
     if not path.is_relative_to(NATIVE.resolve()) or digest(path) != entry["sha256"]:
-        raise ValueError("Native patch digest/path differs from the admitted source manifest.")
+        raise ValueError(f"{description} digest/path differs from the admitted source manifest.")
     return path
 
 
@@ -86,14 +94,14 @@ def verify_source(manifest, *, base_only=False):
     source = manifest["source"]
     if (git(SOURCE, "rev-parse", "HEAD") != source["revision"] or
             git(SOURCE, "rev-parse", "HEAD^{tree}") != source["tree"]):
-        raise ValueError("Prepared BFA.7 source is not the pinned commit/tree.")
+        raise ValueError("Prepared native source is not the pinned commit/tree.")
     expected = source["coreOverlayTree"] if base_only else manifest["integration"]["tree"]
     if not expected:
         raise ValueError("The Flutter integration overlay has not been sealed.")
     if (git(SOURCE, "write-tree") != expected or
             git(SOURCE, "diff", "--name-only") or
             git(SOURCE, "ls-files", "--others", "--exclude-standard")):
-        raise ValueError("Prepared BFA.7 source has unadmitted changes; preserve it for review.")
+        raise ValueError("Prepared native source has unadmitted changes; preserve it for review.")
     if not base_only:
         lock = SOURCE / "bindings/uniffi/Cargo.lock"
         if digest(lock) != manifest["integration"]["uniffiLockSha256"]:
@@ -201,7 +209,7 @@ def prepare(manifest, source_override=None):
             git(staged, "apply", "--check", "--index", patch)
             git(staged, "apply", "--index", patch)
         if git(staged, "write-tree") != manifest["source"]["coreOverlayTree"]:
-            raise ValueError("BFA.7 core safeguard overlay tree mismatch.")
+            raise ValueError("Native core safeguard overlay tree mismatch.")
         git(staged, "apply", "--check", "--index", overlay)
         git(staged, "apply", "--index", overlay)
         if bridge_patch:
@@ -394,7 +402,7 @@ def target_identity(manifest, target):
     return {"manifestSha256": digest(MANIFEST), "integrationTree": manifest["integration"]["tree"],
             "lockSha256": manifest["integration"]["uniffiLockSha256"],
             "buildScriptSha256": digest(Path(__file__)), "target": target,
-            "distributionInputs": distribution_inputs(),
+            "distributionInputs": distribution_inputs(manifest),
             "rustVersion": run("rustc", "+" + manifest["build"]["rust"], "--version"),
             "xcode": run("xcodebuild", "-version")}
 
@@ -422,17 +430,23 @@ def zip_entries(output, entries, modes=None):
             archive.writestr(info, value)
 
 
+def distribution_notice(manifest):
+    pin = manifest.get("distributionNotice")
+    return checked_patch(pin, "Distribution notice") if pin else NATIVE / "NOTICE.txt"
+
+
 def release_attribution(manifest):
     return {
         "LICENSE.rgb-lib.txt": (SOURCE / "LICENSE").read_bytes(),
         "LICENSE.MPL-2.0.txt": (NATIVE / "LICENSE-MPL-2.0.txt").read_bytes(),
-        "NOTICE.txt": (NATIVE / "NOTICE.txt").read_bytes(),
+        "NOTICE.txt": distribution_notice(manifest).read_bytes(),
         "source-manifest.json": MANIFEST.read_bytes(),
     }
 
 
-def distribution_inputs():
-    return {name: digest(NATIVE / name) for name in ("NOTICE.txt", "LICENSE-MPL-2.0.txt")}
+def distribution_inputs(manifest):
+    return {"NOTICE.txt": digest(distribution_notice(manifest)),
+            "LICENSE-MPL-2.0.txt": digest(NATIVE / "LICENSE-MPL-2.0.txt")}
 
 
 def dependency_inventory(manifest):
@@ -506,21 +520,26 @@ def package_source(manifest, inventory, license_texts):
 
 
 def metadata(manifest, platform):
+    integration = manifest["integration"]
+    bridge = {}
+    if manifest.get("features", {}).get("durableHostedBridge") is True:
+        # The BFA.8 integration seals recovery and hosted bridge in one patch.
+        bridge_pin = integration.get("bridgePatch")
+        bridge = {"durable_hosted_bridge": True,
+                  "bridge_patch_sha256": bridge_pin["sha256"] if bridge_pin else integration["patchSha256"]}
     return {"schema_version": 2, "version": manifest["version"], "bridge_version": manifest["bridgeVersion"],
             "native_overlay": manifest["nativeOverlay"],
             "source_repository": "UTEXO-Protocol/rgb-lib-bfa", "source_commit": manifest["source"]["revision"],
-            "source_lock_sha256": manifest["integration"]["uniffiLockSha256"],
+            "source_lock_sha256": integration["uniffiLockSha256"],
             "core_overlay_tree": manifest["source"]["coreOverlayTree"],
-            "integration_tree": manifest["integration"]["tree"],
-            "overlay_patch_sha256": manifest["integration"]["patchSha256"],
+            "integration_tree": integration["tree"],
+            "overlay_patch_sha256": integration["patchSha256"],
             "source_manifest_sha256": digest(MANIFEST), "build_script_sha256": digest(Path(__file__)),
             "dispatched_rgb_revocation": manifest.get("features", {}).get("dispatchedRgbRevocation", False),
-            **({"durable_hosted_bridge": True,
-                "bridge_patch_sha256": manifest["integration"]["bridgePatch"]["sha256"]}
-               if manifest.get("features", {}).get("durableHostedBridge") is True else {}),
+            **bridge,
             "sqlite_overlay_tree": manifest.get("sqlite3", {}).get("overlayTree"),
             "ios_sqlite_compile_flags": manifest.get("sqlite3", {}).get("iosCompileFlags", []),
-            "distribution_inputs": distribution_inputs(),
+            "distribution_inputs": distribution_inputs(manifest),
             "rust_version": run("rustc", "+" + manifest["build"]["rust"], "--version"),
             "xcode": run("xcodebuild", "-version"),
             "android_ndk": manifest["build"]["androidNdk"],
@@ -659,10 +678,14 @@ def main():
     parser.add_argument("--source", help="Exact-commit local mirror for offline source preparation")
     parser.add_argument("--target", action="append", default=[])
     parser.add_argument("--platform", choices=("all", "android", "ios"), default="all")
-    parser.add_argument("--bridge", action="store_true", help="Build the separate Dev Bridge native candidate")
+    candidate = parser.add_mutually_exclusive_group()
+    candidate.add_argument("--bridge", action="store_true", help="Build the separate BFA.7 Dev Bridge candidate")
+    candidate.add_argument("--bfa8", action="store_true", help="Build the Flutter BFA.8 native candidate")
     args = parser.parse_args()
     if args.bridge:
         use_bridge_candidate()
+    elif args.bfa8:
+        use_candidate(BFA8_MANIFEST, "bfa8-upgrade")
     manifest = read_manifest()
     if args.command == "seal":
         seal(manifest)
@@ -684,4 +707,4 @@ if __name__ == "__main__":
     try:
         main()
     except (OSError, ValueError, subprocess.CalledProcessError, KeyError) as error:
-        sys.exit("BFA.7 native build failed: " + str(error))
+        sys.exit("RGB Lib native build failed: " + str(error))

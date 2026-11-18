@@ -1058,7 +1058,7 @@ void main() {
   );
 
   test(
-    'BFA.7 requires explicit validated backing-chain lock bounds before dispatch',
+    'BFA.7 validates backing-chain mint lock policies before native connection',
     () async {
       final session = RgbLibWallet(
         params: const RgbLibWalletParams(
@@ -1086,6 +1086,7 @@ void main() {
           indexerUrl: 'tcp://127.0.0.1:29302',
           proxyEndpoint: 'rpc://127.0.0.1:29300/json-rpc',
           evmRpcUrls: {'42161': 'https://rpc.example'},
+          evmMintLockBlocks: {'1': (min: 2, max: 7200)},
         ),
         config(minimum: 1),
         config(minimum: 10, maximum: 9),
@@ -1394,6 +1395,37 @@ void main() {
   );
 
   test(
+    'known BFA native error variants remain visible without their payloads',
+    () async {
+      final session = await wallet();
+      dispatch = (call) {
+        if (call.method == 'sync') {
+          throw PlatformException(
+            code: 'RGB_LIB_InvalidEvmChain',
+            message: 'private native diagnostics',
+          );
+        }
+        return reply(call);
+      };
+      await expectLater(
+        session.syncWallet(),
+        throwsA(
+          isA<RgbLibWalletException>()
+              .having((e) => e.code, 'code', 'INVALID_PARAMS')
+              .having((e) => e.nativeCode, 'nativeCode', 'InvalidEvmChain')
+              .having((e) => e.operation, 'operation', 'syncWallet')
+              .having((e) => e.protocol, 'protocol', 'RGB_L1')
+              .having(
+                (e) => e.toString(),
+                'diagnostic',
+                isNot(contains('private native diagnostics')),
+              ),
+        ),
+      );
+    },
+  );
+
+  test(
     'L1 convenience refresh fails once on partial native observations',
     () async {
       final session = await wallet();
@@ -1414,9 +1446,10 @@ void main() {
               },
             ]
           : reply(call);
-      final detailed = await session.refreshTransfers();
+      final detailed = await session.refresh(skipSync: true);
       expect(detailed.transfers[1]!.failure, isNotNull);
       expect(detailed.transfers[2]!.failure, isNull);
+      expect(calls.last.arguments['skipSync'], isTrue);
       final before = calls.where((call) => call.method == 'refresh').length;
       await expectLater(
         session.refreshWallet(),

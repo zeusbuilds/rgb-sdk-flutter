@@ -35,7 +35,7 @@ enum PendingPayment: Error { case pending }
       precondition(checks == 2 && calls == 1, "Idle mutation was blocked: \(operation)")
     }
     let allowedOperations = ["getBtcBalance", "getAssetMetadata", "getPublicKeys", "getReceivedMint", "listTransfers",
-      "onchainRecoveryState", "listOnchainSendReceipts", "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend", "backup", "sync", "refresh"]
+      "onchainRecoveryState", "listOnchainSendReceipts", "onchainSendStatus", "cancelOnchainSend", "revokeOnchainSend", "backup", "exportBackup", "sync", "refresh"]
     for operation in allowedOperations {
       var calls = 0
       RgbLibOperationPolicy.perform(operation, assertNoPending: {

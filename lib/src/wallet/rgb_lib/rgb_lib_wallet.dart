@@ -32,18 +32,26 @@ part 'hosted_dev_bridge.dart';
 /// claim. Use [destroy] when the object will no longer be used. A mnemonic
 /// reader should only read keys and must not call this wallet from inside init.
 final class RgbLibWallet implements BurnCapabilityWallet {
-  RgbLibWallet({required this.params, required RgbLibKeys keys})
-    : _keys = keys {
+  /// [online] provides connection defaults without connecting during [init].
+  RgbLibWallet({
+    required this.params,
+    required RgbLibKeys keys,
+    RgbLibUnlockParams? online,
+  }) : _keys = keys,
+       _configuredOnline = online {
     validateRgbLibWalletParams(params);
     keys.publicKeys?.validate(params.network);
+    if (online != null) _resolveOnline(null);
   }
 
   final RgbLibWalletParams params;
   final RgbLibKeys _keys;
+  final RgbLibUnlockParams? _configuredOnline;
 
   Future<void> _tail = Future.value();
   Future<void>? _closing;
   bool _disposeRequested = false;
+  bool _shutDown = false;
   bool _disposed = false;
   bool _closeRequired = false;
   String? _handle;
@@ -52,10 +60,32 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   RgbLibRuntimeInfo? _runtime;
 
   String get protocol => 'RGB_L1';
+  String get contractVersion => '1';
   String get network => params.network;
   String getNetwork() => network;
   bool get watchOnly => _keys.readMnemonic == null;
   bool isDisposed() => _disposed;
+
+  /// Shared engine capabilities. Durable sends use [RgbLibDurableOperations].
+  ({bool canSignTransactions, bool psbtSigning, bool beginEndFlows})
+  get capabilities => (
+    canSignTransactions: !watchOnly,
+    psbtSigning: false,
+    beginEndFlows: false,
+  );
+
+  /// Whether an authenticated session is open and available for calls.
+  bool get isInitialized =>
+      _identity != null &&
+      !_disposeRequested &&
+      !_closeRequired &&
+      _closing == null;
+
+  /// Whether the available session has connected to its configured network.
+  bool get isUnlocked => isInitialized && _online != null;
+
+  /// Whether an opened session was shut down and may be reopened.
+  bool get isShutdown => _shutDown && !_disposeRequested && _closing == null;
 
   /// Whether the opened signing backend implements the native recovery protocol.
   /// This capability does not establish funded or release qualification.
@@ -103,31 +133,46 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     return result;
   }
 
-  Future<T> _accept<T>(Future<T> Function() action) {
+  Future<T> _accept<T>(Future<T> Function() action, {String? operation}) {
     if (_disposeRequested) {
       return Future.error(
-        const RgbLibWalletException(
+        RgbLibWalletException(
           'This wallet session has been disposed.',
           code: 'WALLET_DISPOSED',
+          operation: operation,
         ),
       );
     }
     if (_closing != null || _closeRequired) {
       return Future.error(
-        const RgbLibWalletException(
+        RgbLibWalletException(
           'Wallet cleanup is in progress or must be retried.',
           code: 'WALLET_STOPPING',
+          operation: operation,
         ),
       );
     }
-    return _enqueue(() {
-      if (_closeRequired) {
-        throw const RgbLibWalletException(
-          'Wallet cleanup must be retried.',
-          code: 'WALLET_STOPPING',
+    return _enqueue(() async {
+      try {
+        if (_closeRequired) {
+          throw const RgbLibWalletException(
+            'Wallet cleanup must be retried.',
+            code: 'WALLET_STOPPING',
+          );
+        }
+        return await action();
+      } on RgbLibWalletException catch (error, stack) {
+        if (operation == null || error.operation == operation) rethrow;
+        Error.throwWithStackTrace(
+          RgbLibWalletException(
+            error.message,
+            code: error.code,
+            operation: operation,
+            nativeCode: error.nativeCode,
+          ),
+          stack,
         );
       }
-      return action();
     });
   }
 
@@ -198,7 +243,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   }
 
   /// Opens a native session. No network connection is required.
-  Future<void> init() => _accept(_open);
+  Future<void> init() => _accept(_open, operation: 'init');
   Future<void> initialize() => init();
 
   Future<void> _open({bool requireExistingStorage = false}) async {
@@ -283,6 +328,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         recoveryCohort: cohort,
       );
       _runtime = runtime;
+      _shutDown = false;
     } catch (_) {
       _closeRequired = true;
       await _closeNative();
@@ -291,7 +337,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   }
 
   Future<RgbLibWalletIdentity> getWalletIdentity() =>
-      _accept(() async => _requireIdentity());
+      _accept(() async => _requireIdentity(), operation: 'getWalletIdentity');
 
   RgbLibWalletIdentity _requireIdentity() =>
       _identity ??
@@ -300,21 +346,30 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         code: 'WALLET_NOT_INITIALIZED',
       ));
 
-  /// Explicit configuration takes precedence over a later lazy connection.
+  /// Connects with explicit fields, constructor settings, then network defaults.
   Future<void> goOnline([RgbLibUnlockParams? params]) =>
-      unlock(params ?? RgbLibUnlockParams());
+      _goOnline(params, 'goOnline');
 
-  Future<void> unlock(RgbLibUnlockParams params) => _accept(() async {
-    _requireIdentity();
-    await _connect(_resolveOnline(params));
-  });
+  /// Shared wallet alias for [goOnline].
+  Future<void> unlock([RgbLibUnlockParams? params]) =>
+      _goOnline(params, 'unlock');
 
-  RgbLibOnlineConfig _resolveOnline(RgbLibUnlockParams config) =>
-      resolveRgbLibOnline(
-        network,
-        config,
-        allowUtexoDevSignet: params.allowUtexoDevSignet,
-      );
+  Future<void> _goOnline(RgbLibUnlockParams? config, String operation) =>
+      _accept(() async {
+        _requireIdentity();
+        await _connect(_resolveOnline(config));
+      }, operation: operation);
+
+  RgbLibOnlineConfig _resolveOnline(RgbLibUnlockParams? config) {
+    final base = _configuredOnline;
+    return resolveRgbLibOnline(
+      network,
+      base == null || config == null
+          ? config ?? base ?? RgbLibUnlockParams()
+          : mergeRgbLibOnline(base, config),
+      allowUtexoDevSignet: params.allowUtexoDevSignet,
+    );
+  }
 
   Future<void> _connect(RgbLibOnlineConfig config) async {
     final previous = _online;
@@ -335,13 +390,14 @@ final class RgbLibWallet implements BurnCapabilityWallet {
 
   Future<void> _ensureOnline() async {
     if (_online != null) return;
-    if (network == 'utexo' || getRgbLibNetworkDefaults(network) == null) {
+    if (_configuredOnline == null &&
+        (network == 'utexo' || getRgbLibNetworkDefaults(network) == null)) {
       throw const RgbLibWalletException(
         'This network requires explicit online configuration.',
         code: 'WALLET_OFFLINE',
       );
     }
-    await _connect(_resolveOnline(RgbLibUnlockParams()));
+    await _connect(_resolveOnline(null));
   }
 
   /// Opens a create-or-open session after shutdown and optionally connects it.
@@ -353,13 +409,13 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     if (_handle != null) {
       throw const RgbLibWalletException(
         'Shut down the current session before reopening.',
-        code: 'WALLET_CONFIG_MISMATCH',
+        code: 'WALLET_INVALID_STATE',
       );
     }
     final config = params == null ? null : _resolveOnline(params);
     await _open();
     if (config != null) await _connect(config);
-  });
+  }, operation: 'reinit');
 
   /// Opens a previously provisioned native profile without creating a new one.
   ///
@@ -390,8 +446,10 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     if (_disposed) return Future.value();
     if (_closing case final closing?) return closing;
     final closing = _enqueue(() async {
+      final wasOpen = _identity != null;
       _closeRequired = true;
       await _closeNative();
+      if (wasOpen) _shutDown = true;
       _disposed = _disposeRequested;
     }).whenComplete(() => _closing = null);
     return _closing = closing;
@@ -417,6 +475,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     String operation,
     T Function(Object? result) decode, {
     Map<String, Object?> arguments = const {},
+    String? publicOperation,
     bool online = false,
     bool signing = false,
     bool burn = false,
@@ -447,7 +506,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         if (proxyArguments != null) ...proxyArguments(_online!.proxyEndpoint),
       }),
     );
-  });
+  }, operation: publicOperation ?? operation);
 
   /// Restore an encrypted native snapshot for read-only inspection into an empty
   /// dedicated directory.
@@ -460,21 +519,63 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   /// is also blocked: it may ACK or broadcast pending transfers. Use local
   /// inspection and exact read-only Status instead. See
   /// [RgbLibRuntimeInfo.backupRecovery].
+  ///
+  /// Use an app-private source file because the native engine stages temporary
+  /// wallet data alongside the archive.
+  static Future<({String message})> restoreBackupFromFile({
+    required String filePath,
+    required String password,
+    required String dataDir,
+  }) =>
+      _restoreBackupFile('restoreBackupFromFile', filePath, password, dataDir);
+
+  /// Compatibility alias for [restoreBackupFromFile].
   static Future<void> restoreFromBackup({
     required String backupFilePath,
     required String password,
     required String dataDir,
   }) async {
-    _validateBackup(backupFilePath, password);
+    await _restoreBackupFile(
+      'restoreFromBackup',
+      backupFilePath,
+      password,
+      dataDir,
+    );
+  }
+
+  static Future<({String message})> _restoreBackupFile(
+    String operation,
+    String path,
+    String password,
+    String dataDir,
+  ) async {
+    _validateBackup(path, password, operation);
     if (!isAbsoluteRgbLibPath(dataDir)) {
-      invalidRgbLibConfig('Restore requires an absolute destination path.');
+      throw RgbLibWalletException(
+        'Restore requires an absolute destination path.',
+        code: 'INVALID_CONFIG',
+        operation: operation,
+      );
     }
-    await getRuntimeInfo();
-    await _invoke('restoreBackup', {
-      'backupPath': backupFilePath,
-      'password': password,
-      'dataDir': dataDir,
-    });
+    try {
+      await getRuntimeInfo();
+      await _invoke('restoreBackup', {
+        'backupPath': path,
+        'password': password,
+        'dataDir': dataDir,
+      });
+    } on RgbLibWalletException catch (error, stack) {
+      Error.throwWithStackTrace(
+        RgbLibWalletException(
+          error.message,
+          code: error.code,
+          operation: operation,
+          nativeCode: error.nativeCode,
+        ),
+        stack,
+      );
+    }
+    return (message: 'Wallet restored successfully');
   }
 
   Future<String> getAddress() => _address(rotate: false);
@@ -546,7 +647,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       );
     },
     arguments: {'skipSync': skipSync},
-    online: true,
+    online: !skipSync,
   );
 
   Future<CoreAssetBalance> getAssetBalance(String assetId) => _call(
@@ -591,7 +692,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       rgbLibRows(value, 'unspents').map((row) => row.unspent),
     ),
     arguments: {'skipSync': skipSync},
-    online: true,
+    online: !skipSync,
   );
 
   Future<List<CoreTransaction>> listTransactions({bool skipSync = false}) =>
@@ -601,7 +702,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
           rgbLibRows(value, 'transactions').map((row) => row.transaction),
         ),
         arguments: {'skipSync': skipSync},
-        online: true,
+        online: !skipSync,
       );
 
   Future<List<CoreTransaction>> listTransactionsByTxid(
@@ -813,7 +914,17 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     bool donation = false,
     required int feeRate,
     int minConfirmations = 1,
+    bool skipSync = false,
   }) {
+    if (skipSync) {
+      return Future.error(
+        const RgbLibWalletException(
+          'RGB_L1 sends require synchronization.',
+          code: 'UNSUPPORTED_CAPABILITY',
+          operation: 'onchainSend',
+        ),
+      );
+    }
     if (witnessBlinding != null && witnessAmountSat == null) {
       throw const WalletValidationException(
         'Witness blinding requires a Bitcoin output amount.',
@@ -823,6 +934,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     return _call(
       'send',
       _operationResult,
+      publicOperation: 'onchainSend',
       arguments: {
         'invoice': _required(invoice, 'invoice'),
         'assetId': _optionalAssetId(assetId),
@@ -1030,23 +1142,26 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         signing: true,
       );
 
+  /// Refreshes pending transfers. Set [skipSync] to skip the initial sync.
+  Future<RefreshTransfersResult> refresh({bool skipSync = false}) => _call(
+    'refresh',
+    (value) {
+      final transfers = <int, RefreshedTransfer>{};
+      for (final row in rgbLibRows(value, 'refresh')) {
+        final index = row.integer('batchTransferIdx');
+        if (transfers.containsKey(index)) {
+          invalidRgbLibWire('batchTransferIdx');
+        }
+        transfers[index] = row.refreshedTransfer;
+      }
+      return RefreshTransfersResult(transfers: transfers);
+    },
+    arguments: {'skipSync': skipSync},
+    online: true,
+  );
+
   Future<RefreshTransfersResult> refreshTransfers({bool skipSync = false}) =>
-      _call(
-        'refresh',
-        (value) {
-          final transfers = <int, RefreshedTransfer>{};
-          for (final row in rgbLibRows(value, 'refresh')) {
-            final index = row.integer('batchTransferIdx');
-            if (transfers.containsKey(index)) {
-              invalidRgbLibWire('batchTransferIdx');
-            }
-            transfers[index] = row.refreshedTransfer;
-          }
-          return RefreshTransfersResult(transfers: transfers);
-        },
-        arguments: {'skipSync': skipSync},
-        online: true,
-      );
+      refresh(skipSync: skipSync);
 
   /// Completes a refresh only when every native transfer observation succeeded.
   /// Use [refreshTransfers] to inspect deliberate partial results directly.
@@ -1060,24 +1175,80 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     }
   }
 
-  Future<void> syncWallet() => _call('sync', _void, online: true);
+  Future<void> syncWallet() =>
+      _call('sync', _void, online: true, publicOperation: 'syncWallet');
 
   /// Archives the native wallet's complete private RGB state and payment cohort.
   ///
   /// This creates an encrypted snapshot, not a spend-ready portable recovery.
   /// A recovery phrase alone cannot recreate the RGB state in this archive.
-  /// See [RgbLibRuntimeInfo.backupRecovery] and [restoreFromBackup].
+  /// Use an app-private path for native staging and share the archive after
+  /// export completes.
+  /// See [RgbLibRuntimeInfo.backupRecovery] and [restoreBackupFromFile].
+  Future<({String message, String backupPath})> exportBackupToFile({
+    required String filePath,
+    required String password,
+  }) => _exportBackupFile('exportBackupToFile', filePath, password);
+
+  /// Returns the encrypted native snapshot as bytes, without connecting online.
+  ///
+  /// In-memory exports are limited to 32 MiB. Use [exportBackupToFile] if
+  /// this fails with `BACKUP_TOO_LARGE`. To restore these bytes, write them
+  /// unchanged to a file and use [restoreBackupFromFile].
+  Future<Uint8List> exportBackup({required String password}) {
+    if (password.isEmpty) {
+      throw const RgbLibWalletException(
+        'Backup requires a nonempty password.',
+        code: 'INVALID_CONFIG',
+        operation: 'exportBackup',
+      );
+    }
+    return _call('exportBackup', (value) {
+      if (value is! Uint8List ||
+          value.isEmpty ||
+          value.lengthInBytes > 32 * 1024 * 1024) {
+        invalidRgbLibWire('backup');
+      }
+      return value;
+    }, arguments: {'password': password});
+  }
+
+  /// Compatibility alias for [exportBackupToFile].
   Future<({String message, String backupPath})> createBackup({
     required String backupPath,
     required String password,
-  }) {
-    _validateBackup(backupPath, password);
-    return _call('backup', (value) {
-      _void(value);
-      return (message: 'Backup created successfully', backupPath: backupPath);
-    }, arguments: {'backupPath': backupPath, 'password': password});
+  }) => _exportBackupFile('createBackup', backupPath, password);
+
+  Future<({String message, String backupPath})> _exportBackupFile(
+    String operation,
+    String path,
+    String password,
+  ) {
+    _validateBackup(path, password, operation);
+    return _call(
+      'backup',
+      (value) {
+        _void(value);
+        return (message: 'Backup created successfully', backupPath: path);
+      },
+      arguments: {'backupPath': path, 'password': password},
+      publicOperation: operation,
+    );
   }
 }
+
+/// Restores an encrypted RGB_L1 snapshot for read-only inspection.
+///
+/// See [RgbLibWallet.restoreBackupFromFile] for storage and recovery details.
+Future<({String message})> restoreBackupFromFile({
+  required String filePath,
+  required String password,
+  required String dataDir,
+}) => RgbLibWallet.restoreBackupFromFile(
+  filePath: filePath,
+  password: password,
+  dataDir: dataDir,
+);
 
 const _channel = MethodChannel('com.utexo.rgb_sdk_flutter/rgb_lib');
 
@@ -1088,9 +1259,10 @@ Future<Object?> _invoke(
   try {
     return await _channel.invokeMethod<Object?>(method, args);
   } on MissingPluginException {
-    throw const RgbLibWalletException(
+    throw RgbLibWalletException(
       'The RGB_L1 native backend is unavailable on this build.',
       code: 'NATIVE_BACKEND_UNAVAILABLE',
+      operation: method,
     );
   } on PlatformException catch (error) {
     // Native text can contain paths or RPC credentials. Preserve only known
@@ -1108,7 +1280,14 @@ Future<Object?> _invoke(
       _ when _nativeCodes.contains(raw) => raw,
       _ => 'NATIVE_ERROR',
     };
-    throw RgbLibWalletException('RGB_L1 operation failed.', code: code);
+    throw RgbLibWalletException(
+      'RGB_L1 operation failed.',
+      code: code,
+      operation: method,
+      nativeCode: raw.startsWith('RGB_LIB_')
+          ? raw.substring('RGB_LIB_'.length)
+          : null,
+    );
   }
 }
 
@@ -1126,6 +1305,7 @@ const _nativeCodes = {
   'WALLET_STORAGE_NOT_EMPTY',
   'WALLET_STORAGE_MISSING',
   'BACKUP_PROFILE_MISMATCH',
+  'BACKUP_TOO_LARGE',
   'CONSIGNMENT_NOT_FOUND',
   'INVALID_CONSIGNMENT_PATH',
   'WALLET_OFFLINE',
@@ -1153,10 +1333,12 @@ String _txid(Object? value) => value is String && burnHex32.hasMatch(value)
     ? value.toLowerCase()
     : invalidRgbLibWire('txid');
 
-void _validateBackup(String path, String password) {
+void _validateBackup(String path, String password, String operation) {
   if (!isAbsoluteRgbLibPath(path) || password.isEmpty) {
-    invalidRgbLibConfig(
+    throw RgbLibWalletException(
       'Backup requires an absolute path and nonempty password.',
+      code: 'INVALID_CONFIG',
+      operation: operation,
     );
   }
 }

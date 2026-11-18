@@ -111,6 +111,11 @@ void main() {
       config(indexer: const RgbLibIndexer.electrum(utexoDevSignetIndexer)),
       config(indexer: const RgbLibIndexer.esplora('$utexoDevSignetIndexer/')),
       config(proxy: 'rpcs://staging.rgb-proxy.utexo.com/json-rpc'),
+      RgbLibUnlockParams(
+        indexerUrl: utexoDevSignetIndexer,
+        proxyEndpoint: utexoDevSignetProxy,
+        evmRpcUrls: const {utexoDevSignetEvmChain: utexoDevSignetEvmRpc},
+      ),
       config(chains: const {}),
       config(chains: const {'31337': policy}),
       config(

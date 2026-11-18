@@ -7,6 +7,19 @@ were removed because they overlapped and had drifted from the implementation.
 
 ## Document Control
 
+### November 18 single-package wallet facade
+
+| ID | Pri | Status | Finding and evidence | Required outcome |
+| --- | --- | --- | --- | --- |
+| NOV-006 | P1 | Verified | `UtexoWallet` selects a single RLN or RGB_L1 engine. Facade tests prove dispatch, exact contract registration and nullable mint observation, durable recovery after uncertain dispatch, shared lifecycle and burn journal ownership, and wrong-engine rejection. | Keep separate backend pins, configuration, and recovery checks in the single package. Production RGB_L1 still requires NOV-002 through NOV-004. |
+
+API change and migration note for NOV-006. The existing constructor and
+`RgbSdkFlutter.wallet` retain RLN. New callers can explicitly use
+`UtexoWallet.rln` or wrap their existing `RgbLibWallet` using
+`UtexoWallet.rgbLib`. The facade and the supplied RGB_L1 engine share one
+session. Existing storage, contract and recovery formats require no migration.
+See the [wallet engine guide](PUBLIC_API_REFERENCE.md#choose-a-wallet-engine).
+
 ### November 9 hosted Dev Signet profile
 
 The team supplied the current Dev BUSDT issuer export. Iris verified the same
@@ -844,9 +857,9 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 
 | Measure | Count |
 | --- | ---: |
-| Total tracked findings | 293 |
+| Total tracked findings | 294 |
 | P0 | 14 |
-| P1 | 200 |
+| P1 | 201 |
 | P2 | 79 |
 | P3 | 0 |
 | Open | 2 |
@@ -854,7 +867,7 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 | Blocked upstream | 3 |
 | Needs decision | 0 |
 | Accepted constraint | 7 |
-| Verified | 255 |
+| Verified | 256 |
 
 This rollup is generated from all finding rows; verified code is not equivalent
 to clean-candidate platform qualification. Seven accepted constraints remain.

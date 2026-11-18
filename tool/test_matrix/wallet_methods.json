@@ -22,6 +22,15 @@
       "evidenceBucket": "public_contract_import"
     },
     {
+      "id": "getReceivedMint",
+      "group": "rgb_assets",
+      "support": "supported",
+      "fixture": "wallet_engine_mint_observation",
+      "contract": "covered",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWalletEngineAccess.getReceivedMint",
+      "evidenceBucket": "wallet_engine_mint_observation"
+    },
+    {
       "id": "burn",
       "group": "rgb_assets",
       "support": "supported",
@@ -117,7 +126,7 @@
       "support": "supported",
       "fixture": "unit_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.isDisposed",
+      "implementation": "lib/src/wallet/rln_wallet_backend.dart::_RlnWalletBackend.isDisposed",
       "evidenceBucket": "unit_contract"
     },
     {
@@ -144,7 +153,7 @@
       "support": "supported",
       "fixture": "unit_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.getNetwork",
+      "implementation": "lib/src/wallet/rln_wallet_backend.dart::_RlnWalletBackend.getNetwork",
       "evidenceBucket": "unit_contract"
     },
     {

@@ -222,11 +222,13 @@ class CoreTransfer implements TransferAmount {
     this.txid,
     this.recipientId,
     this.receiveUtxo,
-    this.changeUtxo,
+    Outpoint? changeUtxo,
+    List<Outpoint>? changeUtxos,
     this.expiration,
     required List<CoreTransferTransportEndpoint> transportEndpoints,
   }) : amount = _transferAmount(kind, requestedAssignment, assignments),
        assignments = List<Assignment>.unmodifiable(assignments),
+       changeUtxos = List<Outpoint>.unmodifiable(changeUtxos ?? [?changeUtxo]),
        transportEndpoints = List<CoreTransferTransportEndpoint>.unmodifiable(
          transportEndpoints,
        );
@@ -257,7 +259,13 @@ class CoreTransfer implements TransferAmount {
   final String? txid;
   final String? recipientId;
   final Outpoint? receiveUtxo;
-  final Outpoint? changeUtxo;
+
+  /// All change outputs reported by the wallet backend, in native order.
+  final List<Outpoint> changeUtxos;
+
+  /// Compatibility accessor for the first change output, if any.
+  @Deprecated('Use changeUtxos to access all change outputs.')
+  Outpoint? get changeUtxo => changeUtxos.firstOrNull;
 
   /// Transfer expiration Unix timestamp in seconds, when native provides it.
   final int? expiration;
@@ -355,7 +363,7 @@ class CoreAssetNia extends CoreAsset {
   final BigInt issuedSupply;
 }
 
-/// Stable bridged fungible asset, including exact base-unit initial supply.
+/// Stable bridged fungible asset with exact base-unit supplies.
 class CoreAssetBfa extends CoreAsset {
   const CoreAssetBfa({
     required super.assetId,
@@ -368,10 +376,15 @@ class CoreAssetBfa extends CoreAsset {
     required super.balance,
     super.media,
     required this.initialSupply,
+    this.knownCirculatingSupply,
     this.rejectListUrl,
   });
 
   final BigInt initialSupply;
+
+  /// The wallet's known circulating supply. Older backends may omit it from
+  /// their asset listing even when they report it in asset metadata.
+  final BigInt? knownCirculatingSupply;
   final String? rejectListUrl;
 }
 

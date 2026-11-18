@@ -40,6 +40,7 @@ void main() {
     String network = 'mainnet',
     RgbLibKeys? keys,
     bool allowUtexoDevSignet = false,
+    RgbLibUnlockParams? online,
   }) => RgbLibWallet(
     params: RgbLibWalletParams(
       network: network,
@@ -47,6 +48,7 @@ void main() {
       allowUtexoDevSignet: allowUtexoDevSignet,
     ),
     keys: keys ?? RgbLibKeys.mnemonic('test key source'),
+    online: online,
   );
 
   setUp(() {
@@ -84,7 +86,11 @@ void main() {
     messenger.setMockMethodCallHandler(_channel, null);
     await expectLater(
       wallet().init(),
-      throwsA(_code('NATIVE_BACKEND_UNAVAILABLE')),
+      throwsA(
+        _code('NATIVE_BACKEND_UNAVAILABLE')
+            .having((e) => e.operation, 'operation', 'init')
+            .having((e) => e.protocol, 'protocol', 'RGB_L1'),
+      ),
     );
   });
 
@@ -114,6 +120,12 @@ void main() {
           ),
         ),
       );
+      expect(session.contractVersion, '1');
+      expect(session.capabilities, (
+        canSignTransactions: false,
+        psbtSigning: false,
+        beginEndFlows: false,
+      ));
       await session.init();
       final capabilities = await session.getBfaCapabilities();
       expect(capabilities.burn, isFalse);
@@ -229,8 +241,8 @@ void main() {
     };
     final session = wallet();
     await session.init();
-    final first = session.getBtcBalance(skipSync: true);
-    final second = session.listTransactions(skipSync: true);
+    final first = session.getBtcBalance();
+    final second = session.listTransactions();
     await started.future;
     expect(calls.last.method, _online);
     goOnline.complete();
@@ -244,7 +256,7 @@ void main() {
       calls[3].arguments['indexerUrl'],
       'ssl://electrs-01.utexo.com:50002',
     );
-    expect(calls[4].arguments['skipSync'], isTrue);
+    expect(calls[4].arguments['skipSync'], isFalse);
     await session.destroy();
   });
 
@@ -297,6 +309,99 @@ void main() {
     },
   );
 
+  test(
+    'offline skip-sync reads do not connect or require regtest defaults',
+    () async {
+      dispatch = (call) => switch (call.method) {
+        'getWalletIdentity' => {..._identity, 'network': 'regtest'},
+        'listUnspents' => <Object?>[],
+        _ => _defaultReply(call.method),
+      };
+      final session = wallet(network: 'regtest');
+      addTearDown(session.destroy);
+      await session.init();
+      await session.getBtcBalance(skipSync: true);
+      await session.listTransactions(skipSync: true);
+      await session.listUnspents(skipSync: true);
+      expect(calls.skip(3).map((c) => c.method), [
+        'getBtcBalance',
+        'listTransactions',
+        'listUnspents',
+      ]);
+      expect(
+        calls.skip(3).every((c) => c.arguments['skipSync'] == true),
+        isTrue,
+      );
+      await expectLater(
+        session.getBtcBalance(),
+        throwsA(_code('WALLET_OFFLINE')),
+      );
+    },
+  );
+
+  test('constructor connection stays lazy and resolves EVM policies', () async {
+    dispatch = (call) => call.method == 'getWalletIdentity'
+        ? {..._identity, 'network': 'regtest'}
+        : _defaultReply(call.method);
+    final bounds = {'42161': (min: 2, max: 10800)};
+    final session = wallet(
+      network: 'regtest',
+      online: RgbLibUnlockParams(
+        indexerUrl: 'https://esplora.example.test',
+        proxyEndpoint: 'https://proxy.example.test/json-rpc',
+        evmRpcUrls: {
+          '42161': 'https://arb.example.test',
+          '1': 'https://eth.example.test',
+        },
+        evmMintLockBlocks: bounds,
+      ),
+    );
+    addTearDown(session.destroy);
+    bounds.clear();
+    await session.init();
+    expect(calls.where((c) => c.method == _online), isEmpty);
+    await session.getBtcBalance();
+    await session.unlock();
+    final config = calls.singleWhere((c) => c.method == _online).arguments;
+    expect(config['indexerUrl'], 'https://esplora.example.test');
+    expect(config['evmChainIds'], ['1', '42161']);
+    expect(config['evmMinMintLockBlocks'], ['1200', '2']);
+    expect(config['evmMaxMintLockBlocks'], ['28800', '10800']);
+    await session.shutdown();
+    await session.reinit(
+      RgbLibUnlockParams(
+        indexer: const RgbLibIndexer.electrum('tcp://127.0.0.1:55001'),
+        evmMintLockBlocks: const {},
+      ),
+    );
+    expect(calls.last.arguments['indexerUrl'], 'tcp://127.0.0.1:55001');
+    expect(calls.last.arguments['evmMinMintLockBlocks'], ['1200', '1200']);
+    await expectLater(session.reinit(), throwsA(_code('WALLET_INVALID_STATE')));
+  });
+
+  test(
+    'bad constructor online config and skip-sync send fail before dispatch',
+    () async {
+      expect(
+        () => wallet(
+          online: RgbLibUnlockParams(
+            evmMintLockBlocks: {'42161': (min: 2, max: 100)},
+          ),
+        ),
+        throwsA(_code('INVALID_CONFIG')),
+      );
+      await expectLater(
+        wallet().onchainSend(
+          invoice: 'rgb:invalid',
+          feeRate: 1,
+          skipSync: true,
+        ),
+        throwsA(_code('UNSUPPORTED_CAPABILITY')),
+      );
+      expect(calls, isEmpty);
+    },
+  );
+
   test('exact BFA balances and allocations retain all UInt64 digits', () async {
     const units = '18446744073709551615';
     dispatch = (call) => switch (call.method) {
@@ -321,6 +426,93 @@ void main() {
     expect(() => transfers.clear(), throwsUnsupportedError);
     await session.destroy();
   });
+
+  test('BFA asset listings preserve exact known circulating supply', () async {
+    const units = '18446744073709551615';
+    Object? supply = units;
+    dispatch = (call) => switch (call.method) {
+      'listAssets' => [
+        {
+          ..._asset('Bfa'),
+          'ticker': 'BFA',
+          'initialSupply': '1',
+          'knownCirculatingSupply': supply,
+        },
+      ],
+      _ => _defaultReply(call.method),
+    };
+    final session = wallet();
+    await session.init();
+    final listed = await session.listAssets();
+    expect(listed.bfa.single.initialSupply, BigInt.one);
+    expect(listed.bfa.single.knownCirculatingSupply, BigInt.parse(units));
+
+    supply = '0';
+    expect(
+      (await session.listAssets()).bfa.single.knownCirculatingSupply,
+      BigInt.zero,
+    );
+    supply = null;
+    expect(
+      (await session.listAssets()).bfa.single.knownCirculatingSupply,
+      isNull,
+    );
+
+    for (final malformed in [42, '-1', '01', '18446744073709551616']) {
+      supply = malformed;
+      await expectLater(
+        session.listAssets(),
+        throwsA(isA<NativeProtocolException>()),
+      );
+    }
+    await session.destroy();
+  });
+
+  test(
+    'transfer history preserves every change output in native order',
+    () async {
+      final first = {'txid': _txid, 'vout': 3};
+      final second = {'txid': 'fe' * 32, 'vout': 1};
+      Object? changeOutputs = [first, second];
+      dispatch = (call) => switch (call.method) {
+        'listTransfers' => [
+          {
+            ..._transfer('Send', requested: '7', allocations: ['100']),
+            'changeUtxos': changeOutputs,
+          },
+        ],
+        _ => _defaultReply(call.method),
+      };
+      final session = wallet();
+      await session.init();
+      final CoreTransfer multiple = (await session.listTransfers()).single;
+      expect(multiple.changeUtxos.map((output) => (output.txid, output.vout)), [
+        (_txid, 3),
+        ('fe' * 32, 1),
+      ]);
+      expect(() => multiple.changeUtxos.clear(), throwsUnsupportedError);
+      expect(_legacyChangeOutput(multiple), same(multiple.changeUtxos.first));
+      expect(multiple.amount, BigInt.from(7));
+
+      changeOutputs = [second];
+      final single = (await session.listTransfers()).single;
+      expect(_legacyChangeOutput(single), same(single.changeUtxos.single));
+      changeOutputs = <Object?>[];
+      final none = (await session.listTransfers()).single;
+      expect(none.changeUtxos, isEmpty);
+      expect(_legacyChangeOutput(none), isNull);
+
+      changeOutputs = [
+        first,
+        {'txid': _txid, 'vout': -1},
+      ];
+      await expectLater(
+        session.listTransfers(),
+        throwsA(isA<NativeProtocolException>()),
+      );
+      await session.destroy();
+    },
+  );
 
   test('malformed values do not become zero or truncated values', () async {
     dispatch = (call) => switch (call.method) {
@@ -690,6 +882,146 @@ void main() {
       expect(calls.last.arguments['dataDir'], '/private/restore');
     },
   );
+
+  test(
+    'canonical file restore and exports use the offline backup route',
+    () async {
+      const password = 'test-only-password';
+      const filePath = '/private/test.backup';
+      final restored = await restoreBackupFromFile(
+        filePath: filePath,
+        password: password,
+        dataDir: '/private/restore',
+      );
+      expect(restored.message, 'Wallet restored successfully');
+      expect(calls.map((call) => call.method), [
+        'getRuntimeInfo',
+        'restoreBackup',
+      ]);
+      expect(calls.last.arguments, {
+        'dataDir': '/private/restore',
+        'backupPath': filePath,
+        'password': password,
+      });
+
+      final session = wallet();
+      addTearDown(session.destroy);
+      final encrypted = Uint8List.fromList([0, 1, 127, 128, 255]);
+      dispatch = (call) => switch (call.method) {
+        'backup' => null,
+        'exportBackup' => encrypted,
+        _ => _defaultReply(call.method),
+      };
+      await session.init();
+      calls.clear();
+      final fileExport = await session.exportBackupToFile(
+        filePath: filePath,
+        password: password,
+      );
+      expect(fileExport.backupPath, filePath);
+      expect(
+        await session.createBackup(backupPath: filePath, password: password),
+        fileExport,
+      );
+      expect(await session.exportBackup(password: password), encrypted);
+      expect(calls.map((call) => call.method), [
+        'backup',
+        'backup',
+        'exportBackup',
+      ]);
+      expect(calls.last.arguments, {
+        'handle': 'opaque-session',
+        'password': password,
+      });
+    },
+  );
+
+  test('backup errors identify the invoked public method', () async {
+    const password = 'test-only-password';
+    const filePath = '/private/test.backup';
+    const dataDir = '/private/restore';
+    dispatch = (call) {
+      if (call.method == 'backup' || call.method == 'restoreBackup') {
+        throw PlatformException(code: 'RECOVERY_BACKUP_INVALID');
+      }
+      return _defaultReply(call.method);
+    };
+    final session = wallet();
+    addTearDown(session.destroy);
+    await session.init();
+    final backupCalls = <String, Future<Object?> Function()>{
+      'exportBackupToFile': () =>
+          session.exportBackupToFile(filePath: filePath, password: password),
+      'createBackup': () =>
+          session.createBackup(backupPath: filePath, password: password),
+      'restoreBackupFromFile': () => restoreBackupFromFile(
+        filePath: filePath,
+        password: password,
+        dataDir: dataDir,
+      ),
+      'restoreFromBackup': () async {
+        await RgbLibWallet.restoreFromBackup(
+          backupFilePath: filePath,
+          password: password,
+          dataDir: dataDir,
+        );
+        return null;
+      },
+    };
+    for (final entry in backupCalls.entries) {
+      await expectLater(
+        entry.value(),
+        throwsA(
+          _code(
+            'RECOVERY_BACKUP_INVALID',
+          ).having((error) => error.operation, 'operation', entry.key),
+        ),
+      );
+    }
+  });
+
+  test(
+    'byte backup rejects invalid results and preserves size errors',
+    () async {
+      final session = wallet();
+      addTearDown(session.destroy);
+      final outcomes = <Object?>[null, 'AQ==', Uint8List(0)];
+      dispatch = (call) {
+        if (call.method == 'exportBackup') {
+          if (outcomes.isNotEmpty) return outcomes.removeAt(0);
+          throw PlatformException(
+            code: 'BACKUP_TOO_LARGE',
+            message: '/private/cache',
+          );
+        }
+        return _defaultReply(call.method);
+      };
+      await session.init();
+      calls.clear();
+      expect(
+        () => session.exportBackup(password: ''),
+        throwsA(_code('INVALID_CONFIG')),
+      );
+      expect(calls, isEmpty);
+      const password = 'test-only-password';
+      for (var index = 0; index < 3; index++) {
+        await expectLater(
+          session.exportBackup(password: password),
+          throwsA(isA<NativeProtocolException>()),
+        );
+      }
+      await expectLater(
+        session.exportBackup(password: password),
+        throwsA(
+          _code('BACKUP_TOO_LARGE').having(
+            (error) => error.toString(),
+            'safe message',
+            isNot(contains('/private/cache')),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 TypeMatcher<RgbLibWalletException> _code(String value) =>
@@ -697,6 +1029,11 @@ TypeMatcher<RgbLibWalletException> _code(String value) =>
 
 TypeMatcher<WalletException> _walletCode(String value) =>
     isA<WalletException>().having((error) => error.code, 'code', value);
+
+Outpoint? _legacyChangeOutput(CoreTransfer transfer) {
+  // ignore: deprecated_member_use_from_same_package
+  return transfer.changeUtxo;
+}
 
 Object? _defaultReply(String method) => switch (method) {
   'getRuntimeInfo' => _runtime,

@@ -23,6 +23,58 @@ SPEC.loader.exec_module(BUILD)
 
 
 class NativeAdmissionTests(unittest.TestCase):
+    def test_bfa8_source_requires_the_pinned_revision_in_its_own_manifest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name, revision in (("source-manifest.json", BUILD.BFA7_REVISION),
+                                   ("source-bridge-manifest.json", BUILD.BFA7_REVISION),
+                                   (BUILD.BFA8_MANIFEST, BUILD.BFA8_REVISION)):
+                pin = root / name
+                manifest = {"source": {"revision": revision}}
+                pin.write_text(json.dumps(manifest))
+                with self.subTest(name=name), patch.object(BUILD, "MANIFEST", pin):
+                    self.assertEqual(BUILD.read_manifest(), manifest)
+                    other = BUILD.BFA7_REVISION if revision == BUILD.BFA8_REVISION else BUILD.BFA8_REVISION
+                    pin.write_text(json.dumps({"source": {"revision": other}}))
+                    with self.assertRaisesRegex(ValueError, "explicit tooling review"):
+                        BUILD.read_manifest()
+
+    def test_combined_overlay_records_its_hosted_bridge_provenance(self):
+        manifest = {
+            "version": "version", "bridgeVersion": 6, "nativeOverlay": "overlay",
+            "source": {"revision": BUILD.BFA8_REVISION, "coreOverlayTree": "core"},
+            "integration": {"tree": "tree", "uniffiLockSha256": "lock",
+                            "patchSha256": "combined"},
+            "features": {"durableHostedBridge": True},
+            "build": {"rust": "1.94.0", "androidNdk": "ndk", "minAndroidApi": 24,
+                      "minIosVersion": "16.0", "targets": [], "kotlinVersion": "kotlin"},
+        }
+        with patch.object(BUILD, "digest", return_value="digest"), \
+                patch.object(BUILD, "run", return_value="tool version"):
+            metadata = BUILD.metadata(manifest, "cross-platform")
+            self.assertTrue(metadata["durable_hosted_bridge"])
+            self.assertEqual(metadata["bridge_patch_sha256"], "combined")
+            manifest["integration"]["bridgePatch"] = {"sha256": "separate"}
+            self.assertEqual(BUILD.metadata(manifest, "cross-platform")["bridge_patch_sha256"], "separate")
+            manifest["features"]["durableHostedBridge"] = False
+            self.assertNotIn("bridge_patch_sha256", BUILD.metadata(manifest, "cross-platform"))
+
+    def test_distribution_notice_selection_is_digest_pinned_and_default_is_stable(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(BUILD, "NATIVE", Path(temporary)):
+            stable = BUILD.NATIVE / "NOTICE.txt"
+            candidate = BUILD.NATIVE / "NOTICE-bfa8.txt"
+            license_file = BUILD.NATIVE / "LICENSE-MPL-2.0.txt"
+            stable.write_text("legacy attribution")
+            candidate.write_text("BFA.8 attribution")
+            license_file.write_text("license")
+            pin = {"distributionNotice": {"path": candidate.name, "sha256": BUILD.digest(candidate)}}
+            self.assertEqual(BUILD.distribution_inputs({})["NOTICE.txt"], BUILD.digest(stable))
+            self.assertEqual(BUILD.distribution_inputs(pin)["NOTICE.txt"], BUILD.digest(candidate))
+            candidate.write_text("modified")
+            with self.assertRaisesRegex(ValueError, "Distribution notice digest/path differs"):
+                BUILD.distribution_inputs(pin)
+
     def test_ios_sqlite_flags_are_exact_target_specific_and_not_ambient(self):
         manifest = {"build": {"minIosVersion": "16.0"}, "sqlite3": {
             "iosCompileFlags": ["SQLITE_ENABLE_LOCKING_STYLE=0", "RGB_SQLITE_IOS_CONTAINER_ONLY=1"]}}

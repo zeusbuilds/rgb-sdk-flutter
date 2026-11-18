@@ -195,6 +195,7 @@ private final class RgbLibSession {
 final class RgbLibSwiftHelper {
   private static let registry = NSLock()
   private static var sessions: [String: RgbLibSession] = [:]
+  private static let maxBackupExportBytes = 32 * 1024 * 1024
 
   static func execute(_ operation: String, params: NSDictionary) -> NSDictionary {
     do { return ["result": try call(operation, RgbParams(values: params as? [String: Any] ?? [:]))] }
@@ -379,6 +380,24 @@ final class RgbLibSwiftHelper {
     try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: outbox.path)
     try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: lock.path)
   }
+  private static func exportBackup(_ s: RgbLibSession, _ wallet: RGBLib.Wallet, password: String) throws -> Data {
+    guard !password.isEmpty else { throw rgbInvalid("Backup requires a nonempty password") }
+    let fm = FileManager.default
+    let staging = fm.temporaryDirectory.appendingPathComponent("rgb-backup-\(UUID().uuidString)", isDirectory: true)
+    try fm.createDirectory(at: staging, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+    defer { try? fm.removeItem(at: staging) }
+    let archive = staging.appendingPathComponent("wallet.backup")
+    try s.save()
+    try wallet.backup(backupPath: archive.path, password: password)
+    guard let size = try archive.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0 else {
+      throw RgbBridgeFailure(code: "NATIVE_ERROR", message: "Backup archive is empty")
+    }
+    guard size <= maxBackupExportBytes else {
+      throw RgbBridgeFailure(code: "BACKUP_TOO_LARGE", message: "Export the backup to a file")
+    }
+    return try Data(contentsOf: archive)
+  }
+
   private static func consignment(_ s: RgbLibSession, _ p: RgbParams) throws -> URL {
     let w = s.wallet!
     let paths = Set(try w.listTransfers(assetFilter: .id(assetId: p.string("assetId")), scope: .txid(txid: p.string("txid"))).compactMap { $0.consignmentPath })
@@ -621,6 +640,7 @@ final class RgbLibSwiftHelper {
     // This UniFFI release has no block-height method; the shared API makes it optional.
     case "getNetworkInfo": return ["network": s.profile["network"]!, "blockHeight": NSNull()]
     case "backup": try s.save(); try w.backup(backupPath: p.string("backupPath"), password: p.string("password")); return NSNull()
+    case "exportBackup": return try exportBackup(s, w, password: p.string("password"))
     case "getConsignmentPath": return try consignment(s, p).path
     case "getConsignment": return try Data(contentsOf: consignment(s, p)).base64EncodedString()
     default: throw rgbInvalid("Unknown native operation")

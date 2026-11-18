@@ -20,10 +20,13 @@ prepare/commit/status/cancel recovery. It uses dedicated storage, an immutable
 recovery cohort and a protocol 1.0 RGB proxy. Restored backup snapshots stay
 fenced until freshness can be established. See
 [the BFA.7 integration and remaining gates](doc/BFA7_NATIVE_INTEGRATION.md).
-The original React Native `1.0.0-beta.40` BFA.5 artifact reference remains
-independently frozen and verified.
+The RGB_L1 compatibility reference is React Native `1.0.0-beta.41` and shared
+Core `1.0.0-beta.10`. Flutter retains the BFA.7 artifacts and its durable
+recovery integration. See [the beta.41 compatibility record](doc/UPSTREAM_PARITY_BETA41.md).
+The separate [BFA.8 candidate](doc/BFA8_NATIVE_CANDIDATE.md) is available for
+local development and qualification.
 
-The existing `UtexoWallet` remains an explicit RLN facade. Its baseline is:
+The existing `UtexoWallet(config: ...)` constructor selects RLN. Its baseline is:
 
 - `UTEXO-Protocol/rgb-sdk-rn` `dev` at
   `41ff170f794edff2a1822a672ddab37e29505f14`
@@ -52,6 +55,19 @@ mainnet; Lightning endpoints reject with 403. Non-mainnet runtime behavior is
 unchanged. BFA/Ethereum and VSS qualification remain independent onchain
 obligations; the pinned consensus event-selection defect remains tracked.
 
+## Choose a wallet engine
+
+Both engines ship in `rgb_sdk_flutter`. Each `UtexoWallet` stays bound to its
+selected engine for the session. Existing consumers can keep
+`UtexoWallet(config: ...)` or use `UtexoWallet.rln(config: ...)` to state the
+selection explicitly.
+
+For a qualified on-chain deployment, pass a configured `RgbLibWallet` to
+`UtexoWallet.rgbLib(engine: ...)`. Common balance, address, transfer,
+contract-registration and durable-send methods use that session. The supplied
+engine also exposes typed online settings, encrypted backups, and other
+RGB_L1-specific capabilities. See the [engine selection guide](doc/PUBLIC_API_REFERENCE.md#choose-a-wallet-engine).
+
 ## Features
 
 - BFA asset models, native burn capabilities, exact-u64 burns and saved
@@ -66,8 +82,8 @@ obligations; the pinned consensus event-selection defect remains tracked.
   use mainnet onchain funds; the release constraint above still applies.
 
 - On-device RGB Lightning Node integration for iOS and Android.
-- Stable `UtexoWallet` facade for Bitcoin, RGB, Lightning, peer, channel,
-  LSP, APay, signer, and lifecycle workflows.
+- Stable `UtexoWallet` facade for Bitcoin and RGB. The RLN engine also offers
+  Lightning, peer, channel, LSP, APay, and signer workflows.
 - RGB asset issuance and transfer support for the native/RN-supported surface.
 - On-chain BTC balance, address, UTXO, transaction, and send workflows.
 - Lightning invoice, payment, peer, channel, keysend, decode, and status

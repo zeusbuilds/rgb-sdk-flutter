@@ -1,10 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:rgb_sdk_flutter/rgb_sdk_flutter.dart';
-import 'dart:convert';
 
 const _channel = MethodChannel('com.utexo.rgb_sdk_flutter/rgb_lib');
 const _testMnemonic =
@@ -37,8 +37,8 @@ void main() {
 
       final scratch = await Directory.systemTemp.createTemp('rgb-lib-smoke-');
       final wallet = '${scratch.path}/wallet';
-      final restored = '${scratch.path}/restored';
       final backup = '${scratch.path}/wallet.backup';
+      final byteBackup = '${scratch.path}/byte-export.backup';
       const password = 'disposable-smoke-password';
       String? activeHandle;
       var nativeMayOwnStorage = false;
@@ -107,44 +107,54 @@ void main() {
           'backupPath': backup,
           'password': password,
         });
-        await close();
-        await _channel.invokeMethod<void>('restoreBackup', {
-          'dataDir': restored,
-          'backupPath': backup,
-          'password': password,
-        });
-        final restoredHandle = await open(restored);
-        final restoredIdentity = await _channel
-            .invokeMapMethod<String, Object?>('getWalletIdentity', {
-              'handle': restoredHandle,
-            });
-        expect(restoredIdentity?['id'], identity?['id']);
-        expect(
-          restoredIdentity?['recoveryCohort'],
-          identity?['recoveryCohort'],
+        final exportedBytes = await _channel.invokeMethod<Uint8List>(
+          'exportBackup',
+          {'handle': handle, 'password': password},
         );
-        final state =
-            jsonDecode(
-                  (await _channel.invokeMethod<String>('onchainRecoveryState', {
-                    'handle': restoredHandle,
-                  }))!,
-                )
-                as Map<String, dynamic>;
-        expect(state['restoredSnapshot'], isTrue);
-        expect(state['pending'], isEmpty);
-        // An old coherent backup cannot prove that the original wallet did not
-        // authorize a transaction after that snapshot. Native must fail closed.
-        await expectLater(
-          address(restoredHandle),
-          throwsA(
-            isA<PlatformException>().having(
-              (error) => error.code,
-              'code',
-              'RECOVERY_RESTORE_UNCERTAIN',
+        expect(exportedBytes, isNotEmpty);
+        await File(byteBackup).writeAsBytes(exportedBytes!);
+        await close();
+        final archives = {'file': backup, 'bytes': byteBackup};
+        for (final entry in archives.entries) {
+          final restored = '${scratch.path}/restored-${entry.key}';
+          await restoreBackupFromFile(
+            filePath: entry.value,
+            password: password,
+            dataDir: restored,
+          );
+          final restoredHandle = await open(restored);
+          final restoredIdentity = await _channel
+              .invokeMapMethod<String, Object?>('getWalletIdentity', {
+                'handle': restoredHandle,
+              });
+          expect(restoredIdentity?['id'], identity?['id']);
+          expect(
+            restoredIdentity?['recoveryCohort'],
+            identity?['recoveryCohort'],
+          );
+          final state =
+              jsonDecode(
+                    (await _channel.invokeMethod<String>(
+                      'onchainRecoveryState',
+                      {'handle': restoredHandle},
+                    ))!,
+                  )
+                  as Map<String, dynamic>;
+          expect(state['restoredSnapshot'], isTrue);
+          expect(state['pending'], isEmpty);
+          // A coherent backup may predate a payment approved by the original wallet.
+          await expectLater(
+            address(restoredHandle),
+            throwsA(
+              isA<PlatformException>().having(
+                (error) => error.code,
+                'code',
+                'RECOVERY_RESTORE_UNCERTAIN',
+              ),
             ),
-          ),
-        );
-        await close();
+          );
+          await close();
+        }
       } finally {
         await close();
         if (!nativeMayOwnStorage) await scratch.delete(recursive: true);
@@ -152,4 +162,49 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );
+
+  testWidgets('facade shares one offline native RGB_L1 session', (
+    tester,
+  ) async {
+    final scratch = await Directory.systemTemp.createTemp('rgb-facade-smoke-');
+    final engine = RgbLibWallet(
+      params: RgbLibWalletParams(
+        network: 'regtest',
+        storageDirPath: '${scratch.path}/wallet',
+        reuseAddresses: true,
+      ),
+      keys: RgbLibKeys.reader(() => _testMnemonic),
+    );
+    final wallet = UtexoWallet.rgbLib(engine: engine);
+    try {
+      expect(wallet.protocol, 'RGB_L1');
+      expect(wallet.rgbLibEngine, same(engine));
+      expect(wallet.isInitialized, isFalse);
+      await wallet.init();
+      expect(wallet.isInitialized, isTrue);
+      final identity = await engine.getWalletIdentity();
+      final address = await wallet.getAddress();
+      expect(address, startsWith('bcrt1p'));
+      expect(await engine.getAddress(), address);
+      final balance = await wallet.getBtcBalance(skipSync: true);
+      expect(balance.vanilla.spendable, 0);
+      expect(wallet.isUnlocked, isFalse);
+      await expectLater(
+        wallet.listChannels(),
+        throwsA(isA<UnsupportedWalletFeatureException>()),
+      );
+      await wallet.shutdown();
+      expect(wallet.isShutdown, isTrue);
+      await engine.openExisting();
+      expect(wallet.isInitialized, isTrue);
+      expect((await engine.getWalletIdentity()).id, identity.id);
+      expect(
+        (await engine.getWalletIdentity()).recoveryCohort,
+        identity.recoveryCohort,
+      );
+    } finally {
+      await wallet.destroy();
+      await scratch.delete(recursive: true);
+    }
+  });
 }

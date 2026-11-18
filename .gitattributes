@@ -5,4 +5,5 @@ native/rgb_l1/** -text
 # Unified-diff context markers and original license endings are intentional.
 native/rgb_l1/*.patch -whitespace
 native/rgb_l1/patches/*.patch -whitespace
+tool/bfa8_candidate_wrappers.patch -whitespace
 native/rgb_l1/inherited-licenses/** -whitespace

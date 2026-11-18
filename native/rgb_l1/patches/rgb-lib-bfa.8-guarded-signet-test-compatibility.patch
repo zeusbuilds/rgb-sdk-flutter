@@ -1,0 +1,12 @@
+diff --git a/src/no_wallet/validation.rs b/src/no_wallet/validation.rs
+index eb45e30..d3e2fbf 100644
+--- a/src/no_wallet/validation.rs
++++ b/src/no_wallet/validation.rs
+@@ -1802,6 +1802,7 @@ pub(crate) mod dev_signet_esplora_fixture {
+                 database_type: DatabaseType::Sqlite,
+                 max_allocations_per_utxo: 5,
+                 supported_schemas: vec![AssetSchema::Nia],
++                allow_reckless_schemas: false,
+             },
+             SinglesigKeys::from_keys(&keys, None),
+         )?;

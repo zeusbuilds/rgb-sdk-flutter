@@ -29,8 +29,9 @@ const webRgbReadMethods = <String>[
 /// [revoke] on disconnect, expiry or wallet switch; never reuse an old provider
 /// for a different origin. Every async boundary rechecks session authorization.
 class WebRgbProvider {
+  /// Routes to the facade's selected engine and advertises its methods.
   WebRgbProvider(UtexoWallet wallet, WebRgbOptions options)
-    : this._(WebRgbWallet.rln(wallet), options);
+    : this._(WebRgbWallet.fromFacade(wallet), options);
 
   /// Opens a WebRGB session for an on-chain wallet without message signing.
   WebRgbProvider.rgbLib(RgbLibWallet wallet, WebRgbOptions options)

@@ -51,6 +51,7 @@ mixin _UtexoWalletGuards on _UtexoWalletInternals {
 
   @override
   void _ensureActive() {
+    _ensureRln();
     _ensureNotDisposed();
     if (_lifecycleState == _WalletLifecycleState.shutDown) {
       throw const WalletException(

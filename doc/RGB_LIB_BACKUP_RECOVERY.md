@@ -54,7 +54,20 @@ still retains the same spending and refresh quarantine described below.
 
 ## What restore safely does
 
-`RgbLibWallet.restoreFromBackup` requires an empty dedicated private directory.
+`RgbLibWallet.exportBackupToFile` writes an encrypted archive to a caller-owned
+absolute path. `RgbLibWallet.exportBackup` returns the same archive format as
+bytes for archives up to 32 MiB (`BACKUP_TOO_LARGE` above this limit). Both work
+without an indexer connection. Byte export stages the backup in private
+application temporary storage and cleans up when the operation returns. The
+current native encryptor creates a plaintext intermediate ZIP. A process kill
+can leave that intermediate inside the private temporary directory. File export
+and restore should use an app-private directory for the same reason. Move or
+share the encrypted archive after file export returns.
+
+`RgbLibWallet.restoreBackupFromFile` requires an empty dedicated private
+directory. To restore a byte export, first write the bytes unchanged to a file.
+The SDK continues to accept the compatibility names `createBackup` and
+`restoreFromBackup`.
 The archive is decrypted into private staging, checked for the matching SDK
 profile/cohort and atomically installed. Native restore creates a fresh
 `.flutter-restored-snapshot` marker, excluded from future archives. On open, the

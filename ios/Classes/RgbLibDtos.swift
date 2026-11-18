@@ -143,7 +143,7 @@ func rgbDto(_ v: RGBLib.Transfer) -> [String: Any] {
     "txid": v.txid.map { $0 as Any } ?? NSNull(),
     "recipientId": v.recipientId.map { $0 as Any } ?? NSNull(),
     "receiveUtxo": v.receiveUtxo.map { rgbDto($0) as Any } ?? NSNull(),
-    "changeUtxo": v.changeUtxos.count == 1 ? rgbDto(v.changeUtxos[0]) as Any : NSNull(),
+    "changeUtxo": v.changeUtxos.first.map { rgbDto($0) as Any } ?? NSNull(),
     "changeUtxos": v.changeUtxos.map { rgbDto($0) },
     "expiration": v.expirationTimestamp.map { String($0) as Any } ?? NSNull(),
     "transportEndpoints": v.transportEndpoints.map { rgbDto($0) },
@@ -299,7 +299,7 @@ func rgbDto(_ v: RGBLib.AssetBfa) -> [String: Any] {
   result["schema"] = "Bfa"
   result["issuedSupply"] = NSNull()
   result["maxSupply"] = NSNull()
-  result["knownCirculatingSupply"] = NSNull()
+  result["knownCirculatingSupply"] = String(v.knownCirculatingSupply)
   result["token"] = NSNull()
   return result
 }

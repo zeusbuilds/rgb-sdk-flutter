@@ -389,6 +389,18 @@
         "Strict native status validates identity and phase without implicit commit, retry, or one-shot fallback.",
         "Unit tests do not prove native transaction recovery, artifact publication, Android execution or mainnet readiness."
       ]
+    },
+    "wallet_engine_mint_observation": {
+      "claimLevel": "unit_contract",
+      "testIds": [
+        "test/utexo_wallet_facade_test.dart::RGB_L1 facade preserves registration and received-mint semantics",
+        "test/utexo_wallet_facade_test.dart::legacy and named RLN constructors keep the same native backend"
+      ],
+      "platformReportFamilies": [],
+      "assertions": [
+        "The facade forwards the original recipient to RGB_L1 and preserves exact mint values and an absent observation.",
+        "The RLN selection rejects the lookup before native dispatch."
+      ]
     }
   }
 }

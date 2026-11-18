@@ -1,6 +1,7 @@
 // Adapted from UTEXO-Protocol/rgb-sdk-rn at 5c8b2df, Apache-2.0.
 package com.utexo.rgb_sdk_flutter
 
+import android.system.Os
 import android.util.Base64
 import org.json.JSONObject
 import java.io.File
@@ -32,7 +33,10 @@ internal fun rgbLibErrorCode(error: RgbLibException): String =
  * I/O on one wallet does not block others. UniFFI owns the Rust wallet.
  */
 /** [artifactInfo] returns the AAR's `rgb-lib-bfa-version.json`, or null. */
-internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { null }) {
+internal class RgbLibSessionStore(
+  private val cacheDir: File? = null,
+  private val artifactInfo: () -> String? = { null }
+) {
   private class Lease(input: File, existingOnly: Boolean = false) : AutoCloseable {
     val root = input.canonicalFile
     private val file: RandomAccessFile
@@ -289,6 +293,26 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
         !lock.setReadable(true,true) || !lock.setWritable(true,true))
       throw RgbLibBridgeError("BACKUP_PROFILE_MISMATCH","Backup recovery permissions cannot be secured")
   }
+  private fun exportBackup(s: Session, password: String): ByteArray {
+    if (password.isEmpty()) fail("Backup requires a nonempty password")
+    val cache = cacheDir ?: throw RgbLibBridgeError("NATIVE_ERROR", "Backup staging is unavailable")
+    val staging = File(cache, "rgb-backup-${UUID.randomUUID()}")
+    Os.mkdir(staging.path, 0b111000000)
+    try {
+      val file = File(staging, "wallet.backup")
+      save(s)
+      s.wallet.backup(file.path, password)
+      val size = file.length()
+      if (size > MAX_BACKUP_EXPORT_BYTES) {
+        throw RgbLibBridgeError("BACKUP_TOO_LARGE", "Export the backup to a file")
+      }
+      if (size <= 0) throw RgbLibBridgeError("NATIVE_ERROR", "Backup archive is empty")
+      return file.readBytes()
+    } finally {
+      staging.deleteRecursively()
+    }
+  }
+
   private fun consignment(s: Session, p: JSONObject): File {
     val paths = s.wallet.listTransfers(AssetFilter.Id(p.getString("assetId")),TransferScope.Txid(p.getString("txid"))).mapNotNull { it.consignmentPath }.distinct()
     if (paths.size != 1) throw RgbLibBridgeError("CONSIGNMENT_NOT_FOUND","No unique consignment for this transfer")
@@ -482,6 +506,7 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
       // This UniFFI release has no block-height method. Preserve the optional API field.
       "getNetworkInfo" -> mapOf("network" to s.profile.getString("network"),"blockHeight" to null)
       "backup" -> { save(s); w.backup(p.getString("backupPath"),p.getString("password")); null }
+      "exportBackup" -> exportBackup(s, p.getString("password"))
       "getConsignmentPath" -> consignment(s,p).path
       "getConsignment" -> Base64.encodeToString(consignment(s,p).readBytes(),Base64.NO_WRAP)
       else -> fail("Unknown native operation")
@@ -489,6 +514,7 @@ internal class RgbLibSessionStore(private val artifactInfo: () -> String? = { nu
     }
   }
   companion object {
+    private const val MAX_BACKUP_EXPORT_BYTES = 32L * 1024 * 1024
     private const val SOURCE="9ec49c08be2e68f08521281e3efbd760ec989cb9"
     private const val OVERLAY="flutter-bfa7-durable-v1"
     private const val PROFILE="rgb-sdk-profile.json"

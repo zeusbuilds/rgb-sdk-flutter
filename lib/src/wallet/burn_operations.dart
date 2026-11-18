@@ -7,6 +7,7 @@ import '../models/utexo_core_models.dart';
 import 'burn_destination.dart';
 import 'burn_recipient.dart';
 import 'rgb_lib/config.dart' show RgbLibWalletException;
+import 'utexo_wallet.dart' show UtexoWallet, UtexoWalletEngineAccess;
 
 /// Narrow wallet boundary for irreversible burn execution and proof recovery.
 abstract interface class BurnWallet {
@@ -223,6 +224,10 @@ BurnOperationRecord normalizeBurnRecord(Object? value) {
   );
 }
 
+// A facade and its RGB_L1 engine share the same native session and journal.
+BurnWallet _burnWalletOwner(BurnWallet wallet) =>
+    wallet is UtexoWallet ? wallet.rgbLibEngine ?? wallet : wallet;
+
 class _BurnRuntime {
   _BurnRuntime(this.store);
   final BurnOperationStore store;
@@ -232,25 +237,27 @@ class _BurnRuntime {
 
 /// Durable, non-retrying execution of irreversible burns.
 ///
-/// One queue and journal owner exist per wallet object. Pending outcomes block
+/// One queue and journal owner exist per wallet session. Pending outcomes block
 /// every subsequent burn until independently reconciled, including after a
 /// restart. A known native result survives write failure in memory so retrying
 /// persistence never repeats the native mutation.
 class BurnOperations {
   BurnOperations(this._wallet, BurnOperationStore store) {
-    final existing = _runtimes[_wallet];
+    final owner = _burnWalletOwner(_wallet);
+    final existing = _runtimes[owner];
     if (existing != null && !identical(existing.store, store)) {
       throw const ConfigurationError('Use one durable burn store per wallet.');
     }
     _runtime = existing ?? _BurnRuntime(store);
-    _runtimes[_wallet] = _runtime;
+    _runtimes[owner] = _runtime;
   }
   static final Expando<_BurnRuntime> _runtimes = Expando<_BurnRuntime>();
   final BurnWallet _wallet;
   late final _BurnRuntime _runtime;
 
   /// Prevents a session from binding another wallet's irreversible journal.
-  bool belongsTo(BurnWallet wallet) => identical(wallet, _wallet);
+  bool belongsTo(BurnWallet wallet) =>
+      identical(_burnWalletOwner(wallet), _burnWalletOwner(_wallet));
 
   Future<T> _exclusive<T>(Future<T> Function() action) {
     final next = _runtime.queue.then((_) => action());

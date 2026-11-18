@@ -230,9 +230,6 @@ final class RgbLibTransfer extends CoreTransfer {
   RgbLibTransfer._(RgbLibWire value)
     : invoiceString = value.optionalText('invoiceString'),
       consignmentPath = value.optionalText('consignmentPath'),
-      changeUtxos = List.unmodifiable(
-        value.rows('changeUtxos').map((row) => row.outpoint),
-      ),
       super(
         idx: value.integer('idx'),
         batchTransferIdx: value.integer('batchTransferIdx'),
@@ -250,9 +247,9 @@ final class RgbLibTransfer extends CoreTransfer {
         txid: value.optionalTxid('txid'),
         recipientId: value.optionalText('recipientId'),
         receiveUtxo: value.optionalChild('receiveUtxo')?.outpoint,
-        changeUtxo: value.rows('changeUtxos').length == 1
-            ? value.rows('changeUtxos').single.outpoint
-            : null,
+        changeUtxos: [
+          for (final row in value.rows('changeUtxos')) row.outpoint,
+        ],
         expiration: value.optionalDecimalInt('expiration'),
         transportEndpoints: [
           for (final row in value.rows('transportEndpoints'))
@@ -266,9 +263,6 @@ final class RgbLibTransfer extends CoreTransfer {
 
   final String? invoiceString;
   final String? consignmentPath;
-
-  /// Every native change output; the legacy singular field is null for multiple outputs.
-  final List<Outpoint> changeUtxos;
 }
 
 /// Chain metadata; a height is absent when native has no observed tip.
@@ -380,6 +374,8 @@ final class RgbLibWire {
     final amount = BigInt.parse(value);
     return amount <= _u64Max ? amount : invalidRgbLibWire(key);
   }
+
+  BigInt? optionalAmount(String key) => map[key] == null ? null : amount(key);
 
   int decimalInt(String key) {
     final value = amount(key);
@@ -607,6 +603,7 @@ final class RgbLibWire {
         media: media,
         ticker: requiredText('ticker'),
         initialSupply: amount('initialSupply'),
+        knownCirculatingSupply: optionalAmount('knownCirculatingSupply'),
         rejectListUrl: optionalText('rejectListUrl'),
       ),
     };

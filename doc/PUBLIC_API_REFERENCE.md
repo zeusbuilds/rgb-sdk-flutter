@@ -230,9 +230,60 @@ identifiers and malformed boolean/string success fields throw
 `NativeProtocolException`; the facade never substitutes an empty identifier or
 silently treats malformed data as `false`.
 
+## Choose a wallet engine
+
+`UtexoWallet` can wrap either engine in the single Flutter package. Engine
+selection is immutable and independent of network selection. The facade uses
+one native session, storage profile and operation queue. It propagates backend
+errors. A failed operation can only be recovered through the selected engine.
+
+| Entry point | Engine and credentials |
+| --- | --- |
+| `UtexoWallet(config: ...)`, `UtexoWallet.rln(config: ...)`, `RgbSdkFlutter.wallet(config: ...)` | RLN uses `UtexoWalletConfig`, a `RlnSigner` or legacy password credentials, and `UtexoUnlockConfig`. |
+| `UtexoWallet.rgbLib(engine: ...)` | RGB_L1 uses an existing `RgbLibWallet` with its own `RgbLibWalletParams`, `RgbLibKeys`, and `RgbLibUnlockParams`. The engine and facade share the same lifecycle and native storage claim. |
+
+Check `protocol` or use `rgbLibEngine` from `UtexoWalletEngineAccess` to access
+the selected engine's capabilities. Existing direct `RgbLibWallet` callers can
+keep using that API. For example:
+
+```dart
+final engine = RgbLibWallet(params: params, keys: keys, online: online);
+final wallet = UtexoWallet.rgbLib(engine: engine);
+try {
+  // For an existing wallet, require its stored identity and recovery cohort.
+  await engine.openExisting();
+  final btc = await wallet.getBtcBalance(skipSync: true);
+  // After opening an eligible wallet, connect using RGB_L1 settings as needed.
+  // await engine.goOnline();
+} finally {
+  await wallet.destroy();
+}
+```
+
+Call `wallet.init()` for an RGB_L1 create-or-open flow. Use
+`engine.goOnline(online)` or `engine.reinit(online)` for typed online settings.
+`wallet.isInitialized` reports an open local session and `wallet.isUnlocked`
+reports an active network configuration for RGB_L1. The facade's legacy
+`unlock(config: ...)` takes RLN settings. RGB_L1 calls fail with a typed
+unsupported error if they use that signature, RLN node management, Lightning,
+LSP or the raw RLN methods. `engine.getNetworkInfo()` retains a nullable tip
+when the wallet has no current indexed height.
+
+Use `wallet.getReceivedMint(recipientId)` for a read-only RGB_L1 mint-lock
+observation on an invoice recipient. The result is nullable and preserves
+exact amounts. It establishes neither settlement nor spending authority.
+Durable commands and contract registration retain the chosen backend's
+original identity, validation, and recovery rules. Use the typed engine for
+protocol-specific input such as full UInt64 RGB send amounts, mint assignments,
+receipt inventory, and backup capabilities. The WebRGB facade uses the same
+selected engine to advertise and dispatch only its supported methods.
+
+The production RGB_L1 release gate and the native artifact pins apply
+independently of the facade entry point.
+
 ## Lifecycle Prerequisites
 
-`UtexoWallet` owns the app-facing lifecycle. Call `init()` once, then
+For RLN, `UtexoWallet` owns the app-facing lifecycle. Call `init()` once, then
 `unlock()` with a network service configuration before wallet operations that
 need a running native node. After `shutdown()`, regular operations fail until
 `reinit()` succeeds. After `destroy()`, the wallet is disposed and cannot be
@@ -569,16 +620,22 @@ sharing a proof. Hosted transfer history and proof requests remain bound to the
 approved session topic.
 
 `RgbLibIndexer` selects Electrum, Esplora or authenticated bitcoind access.
-`RgbLibUnlockParams` supplies an explicit indexer or indexer URL, a proxy
-endpoint, EVM RPC endpoints keyed by decimal chain ID and optional proxy auth
-keys. BFA.7 uses `RgbLibEvmChain` entries in `evmChains`, each with `rpcUrl`,
-`minMintLockBlocks` and `maxMintLockBlocks`. These are explicit deployment-owned
-**backing-chain** block counts, with `2 <= min <= max`; they are not Bitcoin
-confirmation counts. A bare legacy `evmRpcUrls` map fails before connection;
-if retained for source compatibility, every entry must match a typed policy.
-`goOnline` applies this configuration. The first network operation can
-connect using defaults on supported public networks. Regtest and Dev Signet
-require an explicit online configuration. `estimateFeeRate` reports
+`RgbLibUnlockParams` supplies an indexer, a proxy endpoint, EVM RPC endpoints
+keyed by decimal chain ID and optional proxy auth keys. Pass it as `online`
+when constructing `RgbLibWallet` to supply checked defaults. `init` opens the
+wallet offline. `goOnline` and its alias `unlock` apply explicit overrides, then
+constructor settings, then public network defaults. The first operation that
+needs the network can use the constructor settings or public defaults. Regtest
+and Dev Signet require explicit configuration. Reading the stored BTC balance,
+transactions and UTXOs with `skipSync: true` works offline. RGB sends always
+synchronize and reject `skipSync: true` before dispatch.
+
+Each `evmRpcUrls` entry uses `defaultRgbLibEvmMintLockBlocks` (1,200 to 28,800)
+unless it has a `RgbLibMintLockBlocks` override in `evmMintLockBlocks`. An
+explicit `RgbLibEvmChain` in `evmChains` remains supported. Two policies for the
+same chain must agree. BFA.7 requires `2 <= min <= max` in backing EVM blocks.
+The qualified Dev Signet profile still requires its exact explicit policy.
+`estimateFeeRate` reports
 `FEE_UNAVAILABLE` when the native indexer returns no usable estimate, including
 a successfully parsed empty Esplora fee map. Connection and malformed-response
 failures remain distinct.
@@ -593,12 +650,18 @@ fingerprint. `RgbLibRuntimeInfo` describes the native artifact version, sealed
 integration tree, overlay patch/source-lock/source-manifest SHA-256 digests,
 source revision, bridge version and BFA capabilities. The wallet verifies the pinned
 runtime identity before reading keys. `RgbLibWalletException` carries a stable
-sanitized failure code for configuration, lifecycle, native availability and
-operation failures. `RgbLibBackupRecoveryCapabilities`, available through
+sanitized failure code, the RGB_L1 protocol and the SDK operation where
+available. `RgbLibWallet.capabilities` describes transaction signing from the
+supplied keys and the availability of shared PSBT and begin/end interfaces.
+Use the dedicated recovery interface for durable sends.
+`RgbLibBackupRecoveryCapabilities`, available through
 `RgbLibRuntimeInfo.backupRecovery`, distinguishes encrypted snapshot creation
 and read-only restoration from unsupported restored-wallet spending and
 mnemonic-only RGB recovery. These fixed capabilities cannot be upgraded through
-runtime JSON. See [the recovery boundary](RGB_LIB_BACKUP_RECOVERY.md).
+runtime JSON. `exportBackup` returns encrypted bytes offline.
+`exportBackupToFile` writes the same format to an app-private file.
+`restoreBackupFromFile` restores that format into a dedicated empty directory.
+See [the recovery boundary](RGB_LIB_BACKUP_RECOVERY.md).
 
 Profile metadata reads on open and restore are capped at 64 KiB before and
 during reading. Only strict UTF-8 flat JSON metadata is admitted; recursive
@@ -624,10 +687,15 @@ one, an observed zero-confirmation incoming transfer remains
 `WaitingConfirmations`, outside settled/spendable allocations. Changing host
 defaults does not rewrite the policy on an already issued request.
 
-`RgbLibTransfer` preserves shared transfer history plus the complete invoice,
-local consignment path and all `changeUtxos` when available. The legacy singular
-`changeUtxo` is present only when exactly one change output exists. Transfer amounts remain exact base
-units and unresolved amounts remain absent.
+`RgbLibTransfer` preserves shared transfer history plus the complete invoice and
+local consignment path. `CoreTransfer.changeUtxos` contains every change output
+the backend reports, in native order. The deprecated `changeUtxo` returns the
+first entry or `null` when there are no change outputs. Transfer amounts remain
+exact base units and unresolved amounts remain absent.
+
+`CoreAssetBfa.knownCirculatingSupply` preserves the RGB_L1 wallet's exact known
+supply in base units. Legacy RLN asset listings leave this value absent. Read
+asset metadata for the supply on that backend.
 
 `RgbLibWitnessVersion` selects the address derivation scheme for a new
 profile. `RgbLibMnemonicReader` reads key material per native session.
@@ -697,7 +765,8 @@ reconstruction must not extend the saved deadline. Status/audit reads remain
 available for watch-only sessions, while command creation and sending require
 signing authority. Normal mutations cannot overtake a pending operation.
 
-`refreshTransfers` retains per-transfer failures for deliberate inspection.
+`refresh` and its compatibility alias `refreshTransfers` retain per-transfer
+failures for deliberate inspection.
 `refreshWallet` fails with `REFRESH_INCOMPLETE` if any transfer observation failed;
 partial refresh is not a current complete portfolio. Generic refresh can
 progress pending transfers and is blocked on restored snapshots. Local
@@ -787,6 +856,7 @@ root checklist and are snapshotted by `tool/api_snapshot.json`.
 - `RgbLibWallet`, `RgbLibWalletParams`, `RgbLibWalletException`, `RgbLibWalletIdentity`
 - `RgbLibKeys`, `RgbLibPublicKeys`, `RgbLibMnemonicReader`, `RgbLibRuntimeInfo`, `RgbLibBackupRecoveryCapabilities`
 - `RgbLibIndexer`, `RgbLibIndexerKind`, `RgbLibIndexerCheck`, `RgbLibUnlockParams`
+- `RgbLibMintLockBlocks`
 - `RgbLibWitnessVersion`, `RgbLibAssetSchema`, `RgbLibAssetMetadata`, `RgbLibMedia`
 - `RgbLibReceiveAssignment`, `RgbLibReceiveData`, `RgbLibInvoiceData`, `RgbLibTransfer`
 - `RgbLibNetworkInfo`, `RgbReceiveAssignmentKind`, `getRgbLibNetworkDefaults`
@@ -797,7 +867,7 @@ root checklist and are snapshotted by `tool/api_snapshot.json`.
 - `RequestExternalInvoiceOptions`, `SchnorrSigningMode`, `SelectPaymentAssetOptions`
 - `SendAssetOptions`, `SendAssetResult`, `SignMessageParams`
 - `UnsupportedWalletFeatureException`
-- `UtexoLsp`, `UtexoLspClient`, `UtexoLspConfig`, `UtexoUnlockConfig`, `UtexoWallet`
+- `UtexoLsp`, `UtexoLspClient`, `UtexoLspConfig`, `UtexoUnlockConfig`, `UtexoWallet`, `UtexoWalletEngineAccess`
 - `UtexoWalletConfig`, `ValidationError`, `VerifyMessageParams`, `WaitOptions`
 - `WalletBackupResponse`, `WalletCapabilities`, `WalletError`, `WalletException`
 - `WalletInitParams`, `WalletNetworkInfo`, `WalletNodeInfo`, `WalletValidationException`

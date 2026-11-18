@@ -1,0 +1,4769 @@
+diff --git a/migration/src/lib.rs b/migration/src/lib.rs
+index 3b43790..638d224 100644
+--- a/migration/src/lib.rs
++++ b/migration/src/lib.rs
+@@ -14,6 +14,7 @@ mod m20261020_141856_add_rgb_storage_tables;
+ mod m20261020_142324_proxy_v1;
+ mod m20261020_142840_asset_transfer_transition;
+ mod m20261020_143313_asset_links;
++mod m20261027_000001_prepared_rgb_sweep;
+ 
+ pub struct Migrator;
+ 
+@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
+             Box::new(m20261020_142324_proxy_v1::Migration),
+             Box::new(m20261020_142840_asset_transfer_transition::Migration),
+             Box::new(m20261020_143313_asset_links::Migration),
++            Box::new(m20261027_000001_prepared_rgb_sweep::Migration),
+         ]
+     }
+ }
+diff --git a/migration/src/m20261027_000001_prepared_rgb_sweep.rs b/migration/src/m20261027_000001_prepared_rgb_sweep.rs
+new file mode 100644
+index 0000000..1405616
+--- /dev/null
++++ b/migration/src/m20261027_000001_prepared_rgb_sweep.rs
+@@ -0,0 +1,37 @@
++use sea_orm_migration::{prelude::*, sea_orm::ConnectionTrait};
++
++#[derive(DeriveMigrationName)]
++pub struct Migration;
++
++#[async_trait::async_trait]
++impl MigrationTrait for Migration {
++    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
++        manager.get_connection().execute_unprepared(
++            "CREATE TABLE prepared_rgb_sweep (batch_transfer_idx INTEGER PRIMARY KEY NOT NULL REFERENCES batch_transfer(idx) ON DELETE RESTRICT, txid TEXT NOT NULL UNIQUE, phase TEXT NOT NULL CHECK (phase IN ('prepared', 'handed_off', 'consumed', 'cancelled')), payload BLOB NOT NULL, payload_sha256 TEXT NOT NULL)"
++        ).await?;
++        Ok(())
++    }
++    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
++        // Downgrading would discard the only durable ownership proof for an externally signed
++        // transaction. Even a terminal record is an identity tombstone, so never drop it silently.
++        let row = manager
++            .get_connection()
++            .query_one_raw(sea_orm::Statement::from_string(
++                sea_orm::DbBackend::Sqlite,
++                "SELECT count(*) AS count FROM prepared_rgb_sweep".to_owned(),
++            ))
++            .await?
++            .ok_or_else(|| DbErr::Custom("missing prepared sweep count".into()))?;
++        let count: i64 = row.try_get("", "count")?;
++        if count != 0 {
++            return Err(DbErr::Custom(
++                "cannot remove retained prepared RGB sweep records".into(),
++            ));
++        }
++        manager
++            .get_connection()
++            .execute_unprepared("DROP TABLE prepared_rgb_sweep")
++            .await?;
++        Ok(())
++    }
++}
+diff --git a/src/database/enums.rs b/src/database/enums.rs
+index f7ca223..e03d90e 100644
+--- a/src/database/enums.rs
++++ b/src/database/enums.rs
+@@ -256,6 +256,9 @@ pub enum RecipientTypeFull {
+     Blind { unblinded_utxo: Outpoint },
+     /// Receive via witness TX
+     Witness { vout: Option<u32> },
++    /// Receive via witness TX paying a script the wallet does not own: the allocation is kept in
++    /// the RGB stash only, no UTXO or balance is tracked for it
++    External { vout: Option<u32> },
+ }
+ 
+ #[cfg(feature = "wallet")]
+diff --git a/src/database/mod.rs b/src/database/mod.rs
+index ec02bbd..3ee3c0c 100644
+--- a/src/database/mod.rs
++++ b/src/database/mod.rs
+@@ -1,5 +1,6 @@
+ mod bdk;
+ pub(crate) mod entities;
++mod prepared_sweep;
+ pub(crate) mod rgb;
+ 
+ use super::*;
+diff --git a/src/database/prepared_sweep.rs b/src/database/prepared_sweep.rs
+new file mode 100644
+index 0000000..55221cd
+--- /dev/null
++++ b/src/database/prepared_sweep.rs
+@@ -0,0 +1,222 @@
++//! Typed access to the protected external-sweep ownership journal.
++use super::*;
++use sea_orm::{ConnectionTrait, DbBackend, Statement};
++
++#[cfg(feature = "_online")]
++pub(crate) const MAX_SWEEP_PAYLOAD: usize = 32 * 1024 * 1024;
++#[cfg(feature = "_online")]
++const MAX_SWEEP_SET_BYTES: usize = 64 * 1024 * 1024;
++
++#[cfg(feature = "_online")]
++fn admit_sizes(sizes: impl IntoIterator<Item = i64>) -> Result<(), Error> {
++    let mut total = 0usize;
++    for size in sizes {
++        if !(1..=MAX_SWEEP_PAYLOAD as i64).contains(&size) {
++            return Err(Error::InvalidColoringInfo {
++                details: "invalid prepared sweep payload size".into(),
++            });
++        }
++        total = total
++            .checked_add(size as usize)
++            .ok_or_else(|| Error::InvalidColoringInfo {
++                details: "prepared sweep aggregate size overflow".into(),
++            })?;
++        if total > MAX_SWEEP_SET_BYTES {
++            return Err(Error::InvalidColoringInfo {
++                details: "prepared sweep set exceeds aggregate memory budget".into(),
++            });
++        }
++    }
++    Ok(())
++}
++
++impl DbTxn {
++    /// Every phase is protected from generic send/fail/delete paths, including tombstones.
++    pub(crate) fn is_prepared_rgb_sweep(&self, batch: i32) -> Result<bool, Error> {
++        Ok(
++            block_on(self.inner().query_one_raw(Statement::from_sql_and_values(
++                DbBackend::Sqlite,
++                "SELECT batch_transfer_idx FROM prepared_rgb_sweep WHERE batch_transfer_idx = ?",
++                [batch.into()],
++            )))?
++            .is_some(),
++        )
++    }
++
++    pub(crate) fn prepared_sweep_batch_by_txid(&self, txid: &str) -> Result<Option<i32>, Error> {
++        let row = block_on(self.inner().query_one_raw(Statement::from_sql_and_values(
++            DbBackend::Sqlite,
++            "SELECT batch_transfer_idx FROM prepared_rgb_sweep WHERE txid = ?",
++            [txid.into()],
++        )))?;
++        row.map(|row| row.try_get("", "batch_transfer_idx").map_err(Error::from))
++            .transpose()
++    }
++
++    pub(crate) fn is_prepared_rgb_sweep_txid(&self, txid: &str) -> Result<bool, Error> {
++        Ok(self.prepared_sweep_batch_by_txid(txid)?.is_some())
++    }
++
++    pub(crate) fn is_active_prepared_sweep_txid(&self, txid: &str) -> Result<bool, Error> {
++        Ok(block_on(self.inner().query_one_raw(Statement::from_sql_and_values(
++            DbBackend::Sqlite,
++            "SELECT batch_transfer_idx FROM prepared_rgb_sweep WHERE txid = ? AND phase IN ('prepared', 'handed_off')",
++            [txid.into()],
++        )))?.is_some())
++    }
++
++    /// Keep the separately staged self-receive recoverable while signatures may exist outside
++    /// the library. After confirmed consumption its ordinary incoming lifecycle may finish.
++    pub(crate) fn is_protected_sweep_batch(&self, batch: &DbBatchTransfer) -> Result<bool, Error> {
++        if self.is_prepared_rgb_sweep(batch.idx)? {
++            return Ok(true);
++        }
++        if !batch.incoming {
++            return Ok(false);
++        }
++        let Some(txid) = &batch.txid else {
++            return Ok(false);
++        };
++        self.is_active_prepared_sweep_txid(txid)
++    }
++
++    /// Generic mutation paths cannot consume or broadcast a protected witness, nor replace an
++    /// active sweep with another transaction spending its reserved inputs.
++    pub(crate) fn ensure_no_prepared_sweep_mutation(
++        &self,
++        transaction: &BdkTransaction,
++    ) -> Result<(), Error> {
++        let txid = transaction.compute_txid().to_string();
++        if self.is_prepared_rgb_sweep_txid(&txid)? {
++            return Err(Error::WrongOperation { txid });
++        }
++        for input in &transaction.input {
++            if block_on(self.inner().query_one_raw(Statement::from_sql_and_values(
++                DbBackend::Sqlite,
++                "SELECT r.idx FROM reserved_txo r JOIN prepared_rgb_sweep p ON r.reserved_for_colored = p.batch_transfer_idx WHERE r.txid = ? AND r.vout = ? AND p.phase IN ('prepared', 'handed_off') LIMIT 1",
++                [input.previous_output.txid.to_string().into(), input.previous_output.vout.into()],
++            )))?.is_some() {
++                return Err(Error::WrongOperation { txid });
++            }
++        }
++        Ok(())
++    }
++
++    #[cfg(feature = "_online")]
++    pub(crate) fn prepared_sweep_read(
++        &self,
++        batch: i32,
++    ) -> Result<(String, String, Vec<u8>), Error> {
++        let row = block_on(self.inner().query_one_raw(Statement::from_sql_and_values(
++            DbBackend::Sqlite,
++            "SELECT txid, phase, length(payload) AS size FROM prepared_rgb_sweep WHERE batch_transfer_idx = ?",
++            [batch.into()],
++        )))?.ok_or(Error::BatchTransferNotFound { idx: batch })?;
++        let size: i64 = row.try_get("", "size")?;
++        if !(1..=MAX_SWEEP_PAYLOAD as i64).contains(&size) {
++            return Err(Error::InvalidColoringInfo {
++                details: "invalid prepared sweep payload size".into(),
++            });
++        }
++        let txid: String = row.try_get("", "txid")?;
++        let phase: String = row.try_get("", "phase")?;
++        let row = block_on(self.inner().query_one_raw(Statement::from_sql_and_values(
++            DbBackend::Sqlite,
++            "SELECT payload, payload_sha256 FROM prepared_rgb_sweep WHERE batch_transfer_idx = ?",
++            [batch.into()],
++        )))?
++        .ok_or(Error::BatchTransferNotFound { idx: batch })?;
++        let payload: Vec<u8> = row.try_get("", "payload")?;
++        let digest: String = row.try_get("", "payload_sha256")?;
++        if hex::encode(Sha256::digest(&payload)) != digest {
++            return Err(Error::InvalidColoringInfo {
++                details: "prepared sweep payload digest mismatch".into(),
++            });
++        }
++        Ok((txid, phase, payload))
++    }
++
++    #[cfg(feature = "_online")]
++    pub(crate) fn prepared_sweep_insert(
++        &self,
++        batch: i32,
++        txid: &str,
++        payload: Vec<u8>,
++    ) -> Result<(), Error> {
++        if payload.is_empty() || payload.len() > MAX_SWEEP_PAYLOAD {
++            return Err(Error::InvalidColoringInfo {
++                details: "prepared sweep payload exceeds limit".into(),
++            });
++        }
++        let sizes = block_on(self.inner().query_all_raw(Statement::from_string(DbBackend::Sqlite,
++            "SELECT length(payload) AS size FROM prepared_rgb_sweep WHERE phase IN ('prepared', 'handed_off')".to_owned())))?;
++        let mut sizes: Vec<i64> = sizes
++            .iter()
++            .map(|row| row.try_get("", "size"))
++            .collect::<Result<_, _>>()?;
++        sizes.push(payload.len() as i64);
++        admit_sizes(sizes)?;
++        let digest = hex::encode(Sha256::digest(&payload));
++        block_on(self.inner().execute_raw(Statement::from_sql_and_values(
++            DbBackend::Sqlite,
++            "INSERT INTO prepared_rgb_sweep (batch_transfer_idx, txid, phase, payload, payload_sha256) VALUES (?, ?, 'prepared', ?, ?)",
++            [batch.into(), txid.into(), payload.into(), digest.into()],
++        )))?;
++        Ok(())
++    }
++
++    #[cfg(feature = "_online")]
++    pub(crate) fn prepared_sweep_phase(
++        &self,
++        batch: i32,
++        expected: &str,
++        next: &str,
++    ) -> Result<(), Error> {
++        let result = block_on(self.inner().execute_raw(Statement::from_sql_and_values(
++            DbBackend::Sqlite,
++            "UPDATE prepared_rgb_sweep SET phase = ? WHERE batch_transfer_idx = ? AND phase = ?",
++            [next.into(), batch.into(), expected.into()],
++        )))?;
++        if result.rows_affected() != 1 {
++            return Err(Error::InvalidColoringInfo {
++                details: "prepared sweep phase changed".into(),
++            });
++        }
++        Ok(())
++    }
++
++    #[cfg(feature = "_online")]
++    pub(crate) fn prepared_sweep_active_batches(&self) -> Result<Vec<i32>, Error> {
++        let rows = block_on(self.inner().query_all_raw(Statement::from_string(
++            DbBackend::Sqlite,
++            "SELECT batch_transfer_idx, length(payload) AS size FROM prepared_rgb_sweep WHERE phase IN ('prepared', 'handed_off') ORDER BY batch_transfer_idx LIMIT 65".to_owned(),
++        )))?;
++        if rows.len() > 64 {
++            return Err(Error::InvalidColoringInfo {
++                details: "too many active prepared sweeps".into(),
++            });
++        }
++        // Bound the complete result before fetching or decoding even its first payload.
++        let sizes: Vec<i64> = rows
++            .iter()
++            .map(|row| row.try_get("", "size"))
++            .collect::<Result<_, _>>()?;
++        admit_sizes(sizes)?;
++        rows.into_iter()
++            .map(|row| row.try_get("", "batch_transfer_idx").map_err(Error::from))
++            .collect()
++    }
++}
++
++#[cfg(all(test, feature = "_online"))]
++mod tests {
++    use super::*;
++    #[test]
++    fn prepared_sweep_sizes_reject_aggregate_before_payload_allocation() {
++        assert!(admit_sizes([MAX_SWEEP_PAYLOAD as i64; 2]).is_ok());
++        assert!(admit_sizes([MAX_SWEEP_PAYLOAD as i64; 3]).is_err());
++        assert!(admit_sizes([MAX_SWEEP_PAYLOAD as i64 + 1]).is_err());
++        assert!(admit_sizes([i64::MAX]).is_err());
++        assert!(admit_sizes([0]).is_err());
++    }
++}
+diff --git a/src/error.rs b/src/error.rs
+index bed1bf4..ad53f06 100644
+--- a/src/error.rs
++++ b/src/error.rs
+@@ -530,6 +530,13 @@ pub enum Error {
+         details: String,
+     },
+ 
++    /// The provided script is invalid or not usable for the requested operation
++    #[error("Invalid script: {details}")]
++    InvalidScript {
++        /// Error details
++        details: String,
++    },
++
+     /// The provided asset ticker is invalid
+     #[error("Invalid ticker: {details}")]
+     InvalidTicker {
+diff --git a/src/wallet/mod.rs b/src/wallet/mod.rs
+index d2a01b8..4389258 100644
+--- a/src/wallet/mod.rs
++++ b/src/wallet/mod.rs
+@@ -11,6 +11,10 @@ pub(crate) mod objects;
+ pub(crate) mod offline;
+ #[cfg(feature = "_online")]
+ pub(crate) mod online;
++#[cfg(feature = "_online")]
++mod prepared_sweep;
++#[cfg(test)]
++mod prepared_sweep_fixture;
+ pub mod rust_only;
+ pub(crate) mod singlesig;
+ 
+diff --git a/src/wallet/multisig.rs b/src/wallet/multisig.rs
+index 7470d9c..8b35382 100644
+--- a/src/wallet/multisig.rs
++++ b/src/wallet/multisig.rs
+@@ -1553,6 +1553,7 @@ impl MultisigWallet {
+             expiration_timestamp as i64,
+             transport_endpoints,
+             recipient_type,
++            None,
+             encryption,
+         )?;
+ 
+diff --git a/src/wallet/objects.rs b/src/wallet/objects.rs
+index 916eaba..6e5f0a2 100644
+--- a/src/wallet/objects.rs
++++ b/src/wallet/objects.rs
+@@ -2900,7 +2900,7 @@ impl DbTransfer {
+                     _ => unreachable!("beneficiary is blinded"),
+                 }
+             }
+-            RecipientTypeFull::Witness { .. } => {
++            RecipientTypeFull::Witness { .. } | RecipientTypeFull::External { .. } => {
+                 let script_pubkey = script_buf_from_recipient_id(recipient_id)?
+                     .expect("witness recipient ID should yield a script");
+                 Ok(ReceiveMatcher::Witness(script_pubkey, blinding))
+diff --git a/src/wallet/offline.rs b/src/wallet/offline.rs
+index b8fc530..41b6c46 100644
+--- a/src/wallet/offline.rs
++++ b/src/wallet/offline.rs
+@@ -1332,6 +1332,7 @@ pub trait WalletOffline: WalletBackup {
+         expiration_timestamp: i64,
+         transport_endpoints: Vec<String>,
+         recipient_type: RecipientType,
++        external_script: Option<ScriptBuf>,
+         encryption: Option<Encryption>,
+     ) -> Result<ReceiveDataInternal, Error> {
+         let encryption = encryption.unwrap_or(Encryption::Required);
+@@ -1383,12 +1384,21 @@ pub trait WalletOffline: WalletBackup {
+                 let recipient_type_full = RecipientTypeFull::Blind { unblinded_utxo };
+                 (beneficiary, recipient_type_full, Some(blind_seal), None)
+             }
+-            RecipientType::Witness => {
+-                let script_pubkey = self.get_new_address()?.script_pubkey();
+-                let beneficiary = beneficiary_from_script_buf(script_pubkey.clone());
+-                let recipient_type_full = RecipientTypeFull::Witness { vout: None };
+-                (beneficiary, recipient_type_full, None, Some(script_pubkey))
+-            }
++            RecipientType::Witness => match external_script {
++                // the paid output is not a wallet UTXO, so there is no witness script to watch
++                Some(script_pubkey) => (
++                    beneficiary_from_script_buf(script_pubkey),
++                    RecipientTypeFull::External { vout: None },
++                    None,
++                    None,
++                ),
++                None => {
++                    let script_pubkey = self.get_new_address()?.script_pubkey();
++                    let beneficiary = beneficiary_from_script_buf(script_pubkey.clone());
++                    let recipient_type_full = RecipientTypeFull::Witness { vout: None };
++                    (beneficiary, recipient_type_full, None, Some(script_pubkey))
++                }
++            },
+         };
+ 
+         #[cfg(test)]
+@@ -1399,6 +1409,15 @@ pub trait WalletOffline: WalletBackup {
+         let beneficiary = XChainNet::with(network, beneficiary);
+         let recipient_id = beneficiary.to_string();
+         debug!(self.logger(), "Recipient ID: {recipient_id}");
++        // the receive files are keyed by recipient ID, so a script can only be received on once
++        if matches!(recipient_type_full, RecipientTypeFull::External { .. })
++            && txn
++                .iter_transfers()?
++                .iter()
++                .any(|t| t.recipient_id.as_deref() == Some(&recipient_id))
++        {
++            return Err(Error::RecipientIDAlreadyUsed);
++        }
+         let (schema, contract_id) = if let Some(aid) = asset_id.clone() {
+             let asset = txn.check_asset_exists(aid.clone())?;
+             let contract_id = ContractId::from_str(&aid).expect("invalid contract ID");
+@@ -1649,6 +1668,9 @@ pub trait WalletOffline: WalletBackup {
+         colorings: &[DbColoring],
+         txos: &[DbTxo],
+     ) -> Result<(), Error> {
++        if txn.is_protected_sweep_batch(batch_transfer)? {
++            return Err(Error::CannotDeleteBatchTransfer);
++        }
+         let mut txos_to_delete = HashSet::new();
+         for asset_transfer in asset_transfers {
+             txn.del_coloring(asset_transfer.idx)?;
+@@ -1702,13 +1724,13 @@ pub trait WalletOffline: WalletBackup {
+                 &db_data.txos,
+             )?
+         } else {
+-            // delete all failed transfers
+-            let mut batch_transfers: Vec<DbBatchTransfer> = db_data
+-                .batch_transfers
+-                .clone()
+-                .into_iter()
+-                .filter(|t| t.failed())
+-                .collect();
++            // delete all failed transfers, except a cancelled sweep, kept as its tombstone
++            let mut batch_transfers = Vec::new();
++            for batch_transfer in db_data.batch_transfers.clone() {
++                if batch_transfer.failed() && !txn.is_protected_sweep_batch(&batch_transfer)? {
++                    batch_transfers.push(batch_transfer);
++                }
++            }
+             for batch_transfer in batch_transfers.iter_mut() {
+                 let asset_transfers = batch_transfer.get_asset_transfers(&db_data.asset_transfers);
+                 if no_asset_only {
+@@ -1996,10 +2018,8 @@ pub trait WalletOffline: WalletBackup {
+         let mut vanilla = self.get_btc_balance_for_keychain(KeychainKind::Internal)?;
+         let colored = self.get_btc_balance_for_keychain(KeychainKind::External)?;
+ 
+-        let reserved: HashSet<BdkOutPoint> = self
+-            .get_reserved_vanilla_outpoints(txn)?
+-            .into_iter()
+-            .collect();
++        let reserved: HashSet<BdkOutPoint> =
++            self.get_reserved_bdk_outpoints(txn)?.into_iter().collect();
+         if !reserved.is_empty() {
+             let reserved_sum: u64 = self
+                 .internal_unspents()
+@@ -2208,11 +2228,10 @@ pub trait WalletOffline: WalletBackup {
+         Ok(local_asset_data)
+     }
+ 
+-    fn get_reserved_vanilla_outpoints(&self, txn: &DbTxn) -> Result<Vec<BdkOutPoint>, Error> {
++    fn get_reserved_bdk_outpoints(&self, txn: &DbTxn) -> Result<Vec<BdkOutPoint>, Error> {
+         Ok(txn
+             .iter_reserved_txos()?
+             .into_iter()
+-            .filter(|r| r.reserved_for_vanilla.is_some())
+             .map(BdkOutPoint::from)
+             .collect())
+     }
+@@ -2232,7 +2251,7 @@ pub trait WalletOffline: WalletBackup {
+             .into_iter()
+             .map(BdkOutPoint::from)
+             .collect();
+-        outpoints.extend(self.get_reserved_vanilla_outpoints(txn)?);
++        outpoints.extend(self.get_reserved_bdk_outpoints(txn)?);
+         Ok(outpoints)
+     }
+ 
+@@ -2588,7 +2607,9 @@ pub trait WalletOffline: WalletBackup {
+             } else {
+                 match transfer.recipient_type.as_ref().unwrap() {
+                     RecipientTypeFull::Blind { .. } => TransferKind::ReceiveBlind,
+-                    RecipientTypeFull::Witness { .. } => TransferKind::ReceiveWitness,
++                    RecipientTypeFull::Witness { .. } | RecipientTypeFull::External { .. } => {
++                        TransferKind::ReceiveWitness
++                    }
+                 }
+             }
+         } else {
+@@ -2612,7 +2633,8 @@ pub trait WalletOffline: WalletBackup {
+ 
+         let receive_utxo = match &transfer.recipient_type {
+             Some(RecipientTypeFull::Blind { unblinded_utxo }) => Some(unblinded_utxo.clone()),
+-            Some(RecipientTypeFull::Witness { vout }) => coloring_info
++            Some(RecipientTypeFull::Witness { vout })
++            | Some(RecipientTypeFull::External { vout }) => coloring_info
+                 .receive_candidates
+                 .iter()
+                 .filter(|t| t.vout == vout.unwrap())
+diff --git a/src/wallet/online.rs b/src/wallet/online.rs
+index aef1078..c5eb655 100644
+--- a/src/wallet/online.rs
++++ b/src/wallet/online.rs
+@@ -515,6 +515,7 @@ pub trait WalletOnline: WalletOffline {
+         txn: &DbTxn,
+         tx: BdkTransaction,
+     ) -> Result<BdkTransaction, Error> {
++        txn.ensure_no_prepared_sweep_mutation(&tx)?;
+         let tx = self.broadcast_tx(tx)?;
+ 
+         // apply the broadcast TX into BDK directly so its outputs are immediately visible
+@@ -607,6 +608,9 @@ pub trait WalletOnline: WalletOffline {
+         r#type: WalletTransactionType,
+     ) -> Result<(), Error> {
+         let txid = psbt.unsigned_tx.compute_txid().to_string();
++        if txn.is_prepared_rgb_sweep_txid(&txid)? {
++            return Err(Error::WrongOperation { txid });
++        }
+         if self.get_transfer_dir(&txid).exists() {
+             return Err(Error::WrongOperation { txid });
+         }
+@@ -722,7 +726,7 @@ pub trait WalletOnline: WalletOffline {
+         );
+ 
+         let reserved: HashSet<BdkOutPoint> = self
+-            .get_reserved_vanilla_outpoints(txn)?
++            .get_unspendable_bdk_outpoints(txn)?
+             .into_iter()
+             .collect();
+         let (inputs, usable_btc_amount) = self.internal_unspents().fold(
+@@ -843,8 +847,17 @@ pub trait WalletOnline: WalletOffline {
+ 
+         let script_pubkey = self.get_script_pubkey(&address)?;
+ 
++        // a drain spends every UTXO, reserved ones included, except the inputs of active sweeps
++        let sweeps: HashSet<i32> = txn.prepared_sweep_active_batches()?.into_iter().collect();
++        let reserved: Vec<BdkOutPoint> = txn
++            .iter_reserved_txos()?
++            .into_iter()
++            .filter(|r| r.reserved_for_colored.is_some_and(|b| sweeps.contains(&b)))
++            .map(BdkOutPoint::from)
++            .collect();
+         let mut tx_builder = self.bdk_wallet_mut().build_tx();
+         tx_builder
++            .unspendable(reserved)
+             .drain_wallet()
+             .drain_to(script_pubkey)
+             .fee_rate(fee_rate_checked);
+@@ -987,6 +1000,9 @@ pub trait WalletOnline: WalletOffline {
+         txn: &DbTxn,
+         batch_transfer: &DbBatchTransfer,
+     ) -> Result<DbBatchTransfer, Error> {
++        if txn.is_protected_sweep_batch(batch_transfer)? {
++            return Err(Error::CannotFailBatchTransfer);
++        }
+         self.set_hub_fail_status(batch_transfer.idx)?;
+         self.clean_failed_witness_receives(txn, batch_transfer)?;
+         txn.del_reserved_txos_for_batch_transfer(batch_transfer.idx)?;
+@@ -1053,6 +1069,10 @@ pub trait WalletOnline: WalletOffline {
+         db_data: &DbData,
+         revoke_released: bool,
+     ) -> Result<TryFailBatchTransferOutcome, Error> {
++        // External signers may retain a broadcastable sweep even while Initiated.
++        if txn.is_protected_sweep_batch(batch_transfer)? {
++            return Ok(TryFailBatchTransferOutcome::Denied);
++        }
+         // an outgoing transfer is expired once its expiration has passed on the sender proxy's
+         // clock too, as the proxy may release its TX until then
+         let expired = if batch_transfer.incoming {
+@@ -3215,6 +3235,9 @@ pub trait WalletOnline: WalletOffline {
+             );
+             refuse!();
+         }
++        if !super::prepared_sweep::prepared_sweep_ancestry_ready(txn, &consignment, witness_id)? {
++            return Ok(None);
++        }
+ 
+         // the mint paying this recipient, if any, is refused before it's checked, so that no lock
+         // is made for it (see get_received_mint): by a wallet that doesn't accept mints; when
+@@ -3295,10 +3318,12 @@ pub trait WalletOnline: WalletOffline {
+         // asset on it, the mint included, when past the one of a bundle)
+         let receive_outpoint = match &transfer.recipient_type {
+             Some(RecipientTypeFull::Blind { unblinded_utxo }) => unblinded_utxo.clone(),
+-            Some(RecipientTypeFull::Witness { .. }) => Outpoint {
+-                txid: txid.clone(),
+-                vout: vout.ok_or(InternalError::Unexpected)?,
+-            },
++            Some(RecipientTypeFull::Witness { .. }) | Some(RecipientTypeFull::External { .. }) => {
++                Outpoint {
++                    txid: txid.clone(),
++                    vout: vout.ok_or(InternalError::Unexpected)?,
++                }
++            }
+             _ => return Err(InternalError::Unexpected.into()),
+         };
+         let taken = self.count_utxo_taken_slots(
+@@ -3653,7 +3678,7 @@ pub trait WalletOnline: WalletOffline {
+ 
+         let utxo_idx = match transfer.recipient_type {
+             Some(RecipientTypeFull::Blind { ref unblinded_utxo }) => {
+-                txn.get_txo(unblinded_utxo)?.expect("utxo must exist").idx
++                Some(txn.get_txo(unblinded_utxo)?.expect("utxo must exist").idx)
+             }
+             Some(RecipientTypeFull::Witness { .. }) => {
+                 let mut updated_transfer: DbTransferActMod = transfer.clone().into();
+@@ -3669,7 +3694,25 @@ pub trait WalletOnline: WalletOffline {
+                     pending_witness: ActiveValue::Set(true),
+                     ..Default::default()
+                 };
+-                txn.set_txo(db_utxo)?
++                Some(txn.set_txo(db_utxo)?)
++            }
++            // the paid output is not the wallet's to spend: its TXO is recorded spent, so the
++            // received allocation is listed on the transfer but never counts in the balance
++            Some(RecipientTypeFull::External { .. }) => {
++                let mut updated_transfer: DbTransferActMod = transfer.clone().into();
++                updated_transfer.recipient_type =
++                    ActiveValue::Set(Some(RecipientTypeFull::External { vout }));
++                txn.update_transfer(&mut updated_transfer)?;
++                let db_utxo = DbTxoActMod {
++                    txid: ActiveValue::Set(txid.clone()),
++                    vout: ActiveValue::Set(vout.unwrap()),
++                    btc_amount: ActiveValue::Set(s!("0")),
++                    spent: ActiveValue::Set(true),
++                    exists: ActiveValue::Set(false),
++                    pending_witness: ActiveValue::Set(false),
++                    ..Default::default()
++                };
++                Some(txn.set_txo(db_utxo)?)
+             }
+             _ => return Err(InternalError::Unexpected.into()),
+         };
+@@ -3677,15 +3720,17 @@ pub trait WalletOnline: WalletOffline {
+         // multisig wallet, while the cosigners haven't decided on it): replace them instead of
+         // saving them twice
+         txn.del_coloring(asset_transfer.idx)?;
+-        for assignment in receiving.into_values() {
+-            let db_coloring = DbColoringActMod {
+-                txo_idx: ActiveValue::Set(utxo_idx),
+-                asset_transfer_idx: ActiveValue::Set(asset_transfer.idx),
+-                r#type: ActiveValue::Set(ColoringType::Receive),
+-                assignment: ActiveValue::Set(assignment),
+-                ..Default::default()
+-            };
+-            txn.set_coloring(db_coloring)?;
++        if let Some(utxo_idx) = utxo_idx {
++            for assignment in receiving.into_values() {
++                let db_coloring = DbColoringActMod {
++                    txo_idx: ActiveValue::Set(utxo_idx),
++                    asset_transfer_idx: ActiveValue::Set(asset_transfer.idx),
++                    r#type: ActiveValue::Set(ColoringType::Receive),
++                    assignment: ActiveValue::Set(assignment),
++                    ..Default::default()
++                };
++                txn.set_coloring(db_coloring)?;
++            }
+         }
+ 
+         // if the consignment contains unsafe history set status to WaitingSafeHeight and stop here
+@@ -4408,6 +4453,11 @@ pub trait WalletOnline: WalletOffline {
+             .txid
+             .clone()
+             .expect("batch transfer should have a TXID");
++        if incoming && !super::prepared_sweep::prepared_sweep_incoming_ready(txn, &txid)? {
++            // An out-of-band self-receive may have its own zero-confirmation policy. Only the
++            // protected sweep's independently confirmed, atomic consume can advance stock first.
++            return Ok(None);
++        }
+         debug!(
+             self.logger(),
+             "Getting details of transaction with ID '{}'...", txid
+@@ -4468,6 +4518,16 @@ pub trait WalletOnline: WalletOffline {
+                 .expect("transfer should have a recipient ID");
+             debug!(self.logger(), "Recipient ID: {recipient_id}");
+ 
++            let valid_consignment =
++                self.load_received_valid_transfer(batch_transfer, &recipient_id)?;
++            if !super::prepared_sweep::prepared_sweep_ancestry_ready(
++                txn,
++                &valid_consignment,
++                RgbTxid::from_str(&txid).map_err(|_| Error::InvalidTxid)?,
++            )? {
++                return Ok(None);
++            }
++
+             if let Some(RecipientTypeFull::Witness { vout }) = transfer.recipient_type {
+                 if !skip_sync {
+                     self.sync_wallet(
+@@ -4490,8 +4550,6 @@ pub trait WalletOnline: WalletOffline {
+             }
+ 
+             // accept consignment
+-            let valid_consignment =
+-                self.load_received_valid_transfer(batch_transfer, &recipient_id)?;
+             let mut stock = self.rgb_stock(txn)?;
+             stock.accept_transfer(valid_consignment.clone(), &self.blockchain_resolver())?;
+             self.delete_valid_consignment(&recipient_id)?;
+@@ -4561,6 +4619,11 @@ pub trait WalletOnline: WalletOffline {
+         filter: &[RefreshFilter],
+         skip_sync: bool,
+     ) -> Result<Option<DbBatchTransfer>, Error> {
++        if txn.is_prepared_rgb_sweep(transfer.idx)? {
++            // Exact native reconciliation owns these records; generic legacy/expiry handling
++            // cannot fail them or consume their RGB state.
++            return Ok(None);
++        }
+         debug!(self.logger(), "Refreshing transfer: {:?}", transfer);
+         let incoming = transfer.incoming;
+         if !filter.is_empty() {
+@@ -4784,6 +4847,7 @@ pub trait WalletOnline: WalletOffline {
+         filter: Vec<RefreshFilter>,
+         skip_sync: bool,
+     ) -> Result<RefreshResult, Error> {
++        super::prepared_sweep::release_lost_sweeps(self, txn)?;
+         let mut db_data = txn.get_db_data(false)?;
+ 
+         if asset_id.is_some() {
+@@ -7211,6 +7275,7 @@ pub trait WalletOnline: WalletOffline {
+         // before reading the transfer data, which doesn't parse for a send from before the proxy
+         // protocol update (failed by the upgrade)
+         let txid = signed_psbt.unsigned_tx.compute_txid().to_string();
++        txn.ensure_no_prepared_sweep_mutation(&signed_psbt.unsigned_tx)?;
+         if let Some(existing) = txn
+             .get_batch_transfers_by_txid(&txid)?
+             .into_iter()
+@@ -7663,6 +7728,7 @@ pub trait WalletOnline: WalletOffline {
+     /// status brought back.
+     fn check_end_initiated(&self, txn: &DbTxn, signed_psbt: &Psbt) -> Result<(), Error> {
+         let txid = signed_psbt.unsigned_tx.compute_txid().to_string();
++        txn.ensure_no_prepared_sweep_mutation(&signed_psbt.unsigned_tx)?;
+         if let Some(existing) = txn
+             .get_batch_transfers_by_txid(&txid)?
+             .into_iter()
+diff --git a/src/wallet/prepared_sweep.rs b/src/wallet/prepared_sweep.rs
+new file mode 100644
+index 0000000..43ad06c
+--- /dev/null
++++ b/src/wallet/prepared_sweep.rs
+@@ -0,0 +1,2082 @@
++//! Library-owned, durable preparation for externally signed RGB sweeps.
++//! No RGB assignment is consumed until an independently resolved, confirmed exact witness exists.
++use super::rust_only::ColoringInfo;
++use super::*;
++use crate::utils::recipient_id_from_script_buf;
++
++const MAX_COMPONENT: usize = 16 * 1024 * 1024;
++
++/// Consignments and the protected batch reserved by a prepared sweep.
++pub struct ColorPrepareResult {
++    /// Complete consignments, composed before any RGB state is consumed.
++    pub transfers: Vec<RgbTransfer>,
++    /// Durable protected batch identity, retained across process restarts.
++    pub batch_transfer_idx: i32,
++}
++
++/// An active sweep recoverable even if its caller's separate receipt write failed.
++pub struct PreparedSweep {
++    /// Exact colored unsigned PSBT; callers must reuse its transaction and output layout.
++    pub psbt: String,
++    /// Exact originally prepared consignments.
++    pub transfers: Vec<RgbTransfer>,
++    /// Protected native batch identity.
++    pub batch_transfer_idx: i32,
++    /// Once true, cancellation is forbidden: signed copies may exist outside this library.
++    pub handed_off: bool,
++}
++
++#[derive(Serialize, Deserialize)]
++#[serde(deny_unknown_fields)]
++struct StoredSweep {
++    version: u8,
++    psbt: String,
++    fascia: Vec<u8>,
++    consignments: Vec<(String, Vec<u8>)>,
++    beneficiaries: Vec<(String, Vec<SecretSeal>)>,
++    min_confirmations: u8,
++    /// MPC commitment entropy, no longer carried by the colored PSBT
++    entropy: u64,
++}
++
++fn invalid(details: impl Into<String>) -> Error {
++    Error::InvalidColoringInfo {
++        details: details.into(),
++    }
++}
++
++impl StoredSweep {
++    fn decode(payload: &[u8], txid: &str) -> Result<(Self, Psbt, Fascia, Vec<RgbTransfer>), Error> {
++        let record: Self = serde_json::from_slice(payload)
++            .map_err(|_| invalid("invalid prepared sweep record"))?;
++        if record.version != 1
++            || record.min_confirmations == 0
++            || record.psbt.len() > MAX_COMPONENT
++            || record.fascia.len() > MAX_COMPONENT
++            || record.consignments.is_empty()
++            || record.consignments.len() > 64
++        {
++            return Err(invalid("invalid prepared sweep bounds"));
++        }
++        let psbt = Psbt::from_str(&record.psbt)?;
++        if psbt.unsigned_tx.compute_txid().to_string() != txid {
++            return Err(invalid("prepared sweep transaction identity mismatch"));
++        }
++        let confined = amplify::confinement::Confined::<Vec<u8>, 0, MAX_COMPONENT>::try_from(
++            record.fascia.clone(),
++        )
++        .map_err(|_| invalid("invalid sweep fascia bounds"))?;
++        let fascia = Fascia::from_strict_serialized::<MAX_COMPONENT>(confined)
++            .map_err(|_| invalid("invalid prepared sweep fascia"))?;
++        if fascia.witness_id().to_string() != txid {
++            return Err(invalid("prepared sweep fascia witness mismatch"));
++        }
++        // Bind the entire decoded fascia to the actual transaction commitment, independently
++        // of the journal hash. A self-consistent replacement payload must not substitute proof.
++        let entropy = record.entropy;
++        let mut messages = BTreeMap::new();
++        for (contract, bundle) in fascia.bundles() {
++            bundle
++                .check_opid_commitments()
++                .map_err(|_| invalid("prepared sweep has invalid transition commitments"))?;
++            messages.insert(
++                ProtocolId::from(*contract),
++                Message::from(bundle.bundle_id()),
++            );
++        }
++        let mut source = MultiSource::with_static_entropy(entropy);
++        source.messages = MediumOrdMap::from_checked(messages);
++        let commitment = MerkleTree::try_commit(&source)
++            .map_err(|_| invalid("invalid sweep MPC commitment"))?
++            .commit_id();
++        crate::no_wallet::inspection::verify_witness_commitment(
++            &fascia.seal_witness().dbc_proof,
++            &commitment,
++            &psbt.unsigned_tx,
++        )?;
++        let beneficiaries: BTreeMap<_, _> = record.beneficiaries.iter().cloned().collect();
++        if beneficiaries.len() != record.beneficiaries.len()
++            || beneficiaries.len() != record.consignments.len()
++        {
++            return Err(invalid("prepared sweep beneficiary identity mismatch"));
++        }
++        let mut transfers = Vec::new();
++        let mut contracts = BTreeSet::new();
++        for (asset, data) in &record.consignments {
++            if data.is_empty() || data.len() > MAX_COMPONENT {
++                return Err(invalid("invalid prepared consignment bounds"));
++            }
++            let transfer = RgbTransfer::load(data.as_slice())
++                .map_err(|_| invalid("invalid prepared consignment"))?;
++            if transfer.contract_id().to_string() != *asset
++                || !contracts.insert(transfer.contract_id())
++            {
++                return Err(invalid("prepared consignment contract mismatch"));
++            }
++            let contract = transfer.contract_id();
++            let expected = fascia
++                .bundles()
++                .get(&contract)
++                .ok_or_else(|| invalid("prepared proof has an unexpected contract"))?;
++            let bundle_id = expected.bundle_id();
++            // the terminal bundle is the one carrying the terminal operations, its seals are
++            // the beneficiaries
++            let terminal_ops = transfer.terminal_ops();
++            let terminal_bundles: Vec<_> = transfer
++                .bundles
++                .iter()
++                .filter(|wb| {
++                    wb.bundle
++                        .known_transitions
++                        .iter()
++                        .any(|kt| terminal_ops.contains(&kt.opid))
++                })
++                .collect();
++            let [terminal] = terminal_bundles.as_slice() else {
++                return Err(invalid("prepared proof must have a single terminal bundle"));
++            };
++            if terminal.bundle.bundle_id() != bundle_id {
++                return Err(invalid("prepared proof omits the prepared bundle"));
++            }
++            let seals: BTreeSet<SecretSeal> = terminal
++                .bundle
++                .known_transitions
++                .iter()
++                .filter(|kt| terminal_ops.contains(&kt.opid))
++                .flat_map(|kt| kt.transition.assignments.values())
++                .flat_map(|typed_assigns| typed_assigns.seals())
++                .map(|seal| seal.to_secret_seal())
++                .collect();
++            let expected_seals: BTreeSet<SecretSeal> = beneficiaries
++                .get(asset)
++                .ok_or_else(|| invalid("prepared proof has no beneficiaries"))?
++                .iter()
++                .copied()
++                .collect();
++            if seals != expected_seals || seals.is_empty() {
++                return Err(invalid("prepared proof has different beneficiaries"));
++            }
++            let matching: Vec<_> = transfer
++                .bundled_witnesses()
++                .filter(|witness| witness.witness_id().to_string() == txid)
++                .collect();
++            if matching.len() != 1 || matching[0].bundle.bundle_id() != bundle_id {
++                return Err(invalid(
++                    "prepared proof belongs to a different witness or bundle",
++                ));
++            }
++            let witness = matching[0];
++            let mut unsigned = witness.tx.clone();
++            for input in &mut unsigned.input {
++                input.witness = Default::default();
++            }
++            if unsigned != psbt.unsigned_tx {
++                return Err(invalid("prepared proof transaction differs from the PSBT"));
++            }
++            let commitment = witness
++                .anchor
++                .convolve(contract, bundle_id)
++                .map_err(|_| invalid("prepared proof has an invalid anchor"))?;
++            crate::no_wallet::inspection::verify_witness_commitment(
++                &witness.anchor.dbc_proof,
++                &commitment,
++                &witness.tx,
++            )?;
++            let mut canonical = Vec::new();
++            transfer.save(&mut canonical)?;
++            if canonical != *data {
++                return Err(invalid("prepared proof is not canonically encoded"));
++            }
++            transfers.push(transfer);
++        }
++        if contracts != fascia.bundles().keys().copied().collect() {
++            return Err(invalid("prepared sweep proof set mismatch"));
++        }
++        Ok((record, psbt, fascia, transfers))
++    }
++}
++
++fn input_set(psbt: &Psbt) -> HashSet<OutPoint> {
++    psbt.unsigned_tx
++        .input
++        .iter()
++        .map(|input| input.previous_output)
++        .collect()
++}
++
++/// Validation ported from rgb-lib v0.3.0-beta.50-bfa / 1b951af0, adapted to transactional stock.
++/// Work on a clone, and preserve PSBT maps while inserting the RGB commitment host.
++fn unsigned_layout(psbt: &Psbt) -> Result<(Psbt, bool), Error> {
++    if psbt.inputs.is_empty()
++        || psbt.inputs.len() > 1000
++        || psbt.outputs.is_empty()
++        || psbt.outputs.len() > 1000
++        || psbt.inputs.len() != psbt.unsigned_tx.input.len()
++        || psbt.outputs.len() != psbt.unsigned_tx.output.len()
++        || input_set(psbt).len() != psbt.inputs.len()
++        || psbt.to_string().len() > MAX_COMPONENT
++    {
++        return Err(invalid("invalid sweep PSBT dimensions or duplicate inputs"));
++    }
++    let reserved_prefix = |prefix: &[u8]| {
++        [
++            b"RGB".as_slice(),
++            b"MPC".as_slice(),
++            b"OPRET".as_slice(),
++            b"TAPRET".as_slice(),
++        ]
++        .contains(&prefix)
++    };
++    if psbt
++        .proprietary
++        .keys()
++        .any(|key| reserved_prefix(&key.prefix))
++        || psbt.outputs.iter().any(|output| {
++            output
++                .proprietary
++                .keys()
++                .any(|key| reserved_prefix(&key.prefix))
++        })
++    {
++        return Err(invalid("sweep PSBT already contains RGB commitments"));
++    }
++    for (index, (input, txin)) in psbt.inputs.iter().zip(&psbt.unsigned_tx.input).enumerate() {
++        if !input.partial_sigs.is_empty()
++            || input.tap_key_sig.is_some()
++            || !input.tap_script_sigs.is_empty()
++            || input.final_script_sig.is_some()
++            || input.final_script_witness.is_some()
++            || !txin.script_sig.is_empty()
++            || !txin.witness.is_empty()
++        {
++            return Err(invalid("cannot color an already signed sweep PSBT"));
++        }
++        if input
++            .proprietary
++            .keys()
++            .any(|key| reserved_prefix(&key.prefix))
++        {
++            return Err(invalid("sweep input already contains RGB consumers"));
++        }
++        let witness = input
++            .witness_utxo
++            .as_ref()
++            .ok_or_else(|| invalid(format!("sweep input {index} has no witness_utxo")))?;
++        if !witness.script_pubkey.is_witness_program() || input.redeem_script.is_some() {
++            return Err(invalid("sweep inputs must be native SegWit"));
++        }
++        if let Some(previous) = &input.non_witness_utxo
++            && (previous.compute_txid() != txin.previous_output.txid
++                || previous.output.get(txin.previous_output.vout as usize) != Some(witness))
++        {
++            return Err(invalid("sweep previous output does not match witness_utxo"));
++        }
++    }
++    let mut working = psbt.clone();
++    let shift = working
++        .unsigned_tx
++        .output
++        .iter()
++        .any(|output| output.script_pubkey.is_p2tr());
++    let hosts: Vec<usize> = working
++        .unsigned_tx
++        .output
++        .iter()
++        .enumerate()
++        .filter_map(|(index, output)| output.script_pubkey.is_op_return().then_some(index))
++        .collect();
++    match hosts.as_slice() {
++        [] => {
++            let host = TxOut {
++                value: BdkAmount::ZERO,
++                script_pubkey: ScriptBuf::new_op_return([]),
++            };
++            if shift {
++                working.unsigned_tx.output.insert(0, host);
++                working.outputs.insert(0, Default::default());
++            } else {
++                working.unsigned_tx.output.push(host);
++                working.outputs.push(Default::default());
++            }
++        }
++        [index] if !shift || *index == 0 => {
++            let host = &working.unsigned_tx.output[*index];
++            if host.value != BdkAmount::ZERO
++                || (host.script_pubkey != ScriptBuf::new_op_return([])
++                    && host.script_pubkey != ScriptBuf::new_op_return([0; 32]))
++            {
++                return Err(invalid("sweep OP_RETURN contains unrelated data"));
++            }
++        }
++        _ => return Err(invalid("sweep needs one OP_RETURN before Taproot outputs")),
++    }
++    Ok((working, shift))
++}
++
++fn receive_scripts(txn: &DbTxn) -> Result<HashSet<String>, Error> {
++    let mut scripts: HashSet<String> = txn
++        .iter_pending_witness_scripts()?
++        .into_iter()
++        .map(|row| row.script)
++        .collect();
++    let batches = txn.iter_batch_transfers()?;
++    let assets = txn.iter_asset_transfers()?;
++    let incoming: HashSet<i32> = batches
++        .iter()
++        .filter(|batch| batch.incoming && !batch.status.settled() && !batch.status.failed())
++        .map(|batch| batch.idx)
++        .collect();
++    let incoming_assets: HashSet<i32> = assets
++        .iter()
++        .filter(|asset| incoming.contains(&asset.batch_transfer_idx))
++        .map(|asset| asset.idx)
++        .collect();
++    for transfer in txn.iter_transfers()? {
++        if incoming_assets.contains(&transfer.asset_transfer_idx)
++            && matches!(
++                transfer.recipient_type,
++                Some(RecipientTypeFull::Witness { .. })
++            )
++            && let Some(recipient) = transfer.recipient_id
++            && let Some(script) = script_buf_from_recipient_id(recipient)?
++        {
++            scripts.insert(script.to_hex_string());
++        }
++    }
++    Ok(scripts)
++}
++
++/// A self-receive is a distinct incoming batch, but must not bypass the canonical sweep
++/// consume transaction through the generic incoming-transfer acceptance path.
++pub(super) fn prepared_sweep_incoming_ready(txn: &DbTxn, txid: &str) -> Result<bool, Error> {
++    let Some(batch) = txn.prepared_sweep_batch_by_txid(txid)? else {
++        return Ok(true);
++    };
++    let (stored_txid, phase, payload) = txn.prepared_sweep_read(batch)?;
++    StoredSweep::decode(&payload, &stored_txid)?;
++    Ok(phase == "consumed")
++}
++
++/// Historical consumed witnesses are ordinary transfer history. Only a still active protected
++/// witness must not be imported indirectly as an ancestor of a newer incoming consignment.
++pub(super) fn prepared_sweep_ancestry_ready(
++    txn: &DbTxn,
++    consignment: &RgbTransfer,
++    current: RgbTxid,
++) -> Result<bool, Error> {
++    for witness in consignment.bundled_witnesses() {
++        if witness.witness_id() != current
++            && txn.is_active_prepared_sweep_txid(&witness.witness_id().to_string())?
++        {
++            return Ok(false);
++        }
++    }
++    Ok(true)
++}
++
++fn bind_sweep_receives(
++    wallet: &Wallet,
++    txn: &DbTxn,
++    psbt: &Psbt,
++    coloring: &ColoringInfo,
++    shift: bool,
++) -> Result<(), Error> {
++    let stock = wallet.rgb_stock(txn)?;
++    let txid = psbt.unsigned_tx.compute_txid().to_string();
++    let mut payments: HashMap<String, Vec<(String, Assignment)>> = HashMap::new();
++    for (contract, info) in &coloring.asset_info_map {
++        let schema = AssetSchema::get_from_contract_id(*contract, &stock)?;
++        for (vout, amount) in &info.output_map {
++            if *amount == 0 {
++                continue;
++            }
++            let output = &psbt.unsigned_tx.output[(*vout + u32::from(shift)) as usize];
++            payments
++                .entry(output.script_pubkey.to_hex_string())
++                .or_default()
++                .push((contract.to_string(), output_assignment(schema, *amount)));
++        }
++    }
++    let data = txn.get_db_data(false)?;
++    let mut bound_scripts = HashSet::new();
++    for batch in &data.batch_transfers {
++        if !batch.incoming || batch.status.failed() || batch.status.settled() {
++            continue;
++        }
++        let (asset, transfer) =
++            batch.get_incoming_transfer(&data.asset_transfers, &data.transfers)?;
++        if !matches!(
++            transfer.recipient_type,
++            Some(RecipientTypeFull::Witness { .. })
++        ) {
++            continue;
++        }
++        let Some(recipient) = transfer.recipient_id.as_ref() else {
++            continue;
++        };
++        let Some(script) = script_buf_from_recipient_id(recipient.clone())? else {
++            continue;
++        };
++        let Some(paid) = payments.get(&script.to_hex_string()) else {
++            continue;
++        };
++        if paid.len() != 1
++            || !bound_scripts.insert(script.to_hex_string())
++            || batch.status != TransferStatus::WaitingCounterparty
++            || !transfer.uses_out_of_band_exchange()
++            || asset
++                .asset_id
++                .as_ref()
++                .is_some_and(|asset| asset != &paid[0].0)
++            || transfer
++                .requested_assignment
++                .as_ref()
++                .is_some_and(|requested| {
++                    !matches!(requested, Assignment::Any | Assignment::Fungible(0))
++                        && requested != &paid[0].1
++                })
++        {
++            return Err(invalid(
++                "prepared sweep conflicts with a pending self-receive",
++            ));
++        }
++        if let Some(previous) = &batch.txid {
++            let can_rebind = match txn.prepared_sweep_batch_by_txid(previous)? {
++                Some(previous_batch) => txn.prepared_sweep_read(previous_batch)?.1 == "cancelled",
++                None => false,
++            };
++            if previous != &txid && !can_rebind {
++                return Err(invalid(
++                    "pending self-receive is already bound to another transfer",
++                ));
++            }
++        }
++        let mut update: DbBatchTransferActMod = batch.clone().into();
++        update.txid = ActiveValue::Set(Some(txid.clone()));
++        txn.update_batch_transfer(&mut update)?;
++    }
++    Ok(())
++}
++
++impl Wallet {
++    /// The library's own key path obeys the same explicit handoff boundary as external signers.
++    pub(crate) fn guard_prepared_sweep_signing(&self, psbt: &Psbt) -> Result<(), Error> {
++        let txn = self.database().begin_transaction()?;
++        let txid = psbt.unsigned_tx.compute_txid().to_string();
++        if let Some(batch) = txn.prepared_sweep_batch_by_txid(&txid)? {
++            let (_, phase, payload) = txn.prepared_sweep_read(batch)?;
++            let (_, prepared, _, _) = StoredSweep::decode(&payload, &txid)?;
++            if phase != "handed_off" || prepared != *psbt {
++                return Err(Error::WrongOperation { txid });
++            }
++        } else {
++            txn.ensure_no_prepared_sweep_mutation(&psbt.unsigned_tx)?;
++        }
++        txn.commit()
++    }
++
++    /// Color and durably reserve an externally signed sweep, without consuming RGB state.
++    ///
++    /// Output keys use the legacy pre-OP_RETURN indices (Taproot paths shift them by one).
++    /// `input_outpoints` are the inputs to sweep: the PSBT inputs carrying RGB assignments must
++    /// be exactly those, and every asset output must pay a pending receive or a colored script of
++    /// this wallet. All inputs must be unsigned native SegWit and every assignment preserved.
++    /// The protected batch never expires. Use `None` for expiration and at least one confirmation.
++    /// Recover an interrupted caller receipt with [`Self::list_prepared_sweeps`].
++    /// A handed-off sweep can be replaced by another one spending its inputs, paying a new
++    /// receive: the one that confirms settles and the other is released as lost.
++    pub fn color_psbt_and_prepare_consume(
++        &mut self,
++        psbt: &mut Psbt,
++        coloring_info: ColoringInfo,
++        input_outpoints: Vec<Outpoint>,
++        min_confirmations: u8,
++        expiration_timestamp: Option<u64>,
++    ) -> Result<ColorPrepareResult, Error> {
++        let txn = self.database().begin_transaction()?;
++        let (working, result) = self.prepare_sweep_in_txn(
++            &txn,
++            psbt,
++            coloring_info,
++            input_outpoints,
++            min_confirmations,
++            expiration_timestamp,
++        )?;
++        txn.commit()?;
++        *psbt = working;
++        Ok(result)
++    }
++
++    fn prepare_sweep_in_txn(
++        &self,
++        txn: &DbTxn,
++        psbt: &Psbt,
++        coloring_info: ColoringInfo,
++        input_outpoints: Vec<Outpoint>,
++        min_confirmations: u8,
++        expiration_timestamp: Option<u64>,
++    ) -> Result<(Psbt, ColorPrepareResult), Error> {
++        if min_confirmations == 0 || expiration_timestamp.is_some() {
++            return Err(invalid(
++                "prepared sweeps require confirmations and cannot expire",
++            ));
++        }
++        if coloring_info.asset_info_map.is_empty() || coloring_info.asset_info_map.len() > 64 {
++            return Err(invalid("invalid prepared sweep contract set"));
++        }
++        let (mut working, shift) = unsigned_layout(psbt)?;
++        let inputs = input_set(&working);
++        let mut sweeping = HashSet::new();
++        for outpoint in &input_outpoints {
++            let txid = Txid::from_str(&outpoint.txid).map_err(|_| Error::InvalidTxid)?;
++            let outpoint = OutPoint::new(txid, outpoint.vout);
++            if !inputs.contains(&outpoint) || !sweeping.insert(outpoint) {
++                return Err(invalid("sweep outpoints must be distinct PSBT inputs"));
++            }
++        }
++        if sweeping.is_empty() {
++            return Err(invalid("sweep outpoints must be distinct PSBT inputs"));
++        }
++        if txn.prepared_sweep_active_batches()?.len() >= 64 {
++            return Err(invalid("too many active prepared sweeps"));
++        }
++        // the inputs of a handed-off sweep may be spent again by a replacement (e.g. one paying a
++        // higher fee): they stay reserved by the first sweep, the one that confirms settles and
++        // the other is released as lost
++        let mut shared = HashSet::new();
++        for reservation in txn.iter_reserved_txos()? {
++            let outpoint = OutPoint::from(Outpoint {
++                txid: reservation.txid,
++                vout: reservation.vout,
++            });
++            if !inputs.contains(&outpoint) {
++                continue;
++            }
++            let handed_off = match reservation.reserved_for_colored {
++                Some(batch) if txn.is_prepared_rgb_sweep(batch)? => {
++                    txn.prepared_sweep_read(batch)?.1 == "handed_off"
++                }
++                _ => false,
++            };
++            if !handed_off {
++                return Err(invalid("sweep inputs overlap another reserved operation"));
++            }
++            shared.insert(outpoint);
++        }
++        let stock = self.rgb_stock(txn)?;
++        let assigning: BTreeSet<ContractId> = stock
++            .assignments_by_contract(inputs.iter().copied())?
++            .into_keys()
++            .collect();
++        let requested: BTreeSet<ContractId> =
++            coloring_info.asset_info_map.keys().copied().collect();
++        if assigning != requested {
++            return Err(invalid(
++                "sweep must include every contract assigned to its inputs",
++            ));
++        }
++        let receives = receive_scripts(txn)?;
++        let mut spent = BTreeMap::new();
++        for (contract, coloring) in &coloring_info.asset_info_map {
++            let schema = AssetSchema::get_from_contract_id(*contract, &stock)?;
++            let mut by_outpoint = HashMap::new();
++            let mut available = 0u64;
++            for (seal, assignments) in
++                stock.contract_assignments_for(*contract, inputs.iter().copied())?
++            {
++                let mut values = Vec::new();
++                for (opout, state) in assignments {
++                    if opout.ty != OS_ASSET {
++                        return Err(invalid(
++                            "sweep cannot destroy inflation, mint or other non-owner rights",
++                        ));
++                    }
++                    let amount = match &state {
++                        AllocatedState::Amount(value) => value.as_u64(),
++                        AllocatedState::Data(_) if schema == AssetSchema::Uda => 1,
++                        _ => return Err(invalid("unsupported sweep assignment")),
++                    };
++                    available = available
++                        .checked_add(amount)
++                        .ok_or_else(|| invalid("sweep input amount overflow"))?;
++                    values.push(Assignment::from_opout_and_state(opout, &state));
++                }
++                by_outpoint.insert(seal.to_outpoint(), values);
++            }
++            let mut total = 0u64;
++            for (index, amount) in &coloring.output_map {
++                if *amount == 0 {
++                    continue;
++                }
++                let vout = index
++                    .checked_add(u32::from(shift))
++                    .ok_or_else(|| invalid("sweep output index overflow"))?;
++                let output = working
++                    .unsigned_tx
++                    .output
++                    .get(vout as usize)
++                    .ok_or_else(|| invalid("sweep output index outside transaction"))?;
++                if output.script_pubkey.is_op_return() {
++                    return Err(invalid("sweep assigns assets to OP_RETURN"));
++                }
++                AddressPayload::from_script(&output.script_pubkey)
++                    .map_err(|_| invalid("sweep output must pay a standard script"))?;
++                let own_colored = self
++                    .bdk_wallet()
++                    .derivation_of_spk(output.script_pubkey.clone())
++                    .is_some_and(|(keychain, _)| keychain == KeychainKind::External);
++                if !(own_colored || receives.contains(&output.script_pubkey.to_hex_string())) {
++                    return Err(invalid(
++                        "sweep must assign assets to a pending receive or a colored script of this wallet",
++                    ));
++                }
++                total = total
++                    .checked_add(*amount)
++                    .ok_or_else(|| invalid("sweep output amount overflow"))?;
++            }
++            if available == 0 || total != available || (schema == AssetSchema::Uda && total != 1) {
++                return Err(invalid(
++                    "sweep must preserve every input assignment exactly",
++                ));
++            }
++            spent.insert(*contract, by_outpoint);
++        }
++        let colored: HashSet<OutPoint> = spent.values().flat_map(|c| c.keys().copied()).collect();
++        if colored != sweeping {
++            return Err(invalid(
++                "sweep PSBT colored inputs differ from the sweep outpoints",
++            ));
++        }
++        for (input, txin) in working.inputs.iter().zip(&working.unsigned_tx.input) {
++            if let Some(local) = self.bdk_wallet().get_utxo(txin.previous_output)
++                && Some(&local.txout) != input.witness_utxo.as_ref()
++            {
++                return Err(invalid("sweep witness_utxo differs from the wallet input"));
++            }
++        }
++        // The commitment host is already inserted, so color_psbt cannot rebuild/erase PSBT maps.
++        let (fascia, beneficiaries, entropy) =
++            self.color_psbt_in_txn(txn, &mut working, coloring_info.clone())?;
++        let entropy =
++            entropy.ok_or_else(|| invalid("prepared sweep is missing commitment entropy"))?;
++        let txid = working.unsigned_tx.compute_txid().to_string();
++        let mut stock = self.rgb_stock(txn)?;
++        let mut transfers = Vec::new();
++        let mut serialized = Vec::new();
++        for (contract, seals) in &beneficiaries {
++            let (witness, blinded): (Vec<_>, Vec<_>) = seals
++                .iter()
++                .partition(|seal| matches!(seal, BuilderSeal::Revealed(_)));
++            let witness: Vec<_> = witness
++                .into_iter()
++                .map(|seal| match seal {
++                    BuilderSeal::Revealed(seal) => {
++                        ExplicitSeal::with(fascia.witness_id(), seal.vout)
++                    }
++                    _ => unreachable!(),
++                })
++                .collect();
++            let blinded: Vec<_> = blinded
++                .into_iter()
++                .map(|seal| match seal {
++                    BuilderSeal::Concealed(seal) => SecretSeal::from(*seal),
++                    _ => unreachable!(),
++                })
++                .collect();
++            let (transfer, proofs) = stock.transfer_from_fascia(
++                *contract,
++                witness,
++                blinded,
++                [],
++                &fascia,
++                self.spv_resolver(),
++            )?;
++            stock.store_spv_proofs(proofs)?;
++            let mut bytes = Vec::new();
++            transfer.save(&mut bytes)?;
++            if bytes.len() > MAX_COMPONENT {
++                return Err(invalid("sweep consignment exceeds limit"));
++            }
++            serialized.push((contract.to_string(), bytes));
++            transfers.push(transfer);
++        }
++        let batch = txn.set_batch_transfer(DbBatchTransferActMod {
++            txid: ActiveValue::Set(Some(txid.clone())),
++            status: ActiveValue::Set(TransferStatus::Initiated),
++            created_at: ActiveValue::Set(now().unix_timestamp()),
++            min_confirmations: ActiveValue::Set(min_confirmations),
++            incoming: ActiveValue::Set(false),
++            ..Default::default()
++        })?;
++        let reservations: Vec<DbReservedTxoActMod> = working
++            .unsigned_tx
++            .input
++            .iter()
++            .filter(|input| !shared.contains(&input.previous_output))
++            .map(|input| DbReservedTxoActMod {
++                txid: ActiveValue::Set(input.previous_output.txid.to_string()),
++                vout: ActiveValue::Set(input.previous_output.vout),
++                reserved_for_colored: ActiveValue::Set(Some(batch)),
++                ..Default::default()
++            })
++            .collect();
++        if !reservations.is_empty() {
++            txn.set_reserved_txos(reservations)?;
++        }
++        persist_projection(
++            self,
++            txn,
++            batch,
++            &working,
++            &coloring_info,
++            shift,
++            &spent,
++            &receives,
++        )?;
++        let fascia = fascia
++            .to_strict_serialized::<MAX_COMPONENT>()
++            .map_err(|_| invalid("sweep fascia exceeds limit"))?
++            .to_vec();
++        let payload = serde_json::to_vec(&StoredSweep {
++            version: 1,
++            entropy,
++            psbt: working.to_string(),
++            fascia,
++            consignments: serialized,
++            beneficiaries: beneficiaries
++                .iter()
++                .map(|(contract, seals)| {
++                    (
++                        contract.to_string(),
++                        seals.iter().map(|seal| seal.to_secret_seal()).collect(),
++                    )
++                })
++                .collect(),
++            min_confirmations,
++        })
++        .map_err(InternalError::from)?;
++        txn.prepared_sweep_insert(batch, &txid, payload)?;
++        // Protect matching receives before any handoff/signing. Their status and balance remain
++        // unchanged; a later out-of-band provide still performs normal proof admission.
++        bind_sweep_receives(self, txn, &working, &coloring_info, shift)?;
++        self.update_backup_info(txn, false)?;
++        Ok((
++            working,
++            ColorPrepareResult {
++                transfers,
++                batch_transfer_idx: batch,
++            },
++        ))
++    }
++
++    /// Recover active native preparations, including one orphaned before a caller's receipt write.
++    pub fn list_prepared_sweeps(&self) -> Result<Vec<PreparedSweep>, Error> {
++        let txn = self.database().begin_transaction()?;
++        let mut sweeps = Vec::new();
++        for batch in txn.prepared_sweep_active_batches()? {
++            let (txid, phase, payload) = txn.prepared_sweep_read(batch)?;
++            let (stored, _, _, transfers) = StoredSweep::decode(&payload, &txid)?;
++            sweeps.push(PreparedSweep {
++                psbt: stored.psbt,
++                transfers,
++                batch_transfer_idx: batch,
++                handed_off: phase == "handed_off",
++            });
++        }
++        txn.commit()?;
++        Ok(sweeps)
++    }
++
++    /// Persist before ANY signing or handoff to LDK. Once handed off, cancellation is forbidden.
++    pub fn mark_prepared_sweep_handed_off(
++        &mut self,
++        batch: i32,
++        expected_txid: String,
++    ) -> Result<(), Error> {
++        let txn = self.database().begin_transaction()?;
++        let (txid, phase, payload) = txn.prepared_sweep_read(batch)?;
++        StoredSweep::decode(&payload, &txid)?;
++        if txid != expected_txid {
++            return Err(invalid("sweep handoff transaction mismatch"));
++        }
++        match phase.as_str() {
++            "prepared" => {
++                txn.prepared_sweep_phase(batch, "prepared", "handed_off")?;
++                self.update_backup_info(&txn, false)?;
++            }
++            "handed_off" => {}
++            _ => return Err(invalid("sweep cannot be handed off in its terminal phase")),
++        }
++        txn.commit()
++    }
++
++    /// Cancel only a preparation that has never been handed to an external signer or LDK.
++    pub fn cancel_prepared_sweep(&mut self, batch: i32) -> Result<(), Error> {
++        let txn = self.database().begin_transaction()?;
++        let (txid, phase, payload) = txn.prepared_sweep_read(batch)?;
++        StoredSweep::decode(&payload, &txid)?;
++        if phase == "cancelled" {
++            txn.commit()?;
++            return Ok(());
++        }
++        if phase != "prepared" {
++            return Err(Error::CannotFailBatchTransfer);
++        }
++        let transfer = txn.get_batch_transfer_or_fail(batch, &txn.iter_batch_transfers()?)?;
++        if transfer.status != TransferStatus::Initiated {
++            return Err(Error::CannotFailBatchTransfer);
++        }
++        let mut transfer: DbBatchTransferActMod = transfer.into();
++        transfer.status = ActiveValue::Set(TransferStatus::Failed);
++        txn.update_batch_transfer(&mut transfer)?;
++        txn.del_reserved_txos_for_batch_transfer(batch)?;
++        txn.prepared_sweep_phase(batch, "prepared", "cancelled")?;
++        self.update_backup_info(&txn, false)?;
++        txn.commit()
++    }
++
++    /// Consume only after independently resolving the exact transaction with the required confirmations.
++    /// Stock, input state, batch status, reservations and consumed phase commit atomically.
++    pub fn consume_transfer_fascia(&mut self, online: Online, batch: i32) -> Result<(), Error> {
++        self.check_online(online)?;
++        let txn = self.database().begin_transaction()?;
++        let (txid, phase, payload) = txn.prepared_sweep_read(batch)?;
++        let (stored, psbt, mut fascia, _) = StoredSweep::decode(&payload, &txid)?;
++        txn.commit()?;
++        if phase != "handed_off" && phase != "consumed" {
++            return Err(invalid("sweep has not been handed off"));
++        }
++        if self.indexer().get_tx_confirmations(&txid)?.unwrap_or(0)
++            < u64::from(stored.min_confirmations)
++        {
++            let txn = self.database().begin_transaction()?;
++            let lost = release_lost_sweep(self, &txn, batch)?;
++            txn.commit()?;
++            return Err(invalid(if lost {
++                "prepared sweep lost to a confirmed conflicting transaction"
++            } else {
++                "prepared sweep witness is not sufficiently confirmed"
++            }));
++        }
++        let witness_id = RgbTxid::from_str(&txid).map_err(|_| Error::InvalidTxid)?;
++        let (transaction, position) = match self
++            .blockchain_resolver()
++            .resolve_witness(witness_id)
++            .map_err(|error| Error::Network {
++            details: error.to_string(),
++        })? {
++            WitnessStatus::Resolved(transaction, WitnessOrd::Mined(position)) => {
++                (transaction, position)
++            }
++            _ => return Err(invalid("prepared sweep witness is not confirmed")),
++        };
++        let mut unsigned = transaction.clone();
++        for input in &mut unsigned.input {
++            input.witness = Default::default();
++        }
++        if unsigned != psbt.unsigned_tx {
++            return Err(invalid(
++                "confirmed sweep differs from its prepared transaction",
++            ));
++        }
++        fascia.update_witness_tx(transaction);
++        let txn = self.database().begin_transaction()?;
++        let (current_txid, current_phase, current_payload) = txn.prepared_sweep_read(batch)?;
++        if current_txid != txid || current_payload != payload {
++            return Err(invalid("prepared sweep changed during confirmation check"));
++        }
++        if current_phase == "consumed" {
++            txn.commit()?;
++            return Ok(());
++        }
++        if current_phase != "handed_off" {
++            return Err(invalid(
++                "prepared sweep phase changed during confirmation check",
++            ));
++        }
++        let transfer = txn.get_batch_transfer_or_fail(batch, &txn.iter_batch_transfers()?)?;
++        if transfer.status != TransferStatus::Initiated {
++            return Err(invalid("prepared sweep batch status mismatch"));
++        }
++        self.rgb_stock(&txn)?
++            .consume_fascia(fascia, Some(WitnessOrd::Mined(position)))?;
++        for input in &psbt.unsigned_tx.input {
++            let outpoint = Outpoint::from(input.previous_output);
++            if let Some(row) = txn.get_txo(&outpoint)? {
++                let mut row: DbTxoActMod = row.into();
++                row.spent = ActiveValue::Set(true);
++                txn.update_txo(row)?;
++            }
++        }
++        let mut transfer: DbBatchTransferActMod = transfer.into();
++        transfer.status = ActiveValue::Set(TransferStatus::Settled);
++        txn.update_batch_transfer(&mut transfer)?;
++        txn.del_reserved_txos_for_batch_transfer(batch)?;
++        txn.prepared_sweep_phase(batch, "handed_off", "consumed")?;
++        self.update_backup_info(&txn, false)?;
++        txn.commit()
++    }
++}
++
++/// A handed-off sweep whose input was spent by another confirmed transaction can never confirm:
++/// fail its batch, release its reservations and unbind its receive.
++fn release_lost_sweep<W: WalletOnline + ?Sized>(
++    wallet: &W,
++    txn: &DbTxn,
++    batch: i32,
++) -> Result<bool, Error> {
++    let (txid, phase, payload) = txn.prepared_sweep_read(batch)?;
++    if phase != "handed_off" {
++        return Ok(false);
++    }
++    let (_, psbt, _, _) = StoredSweep::decode(&payload, &txid)?;
++    if wallet.indexer().get_tx_confirmations(&txid)?.unwrap_or(0) > 0 {
++        return Ok(false);
++    }
++    // the sweep itself is not mined, so a confirmed spend of an input is another transaction's
++    let mut lost = false;
++    for txin in &psbt.unsigned_tx.input {
++        if wallet
++            .indexer()
++            .output_spent_on_chain(&txin.previous_output)?
++        {
++            lost = true;
++            break;
++        }
++    }
++    if !lost {
++        return Ok(false);
++    }
++    let batch_transfers = txn.iter_batch_transfers()?;
++    let transfer = txn.get_batch_transfer_or_fail(batch, &batch_transfers)?;
++    let mut transfer: DbBatchTransferActMod = transfer.into();
++    transfer.status = ActiveValue::Set(TransferStatus::Failed);
++    txn.update_batch_transfer(&mut transfer)?;
++    txn.del_reserved_txos_for_batch_transfer(batch)?;
++    txn.prepared_sweep_phase(batch, "handed_off", "cancelled")?;
++    // a receive still waiting is unbound, one already holding the sweep consignment is failed
++    for receive in batch_transfers
++        .into_iter()
++        .filter(|b| b.incoming && b.txid.as_deref() == Some(&txid))
++    {
++        if receive.status == TransferStatus::WaitingCounterparty {
++            let mut receive: DbBatchTransferActMod = receive.into();
++            receive.txid = ActiveValue::Set(None);
++            txn.update_batch_transfer(&mut receive)?;
++        } else {
++            wallet.fail_batch_transfer(txn, &receive)?;
++        }
++    }
++    wallet.update_backup_info(txn, false)?;
++    Ok(true)
++}
++
++pub(super) fn release_lost_sweeps<W: WalletOnline + ?Sized>(
++    wallet: &W,
++    txn: &DbTxn,
++) -> Result<(), Error> {
++    for batch in txn.prepared_sweep_active_batches()? {
++        release_lost_sweep(wallet, txn, batch)?;
++    }
++    Ok(())
++}
++
++fn output_assignment(schema: AssetSchema, amount: u64) -> Assignment {
++    if schema == AssetSchema::Uda {
++        Assignment::NonFungible
++    } else {
++        Assignment::Fungible(amount)
++    }
++}
++
++#[allow(clippy::too_many_arguments)]
++fn persist_projection(
++    wallet: &Wallet,
++    txn: &DbTxn,
++    batch: i32,
++    psbt: &Psbt,
++    coloring: &ColoringInfo,
++    shift: bool,
++    spent: &BTreeMap<ContractId, HashMap<OutPoint, Vec<Assignment>>>,
++    receives: &HashSet<String>,
++) -> Result<(), Error> {
++    let stock = wallet.rgb_stock(txn)?;
++    let txid = psbt.unsigned_tx.compute_txid().to_string();
++    for (contract, inputs) in spent {
++        let schema = AssetSchema::get_from_contract_id(*contract, &stock)?;
++        let asset = txn.set_asset_transfer(DbAssetTransferActMod {
++            batch_transfer_idx: ActiveValue::Set(batch),
++            asset_id: ActiveValue::Set(Some(contract.to_string())),
++            user_driven: ActiveValue::Set(true),
++            transition_type: ActiveValue::Set(Some(TypeOfTransition::Transfer)),
++            ..Default::default()
++        })?;
++        // an input the wallet does not hold (e.g. an HTLC lock) is not an outgoing allocation
++        for (outpoint, assignments) in inputs {
++            if wallet.bdk_wallet().get_utxo(*outpoint).is_none() {
++                continue;
++            }
++            let txo = txn
++                .get_txo(&Outpoint::from(*outpoint))?
++                .ok_or_else(|| invalid("wallet sweep input is missing its colored TXO row"))?;
++            for assignment in assignments {
++                txn.set_coloring(DbColoringActMod {
++                    asset_transfer_idx: ActiveValue::Set(asset),
++                    txo_idx: ActiveValue::Set(txo.idx),
++                    r#type: ActiveValue::Set(ColoringType::Input),
++                    assignment: ActiveValue::Set(assignment.clone()),
++                    ..Default::default()
++                })?;
++            }
++        }
++        for (index, amount) in &coloring.asset_info_map[contract].output_map {
++            if *amount == 0 {
++                continue;
++            }
++            let vout = index
++                .checked_add(u32::from(shift))
++                .ok_or_else(|| invalid("sweep output index overflow"))?;
++            let output = psbt
++                .unsigned_tx
++                .output
++                .get(vout as usize)
++                .ok_or_else(|| invalid("invalid sweep projection vout"))?;
++            AddressPayload::from_script(&output.script_pubkey)
++                .map_err(|_| invalid("sweep output must pay a standard script"))?;
++            let recipient = recipient_id_from_script_buf(
++                output.script_pubkey.clone(),
++                wallet.bitcoin_network(),
++            );
++            let owned = wallet
++                .bdk_wallet()
++                .derivation_of_spk(output.script_pubkey.clone())
++                .is_some_and(|(keychain, _)| keychain == KeychainKind::External);
++            if owned && !receives.contains(&output.script_pubkey.to_hex_string()) {
++                let outpoint = Outpoint {
++                    txid: txid.clone(),
++                    vout,
++                };
++                let txo = match txn.get_txo(&outpoint)? {
++                    Some(row) => row.idx,
++                    None => txn.set_txo(DbTxoActMod {
++                        txid: ActiveValue::Set(txid.clone()),
++                        vout: ActiveValue::Set(vout),
++                        btc_amount: ActiveValue::Set(output.value.to_sat().to_string()),
++                        spent: ActiveValue::Set(false),
++                        exists: ActiveValue::Set(false),
++                        pending_witness: ActiveValue::Set(false),
++                        ..Default::default()
++                    })?,
++                };
++                txn.set_coloring(DbColoringActMod {
++                    asset_transfer_idx: ActiveValue::Set(asset),
++                    txo_idx: ActiveValue::Set(txo),
++                    r#type: ActiveValue::Set(ColoringType::Change),
++                    assignment: ActiveValue::Set(output_assignment(schema, *amount)),
++                    ..Default::default()
++                })?;
++            }
++            txn.set_transfer(DbTransferActMod {
++                asset_transfer_idx: ActiveValue::Set(asset),
++                requested_assignment: ActiveValue::Set(Some(output_assignment(schema, *amount))),
++                recipient_id: ActiveValue::Set(Some(recipient)),
++                recipient_type: ActiveValue::Set(Some(RecipientTypeFull::Witness {
++                    vout: Some(vout),
++                })),
++                ..Default::default()
++            })?;
++        }
++    }
++    Ok(())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use bdk_wallet::bitcoin::{Sequence, TxIn, Witness, absolute::LockTime, transaction::Version};
++    use serial_test::parallel;
++
++    fn unsigned() -> Psbt {
++        let script = ScriptBuf::from_bytes([vec![0x51, 0x20], vec![1; 32]].concat());
++        let mut psbt = Psbt::from_unsigned_tx(BdkTransaction {
++            version: Version::TWO,
++            lock_time: LockTime::ZERO,
++            input: vec![TxIn {
++                previous_output: OutPoint::new(Txid::from_str(&"01".repeat(32)).unwrap(), 0),
++                script_sig: ScriptBuf::new(),
++                sequence: Sequence::MAX,
++                witness: Witness::new(),
++            }],
++            output: vec![TxOut {
++                value: BdkAmount::from_sat(9000),
++                script_pubkey: script.clone(),
++            }],
++        })
++        .unwrap();
++        psbt.inputs[0].witness_utxo = Some(TxOut {
++            value: BdkAmount::from_sat(10000),
++            script_pubkey: script,
++        });
++        psbt
++    }
++
++    #[test]
++    #[parallel]
++    fn prepared_sweep_layout_preserves_maps_and_never_mutates_on_error() {
++        let mut psbt = unsigned();
++        psbt.inputs[0].proprietary.insert(
++            bdk_wallet::bitcoin::psbt::raw::ProprietaryKey {
++                prefix: b"application".to_vec(),
++                subtype: 1,
++                key: vec![2],
++            },
++            vec![3],
++        );
++        psbt.outputs[0].proprietary.insert(
++            bdk_wallet::bitcoin::psbt::raw::ProprietaryKey {
++                prefix: b"application".to_vec(),
++                subtype: 4,
++                key: vec![5],
++            },
++            vec![6],
++        );
++        let before = psbt.clone();
++        let (prepared, shift) = unsigned_layout(&psbt).unwrap();
++        assert!(shift);
++        assert_eq!(psbt, before);
++        assert_eq!(prepared.inputs, before.inputs);
++        assert_eq!(prepared.outputs[1], before.outputs[0]);
++        assert_eq!(prepared.proprietary, before.proprietary);
++        assert!(prepared.unsigned_tx.output[0].script_pubkey.is_op_return());
++    }
++
++    #[test]
++    #[parallel]
++    fn prepared_sweep_rejects_signed_legacy_duplicate_and_precolored_inputs() {
++        let base = unsigned();
++        for case in 0..6 {
++            let mut psbt = base.clone();
++            match case {
++                0 => psbt.inputs[0].final_script_witness = Some(Witness::new()),
++                1 => psbt.inputs[0].redeem_script = Some(ScriptBuf::new()),
++                2 => psbt.inputs[0].witness_utxo = None,
++                3 => {
++                    psbt.inputs.push(psbt.inputs[0].clone());
++                    psbt.unsigned_tx
++                        .input
++                        .push(psbt.unsigned_tx.input[0].clone());
++                }
++                4 => {
++                    psbt.inputs[0].witness_utxo.as_mut().unwrap().script_pubkey = ScriptBuf::new();
++                }
++                5 => {
++                    psbt.inputs[0].proprietary.insert(
++                        bdk_wallet::bitcoin::psbt::raw::ProprietaryKey {
++                            prefix: b"RGB".to_vec(),
++                            subtype: 1,
++                            key: vec![],
++                        },
++                        vec![1],
++                    );
++                }
++                _ => unreachable!(),
++            }
++            let before = psbt.clone();
++            assert!(unsigned_layout(&psbt).is_err());
++            assert_eq!(psbt, before);
++        }
++    }
++
++    #[test]
++    #[parallel]
++    fn prepared_sweep_rejects_ambiguous_opreturn_hosts() {
++        for case in 0..3 {
++            let mut psbt = unsigned();
++            let script = if case == 0 {
++                ScriptBuf::new_op_return([7])
++            } else {
++                ScriptBuf::new_op_return([])
++            };
++            let host = TxOut {
++                value: BdkAmount::ZERO,
++                script_pubkey: script,
++            };
++            if case < 2 {
++                psbt.unsigned_tx.output.push(host);
++                psbt.outputs.push(Default::default());
++            } else {
++                psbt.unsigned_tx.output.insert(0, host.clone());
++                psbt.outputs.insert(0, Default::default());
++                psbt.unsigned_tx.output.push(host);
++                psbt.outputs.push(Default::default());
++            }
++            assert!(unsigned_layout(&psbt).is_err());
++        }
++    }
++
++    #[test]
++    #[parallel]
++    fn prepared_sweep_journal_is_bounded_digest_checked_and_phase_conditional() {
++        let directory = crate::wallet::test::PrivateDataDir::new();
++        let wallet = directory.wallet(false, None);
++        let txn = wallet.database().begin_transaction().unwrap();
++        let batch = txn
++            .set_batch_transfer(DbBatchTransferActMod {
++                incoming: ActiveValue::Set(false),
++                status: ActiveValue::Set(TransferStatus::Initiated),
++                min_confirmations: ActiveValue::Set(1),
++                created_at: ActiveValue::Set(1),
++                ..Default::default()
++            })
++            .unwrap();
++        assert!(txn.prepared_sweep_insert(batch, "one", Vec::new()).is_err());
++        txn.prepared_sweep_insert(batch, "one", b"payload".to_vec())
++            .unwrap();
++        assert_eq!(txn.prepared_sweep_read(batch).unwrap().2, b"payload");
++        assert!(txn.is_prepared_rgb_sweep(batch).unwrap());
++        assert!(txn.is_prepared_rgb_sweep_txid("one").unwrap());
++        assert!(
++            txn.prepared_sweep_phase(batch, "handed_off", "consumed")
++                .is_err()
++        );
++        txn.prepared_sweep_phase(batch, "prepared", "handed_off")
++            .unwrap();
++        assert!(
++            txn.prepared_sweep_phase(batch, "prepared", "cancelled")
++                .is_err()
++        );
++        txn.commit().unwrap();
++        assert!(wallet.list_prepared_sweeps().is_err()); // invalid receipt cannot be silently ignored
++    }
++
++    #[cfg(feature = "bitcoind")]
++    mod funded {
++        use super::*;
++        use crate::wallet::prepared_sweep_fixture::Fixture;
++        use bdk_wallet::{descriptor::IntoWalletDescriptor, signer::SignersContainer};
++        use sea_orm::ConnectionTrait;
++        use serde_json::json;
++        use serial_test::serial;
++
++        fn inputs(psbt: &Psbt) -> Vec<Outpoint> {
++            psbt.unsigned_tx
++                .input
++                .iter()
++                .map(|input| input.previous_output.into())
++                .collect()
++        }
++
++        fn sweep(wallet: &mut Wallet, online: Online, asset: &str) -> (Psbt, ColoringInfo) {
++            let receive = wallet
++                .witness_receive(
++                    None,
++                    None,
++                    Assignment::Fungible(100),
++                    (now().unix_timestamp() + 3600) as u64,
++                    vec![],
++                    1,
++                    None,
++                )
++                .unwrap();
++            let script = script_buf_from_recipient_id(receive.recipient_id)
++                .unwrap()
++                .unwrap();
++            sweep_to_script(wallet, online, script, asset)
++        }
++
++        fn sweep_to_script(
++            wallet: &mut Wallet,
++            online: Online,
++            script: ScriptBuf,
++            asset: &str,
++        ) -> (Psbt, ColoringInfo) {
++            let unspent = wallet
++                .list_unspents(Some(online), false, false)
++                .unwrap()
++                .into_iter()
++                .find(|output| {
++                    output.rgb_allocations.iter().any(|allocation| {
++                        allocation.asset_id.as_deref() == Some(asset)
++                            && allocation.assignment == Assignment::Fungible(100)
++                    })
++                })
++                .unwrap();
++            let input: OutPoint = unspent.utxo.outpoint.into();
++            let mut builder = wallet.bdk_wallet_mut().build_tx();
++            builder
++                .add_utxo(input)
++                .unwrap()
++                .manually_selected_only()
++                .drain_to(script)
++                .fee_rate(FeeRate::from_sat_per_vb_u32(2));
++            let psbt = builder.finish().unwrap();
++            let coloring = ColoringInfo {
++                asset_info_map: HashMap::from([(
++                    ContractId::from_str(asset).unwrap(),
++                    rust_only::AssetColoringInfo {
++                        output_map: HashMap::from([(0, 100)]),
++                        static_blinding: Some(777),
++                    },
++                )]),
++                static_blinding: None,
++                nonce: None,
++            };
++            (psbt, coloring)
++        }
++
++        fn sql(wallet: &Wallet, query: &str) {
++            let connection = block_on(Database::connect(format!(
++                "sqlite:{}?mode=rw",
++                wallet.get_wallet_dir().join("rgb_lib_db").display()
++            )))
++            .unwrap();
++            block_on(connection.execute_unprepared(query)).unwrap();
++            block_on(connection.close()).unwrap();
++        }
++
++        fn batch_state(wallet: &Wallet, batch: i32) -> (String, TransferStatus, usize) {
++            let txn = wallet.database().begin_transaction().unwrap();
++            let phase = txn.prepared_sweep_read(batch).unwrap().1;
++            let status = txn
++                .get_batch_transfer_or_fail(batch, &txn.iter_batch_transfers().unwrap())
++                .unwrap()
++                .status;
++            let reservations = txn
++                .iter_reserved_txos()
++                .unwrap()
++                .into_iter()
++                .filter(|row| row.reserved_for_colored == Some(batch))
++                .count();
++            txn.commit().unwrap();
++            (phase, status, reservations)
++        }
++
++        #[test]
++        #[serial]
++        fn prepared_sweep_self_receive_waits_for_canonical_consume_without_double_credit() {
++            let fixture = Fixture::new();
++            let (_directory, mut wallet, online, asset) = fixture.colored_wallet();
++            let contradictory = wallet
++                .witness_receive(
++                    None,
++                    None,
++                    Assignment::Fungible(99),
++                    (now().unix_timestamp() + 3600) as u64,
++                    vec![],
++                    0,
++                    None,
++                )
++                .unwrap();
++            let script = script_buf_from_recipient_id(contradictory.recipient_id)
++                .unwrap()
++                .unwrap();
++            let (mut rejected, coloring) = sweep_to_script(&mut wallet, online, script, &asset);
++            let original = rejected.clone();
++            let outpoints = inputs(&rejected);
++            assert!(
++                wallet
++                    .color_psbt_and_prepare_consume(&mut rejected, coloring, outpoints, 1, None)
++                    .is_err()
++            );
++            assert_eq!(rejected, original);
++            assert!(wallet.list_prepared_sweeps().unwrap().is_empty());
++            // Exercise even the pre-existing zero-confirmation receive policy. The protected
++            // source, rather than the receiver's policy, owns first stock consumption.
++            let receive = wallet
++                .witness_receive(
++                    None,
++                    None,
++                    Assignment::Fungible(100),
++                    (now().unix_timestamp() + 3600) as u64,
++                    vec![],
++                    0,
++                    None,
++                )
++                .unwrap();
++            let script = script_buf_from_recipient_id(receive.recipient_id)
++                .unwrap()
++                .unwrap();
++            let (mut psbt, coloring) = sweep_to_script(&mut wallet, online, script, &asset);
++            let old_input = psbt.unsigned_tx.input[0].previous_output;
++            let original = psbt.clone();
++            let outpoints = inputs(&psbt);
++            let first = wallet
++                .color_psbt_and_prepare_consume(
++                    &mut psbt,
++                    coloring.clone(),
++                    outpoints.clone(),
++                    1,
++                    None,
++                )
++                .unwrap();
++            let incoming = receive.batch_transfer_idx;
++            assert!(matches!(
++                wallet.fail_transfers(online, Some(incoming), false, true),
++                Err(Error::CannotFailBatchTransfer)
++            ));
++            let txn = wallet.database().begin_transaction().unwrap();
++            let data = txn.get_db_data(true).unwrap();
++            let staged = txn
++                .get_batch_transfer_or_fail(incoming, &data.batch_transfers)
++                .unwrap();
++            assert_eq!(staged.status, TransferStatus::WaitingCounterparty);
++            assert_eq!(
++                staged.txid,
++                Some(psbt.unsigned_tx.compute_txid().to_string())
++            );
++            assert!(matches!(
++                wallet.delete_batch_transfer(
++                    &txn,
++                    &staged,
++                    &staged.get_asset_transfers(&data.asset_transfers),
++                    &data.colorings,
++                    &data.txos,
++                ),
++                Err(Error::CannotDeleteBatchTransfer)
++            ));
++            txn.commit().unwrap();
++            // A preparation cancelled before handoff may release/rebind its still unused receive.
++            wallet
++                .cancel_prepared_sweep(first.batch_transfer_idx)
++                .unwrap();
++            psbt = original;
++            psbt.unsigned_tx.lock_time = LockTime::from_height(1).unwrap();
++            let prepared = wallet
++                .color_psbt_and_prepare_consume(&mut psbt, coloring, outpoints, 1, None)
++                .unwrap();
++            let batch = prepared.batch_transfer_idx;
++            let txid = psbt.unsigned_tx.compute_txid().to_string();
++            let proof_directory = tempfile::tempdir().unwrap();
++            let proof = proof_directory.path().join("sweep.rgb");
++            prepared.transfers[0].save_file(&proof).unwrap();
++            let result = wallet
++                .provide_out_of_band_consignment(online, proof.to_str().unwrap().into(), vec![])
++                .unwrap();
++            assert_eq!(*result.keys().next().unwrap(), incoming);
++            assert_ne!(incoming, batch);
++            let assert_pending = |wallet: &Wallet| {
++                let txn = wallet.database().begin_transaction().unwrap();
++                let incoming = txn
++                    .get_batch_transfer_or_fail(incoming, &txn.iter_batch_transfers().unwrap())
++                    .unwrap();
++                assert_eq!(incoming.status, TransferStatus::WaitingBroadcast);
++                assert!(txn.is_protected_sweep_batch(&incoming).unwrap());
++                let stock = wallet.rgb_stock(&txn).unwrap();
++                assert!(
++                    stock
++                        .assignments_by_contract([old_input])
++                        .unwrap()
++                        .contains_key(&ContractId::from_str(&asset).unwrap())
++                );
++                assert!(
++                    stock
++                        .assignments_by_contract([OutPoint::new(
++                            bdk_wallet::bitcoin::Txid::from_str(&txid).unwrap(),
++                            1,
++                        )])
++                        .unwrap()
++                        .is_empty()
++                );
++                let data = txn.get_db_data(true).unwrap();
++                assert!(matches!(
++                    wallet.delete_batch_transfer(
++                        &txn,
++                        &incoming,
++                        &incoming.get_asset_transfers(&data.asset_transfers),
++                        &data.colorings,
++                        &data.txos,
++                    ),
++                    Err(Error::CannotDeleteBatchTransfer)
++                ));
++                txn.commit().unwrap();
++                assert!(wallet.get_asset_balance(asset.clone()).unwrap().future <= 100);
++            };
++            wallet.refresh(online, None, vec![], false).unwrap();
++            assert_pending(&wallet);
++            assert!(matches!(
++                wallet.fail_transfers(online, Some(incoming), false, true),
++                Err(Error::CannotFailBatchTransfer)
++            ));
++            assert!(matches!(
++                wallet.accept_transfer_consignment(online, proof.clone(), txid.clone(), 1, 777,),
++                Err(Error::WrongOperation { .. })
++            ));
++            wallet
++                .mark_prepared_sweep_handed_off(batch, txid.clone())
++                .unwrap();
++            let signed = wallet.sign_psbt(psbt.to_string(), None).unwrap();
++            let transaction = Psbt::from_str(&signed).unwrap().extract_tx().unwrap();
++            fixture.rpc(
++                false,
++                "sendrawtransaction",
++                json!([hex::encode(
++                    bdk_wallet::bitcoin::consensus::encode::serialize(&transaction)
++                )]),
++            );
++            wallet.refresh(online, None, vec![], false).unwrap();
++            assert_pending(&wallet);
++            assert!(wallet.consume_transfer_fascia(online, batch).is_err());
++            assert!(matches!(
++                wallet.fail_transfers(online, Some(incoming), false, true),
++                Err(Error::CannotFailBatchTransfer)
++            ));
++            fixture.mine(1);
++            wallet.refresh(online, None, vec![], false).unwrap();
++            assert_pending(&wallet); // even a confirmed generic receive cannot bypass the journal
++            wallet.consume_transfer_fascia(online, batch).unwrap();
++            wallet.refresh(online, None, vec![], false).unwrap();
++            assert_eq!(
++                wallet.get_asset_balance(asset.clone()).unwrap(),
++                Balance {
++                    settled: 100,
++                    future: 100,
++                    spendable: 100,
++                }
++            );
++            let data = wallet.get_wallet_data();
++            let keys = wallet.get_keys();
++            drop(wallet);
++            let mut wallet = Wallet::new(data, keys).unwrap();
++            let online = wallet.go_online(fixture.online_options()).unwrap();
++            for _ in 0..2 {
++                wallet.refresh(online, None, vec![], false).unwrap();
++                wallet.consume_transfer_fascia(online, batch).unwrap();
++            }
++            assert_eq!(
++                wallet.get_asset_balance(asset.clone()).unwrap(),
++                Balance {
++                    settled: 100,
++                    future: 100,
++                    spendable: 100,
++                }
++            );
++            let outputs = wallet.list_unspents(Some(online), false, false).unwrap();
++            let allocations: Vec<_> = outputs
++                .iter()
++                .filter(|output| output.utxo.outpoint.txid == txid)
++                .flat_map(|output| &output.rgb_allocations)
++                .filter(|allocation| allocation.asset_id.as_deref() == Some(asset.as_str()))
++                .collect();
++            assert_eq!(allocations.len(), 1);
++            assert_eq!(allocations[0].assignment, Assignment::Fungible(100));
++            assert_eq!(
++                batch_state(&wallet, batch),
++                ("consumed".into(), TransferStatus::Settled, 0)
++            );
++            // A real subsequent proof contains the consumed sweep as an ancestor. It remains
++            // admissible, whereas fault-injecting an active ancestor makes it wait rather than
++            // importing that protected state indirectly.
++            let next_receive = wallet
++                .witness_receive(
++                    None,
++                    None,
++                    Assignment::Any,
++                    (now().unix_timestamp() + 3600) as u64,
++                    vec![],
++                    1,
++                    None,
++                )
++                .unwrap();
++            let script = script_buf_from_recipient_id(next_receive.recipient_id)
++                .unwrap()
++                .unwrap();
++            let (mut next_psbt, next_coloring) =
++                sweep_to_script(&mut wallet, online, script, &asset);
++            let next_outpoints = inputs(&next_psbt);
++            let next = wallet
++                .color_psbt_and_prepare_consume(
++                    &mut next_psbt,
++                    next_coloring,
++                    next_outpoints,
++                    1,
++                    None,
++                )
++                .unwrap();
++            let next_txid = next_psbt.unsigned_tx.compute_txid().to_string();
++            let current = RgbTxid::from_str(&next_txid).unwrap();
++            let txn = wallet.database().begin_transaction().unwrap();
++            assert!(prepared_sweep_ancestry_ready(&txn, &next.transfers[0], current).unwrap());
++            txn.commit().unwrap();
++            sql(
++                &wallet,
++                &format!(
++                    "UPDATE prepared_rgb_sweep SET phase = 'handed_off' WHERE batch_transfer_idx = {batch}"
++                ),
++            );
++            let txn = wallet.database().begin_transaction().unwrap();
++            assert!(!prepared_sweep_ancestry_ready(&txn, &next.transfers[0], current).unwrap());
++            txn.commit().unwrap();
++            sql(
++                &wallet,
++                &format!(
++                    "UPDATE prepared_rgb_sweep SET phase = 'consumed' WHERE batch_transfer_idx = {batch}"
++                ),
++            );
++            let next_proof = proof_directory.path().join("next.rgb");
++            next.transfers[0].save_file(&next_proof).unwrap();
++            let provided = wallet
++                .provide_out_of_band_consignment(
++                    online,
++                    next_proof.to_str().unwrap().into(),
++                    vec![],
++                )
++                .unwrap();
++            assert_eq!(
++                provided[&next_receive.batch_transfer_idx].updated_status,
++                Some(TransferStatus::WaitingBroadcast)
++            );
++            wallet
++                .cancel_prepared_sweep(next.batch_transfer_idx)
++                .unwrap();
++        }
++
++        #[test]
++        #[serial]
++        fn prepared_sweep_funded_reopen_confirmed_consume_is_atomic_and_idempotent() {
++            let fixture = Fixture::new();
++            let (_directory, mut wallet, online, asset) = fixture.colored_wallet();
++            let (mut psbt, coloring) = sweep(&mut wallet, online, &asset);
++            let outpoints = inputs(&psbt);
++            let prepared = wallet
++                .color_psbt_and_prepare_consume(
++                    &mut psbt,
++                    coloring.clone(),
++                    outpoints.clone(),
++                    1,
++                    None,
++                )
++                .unwrap();
++            let batch = prepared.batch_transfer_idx;
++            let txid = psbt.unsigned_tx.compute_txid().to_string();
++            assert_eq!(
++                batch_state(&wallet, batch),
++                ("prepared".into(), TransferStatus::Initiated, 1)
++            );
++            assert!(
++                wallet
++                    .color_psbt_and_prepare_consume(
++                        &mut psbt.clone(),
++                        coloring.clone(),
++                        outpoints,
++                        1,
++                        None,
++                    )
++                    .is_err()
++            );
++            assert!(wallet.consume_transfer_fascia(online, batch).is_err());
++            assert!(matches!(
++                wallet.sign_psbt(psbt.to_string(), None),
++                Err(Error::WrongOperation { .. })
++            ));
++            let txn = wallet.database().begin_transaction().unwrap();
++            let (_, _, payload) = txn.prepared_sweep_read(batch).unwrap();
++            let (_, _, fascia, _) = StoredSweep::decode(&payload, &txid).unwrap();
++            txn.commit().unwrap();
++            assert!(matches!(
++                wallet.consume_fascia(fascia.clone(), None),
++                Err(Error::WrongOperation { .. })
++            ));
++            let mut raw = psbt.clone();
++            assert!(matches!(
++                wallet.color_psbt_and_consume(&mut raw, coloring.clone()),
++                Err(Error::WrongOperation { .. })
++            ));
++            assert!(matches!(
++                wallet.mark_prepared_sweep_handed_off(batch, "wrong".into()),
++                Err(Error::InvalidColoringInfo { .. })
++            ));
++            let data = wallet.get_wallet_data();
++            let keys = wallet.get_keys();
++            let online_options = OnlineOptions {
++                indexer_config: wallet
++                    .online_data()
++                    .as_ref()
++                    .unwrap()
++                    .indexer_config
++                    .clone(),
++                skip_consistency_check: false,
++                vanilla_sync_lookback: 20,
++                failed_witness_receive_grace_secs: 604800,
++                proxy_auth_keys: HashMap::new(),
++                evm_chains: HashMap::new(),
++            };
++            drop(wallet);
++            let mut wallet = Wallet::new(data, keys).unwrap();
++            let online = wallet.go_online(online_options).unwrap();
++            let recovered = wallet.list_prepared_sweeps().unwrap();
++            assert_eq!(recovered.len(), 1);
++            assert_eq!(recovered[0].psbt, psbt.to_string());
++            assert!(!recovered[0].handed_off);
++            wallet
++                .mark_prepared_sweep_handed_off(batch, txid.clone())
++                .unwrap();
++            wallet
++                .mark_prepared_sweep_handed_off(batch, txid.clone())
++                .unwrap();
++            assert!(matches!(
++                wallet.cancel_prepared_sweep(batch),
++                Err(Error::CannotFailBatchTransfer)
++            ));
++            assert!(matches!(
++                wallet.fail_transfers(online, Some(batch), false, true),
++                Err(Error::CannotFailBatchTransfer)
++            ));
++            assert!(wallet.fail_transfers(online, None, false, true).is_ok());
++            assert_eq!(batch_state(&wallet, batch).0, "handed_off");
++            let signed = wallet.sign_psbt(psbt.to_string(), None).unwrap();
++            assert!(matches!(
++                wallet.consume_fascia(fascia.clone(), None),
++                Err(Error::WrongOperation { .. })
++            ));
++            let mut replacement = psbt.clone();
++            replacement.unsigned_tx.lock_time = LockTime::from_height(1).unwrap();
++            assert_ne!(replacement.unsigned_tx.compute_txid().to_string(), txid);
++            assert!(matches!(
++                wallet.sign_psbt(replacement.to_string(), None),
++                Err(Error::WrongOperation { .. })
++            ));
++            // A malicious caller can bring its own valid signatures. The generic broadcast
++            // path must still reject a different transaction spending the protected inputs.
++            // This independent signer has no synced BDK chain graph. Supply authenticated
++            // previous transactions rather than relaxing its witness-UTXO trust policy.
++            for (input, txin) in replacement
++                .inputs
++                .iter_mut()
++                .zip(&replacement.unsigned_tx.input)
++            {
++                let raw = fixture.rpc(
++                    false,
++                    "getrawtransaction",
++                    json!([txin.previous_output.txid.to_string(), false,]),
++                );
++                let previous: BdkTransaction = bdk_wallet::bitcoin::consensus::encode::deserialize(
++                    &hex::decode(raw.as_str().unwrap()).unwrap(),
++                )
++                .unwrap();
++                assert_eq!(previous.compute_txid(), txin.previous_output.txid);
++                assert_eq!(
++                    previous.output.get(txin.previous_output.vout as usize),
++                    input.witness_utxo.as_ref()
++                );
++                input.non_witness_utxo = Some(previous);
++            }
++            let (descriptors, _) = wallet
++                .get_keys()
++                .build_descriptors(&BitcoinNetwork::Regtest)
++                .unwrap();
++            let external_signer =
++                BdkWallet::create(descriptors.colored.clone(), descriptors.vanilla.clone())
++                    .network(BdkNetwork::Regtest)
++                    .create_wallet_no_persist()
++                    .unwrap();
++            let build_signers = |descriptor: &str, keychain| {
++                let (_, keymap) = descriptor
++                    .into_wallet_descriptor(
++                        external_signer.secp_ctx(),
++                        BitcoinNetwork::Regtest.network_kind(),
++                    )
++                    .unwrap();
++                SignersContainer::build(
++                    keymap,
++                    external_signer.public_descriptor(keychain),
++                    external_signer.secp_ctx(),
++                )
++            };
++            let colored_signer = build_signers(&descriptors.colored, KeychainKind::External);
++            let vanilla_signer = build_signers(&descriptors.vanilla, KeychainKind::Internal);
++            assert!(
++                external_signer
++                    .sign_with_signers(
++                        &mut replacement,
++                        &[&colored_signer, &vanilla_signer],
++                        SignOptions::default(),
++                    )
++                    .unwrap()
++            );
++            assert!(matches!(
++                wallet.send_btc_end(online, replacement.to_string()),
++                Err(Error::WrongOperation { .. })
++            ));
++            assert!(matches!(
++                wallet.send_end(online, signed.clone()),
++                Err(Error::WrongOperation { .. })
++            ));
++            assert!(matches!(
++                wallet.send_btc_end(online, signed.clone()),
++                Err(Error::WrongOperation { .. })
++            ));
++            let transaction = Psbt::from_str(&signed).unwrap().extract_tx().unwrap();
++            fixture.rpc(
++                false,
++                "sendrawtransaction",
++                json!([hex::encode(
++                    bdk_wallet::bitcoin::consensus::encode::serialize(&transaction)
++                )]),
++            );
++            assert!(wallet.consume_transfer_fascia(online, batch).is_err()); // mempool alone is insufficient
++            fixture.mine(1);
++            sql(
++                &wallet,
++                &format!(
++                    "CREATE TRIGGER sweep_consume_failure BEFORE UPDATE ON batch_transfer WHEN NEW.idx = {batch} BEGIN SELECT RAISE(ABORT, 'sweep fixture commit failure'); END"
++                ),
++            );
++            assert!(wallet.consume_transfer_fascia(online, batch).is_err());
++            assert_eq!(
++                batch_state(&wallet, batch),
++                ("handed_off".into(), TransferStatus::Initiated, 1)
++            );
++            sql(&wallet, "DROP TRIGGER sweep_consume_failure");
++            wallet.consume_transfer_fascia(online, batch).unwrap();
++            assert_eq!(
++                batch_state(&wallet, batch),
++                ("consumed".into(), TransferStatus::Settled, 0)
++            );
++            wallet.consume_transfer_fascia(online, batch).unwrap();
++            assert_eq!(
++                batch_state(&wallet, batch),
++                ("consumed".into(), TransferStatus::Settled, 0)
++            );
++            assert!(wallet.list_prepared_sweeps().unwrap().is_empty());
++            assert!(matches!(
++                wallet.consume_fascia(fascia, None),
++                Err(Error::WrongOperation { .. })
++            ));
++            assert!(matches!(
++                wallet.sign_psbt(psbt.to_string(), None),
++                Err(Error::WrongOperation { .. })
++            ));
++            assert!(matches!(
++                wallet.cancel_prepared_sweep(batch),
++                Err(Error::CannotFailBatchTransfer)
++            ));
++        }
++
++        #[test]
++        #[serial]
++        fn prepared_sweep_admission_rejects_a_second_connection_write_instead_of_committing_stale_proofs()
++         {
++            let fixture = Fixture::new();
++            let (_directory, mut wallet, online, asset) = fixture.colored_wallet();
++            let (psbt, coloring) = sweep(&mut wallet, online, &asset);
++            sql(&wallet, "PRAGMA journal_mode=WAL");
++            let txn = wallet.database().begin_transaction().unwrap();
++            assert!(txn.get_asset(asset.clone()).unwrap().is_some()); // pin the real read snapshot
++            sql(
++                &wallet,
++                "UPDATE backup_info SET last_operation_timestamp = '2'",
++            );
++            // This is the exact production admission/color/proof/reservation helper. SQLite must
++            // reject upgrading its stale read snapshot to a write; no production race hook exists.
++            assert!(
++                wallet
++                    .prepare_sweep_in_txn(&txn, &psbt, coloring, inputs(&psbt), 1, None)
++                    .is_err()
++            );
++            drop(txn);
++            assert!(wallet.list_prepared_sweeps().unwrap().is_empty());
++            assert_eq!(wallet.get_asset_balance(asset).unwrap().settled, 100);
++        }
++
++        #[test]
++        #[serial]
++        fn prepared_sweep_reserves_vanilla_fee_inputs_against_every_internal_builder() {
++            let fixture = Fixture::new();
++            let (_directory, mut wallet, online, asset) = fixture.colored_wallet();
++            let (_target_dir, mut target, _) = fixture.wallet(false);
++            let (psbt, coloring) = sweep(&mut wallet, online, &asset);
++            let colored_input = psbt.unsigned_tx.input[0].previous_output;
++            let vanilla_input = wallet.internal_unspents().next().unwrap().outpoint;
++            let destination = psbt.unsigned_tx.output[0].script_pubkey.clone();
++            let mut builder = wallet.bdk_wallet_mut().build_tx();
++            builder
++                .add_utxos(&[colored_input, vanilla_input])
++                .unwrap()
++                .manually_selected_only()
++                .drain_to(destination)
++                .fee_rate(FeeRate::from_sat_per_vb_u32(2));
++            let mut mixed = builder.finish().unwrap();
++            // the vanilla input is not the one to sweep
++            assert!(
++                wallet
++                    .color_psbt_and_prepare_consume(
++                        &mut mixed,
++                        coloring.clone(),
++                        vec![vanilla_input.into()],
++                        1,
++                        None,
++                    )
++                    .is_err()
++            );
++            let prepared = wallet
++                .color_psbt_and_prepare_consume(
++                    &mut mixed,
++                    coloring,
++                    vec![colored_input.into()],
++                    1,
++                    None,
++                )
++                .unwrap();
++            assert_eq!(batch_state(&wallet, prepared.batch_transfer_idx).2, 2);
++            assert_eq!(
++                wallet
++                    .get_btc_balance(Some(online), true)
++                    .unwrap()
++                    .vanilla
++                    .spendable,
++                0
++            );
++            let address = target.get_address().unwrap();
++            assert!(
++                wallet
++                    .send_btc_begin(online, address.clone(), 1000, 2, true, true)
++                    .is_err()
++            );
++            assert!(
++                wallet
++                    .create_utxos_begin(online, false, Some(1), Some(1000), 2, true, true)
++                    .is_err()
++            );
++            if let Ok(drain) = wallet.drain_to_begin(online, address, 2, true) {
++                let drain = Psbt::from_str(&drain).unwrap();
++                assert!(input_set(&drain).is_disjoint(&input_set(&mixed)));
++            }
++            wallet
++                .cancel_prepared_sweep(prepared.batch_transfer_idx)
++                .unwrap();
++            assert!(
++                wallet
++                    .get_btc_balance(Some(online), true)
++                    .unwrap()
++                    .vanilla
++                    .spendable
++                    > 0
++            );
++        }
++
++        #[test]
++        #[serial]
++        fn prepared_sweep_funded_rejections_and_unsigned_cancel_preserve_assets() {
++            let fixture = Fixture::new();
++            let (_directory, mut wallet, online, asset) = fixture.colored_wallet();
++            let (mut psbt, coloring) = sweep(&mut wallet, online, &asset);
++            let original = psbt.clone();
++            let outpoints = inputs(&psbt);
++            for case in 0..7 {
++                let mut request = coloring.clone();
++                let mut request_outpoints = outpoints.clone();
++                let entry = request.asset_info_map.values_mut().next().unwrap();
++                match case {
++                    0 => {
++                        entry.output_map.insert(0, 99);
++                    }
++                    1 => {
++                        entry.output_map.insert(0, 101);
++                    }
++                    2 => {
++                        entry.output_map = HashMap::from([(1, 100)]);
++                    }
++                    3 => {
++                        request.asset_info_map.clear();
++                    }
++                    4 => {}
++                    5 => request_outpoints.clear(),
++                    6 => request_outpoints[0].vout += 1,
++                    _ => unreachable!(),
++                }
++                let result = wallet.color_psbt_and_prepare_consume(
++                    &mut psbt,
++                    request,
++                    request_outpoints,
++                    1,
++                    (case == 4).then_some(1),
++                );
++                assert!(result.is_err());
++                assert_eq!(psbt, original);
++                assert!(wallet.list_prepared_sweeps().unwrap().is_empty());
++            }
++            let prepared = wallet
++                .color_psbt_and_prepare_consume(&mut psbt, coloring, outpoints, 1, None)
++                .unwrap();
++            let batch = prepared.batch_transfer_idx;
++            assert!(matches!(
++                wallet.delete_transfers(Some(batch), false),
++                Err(Error::CannotDeleteBatchTransfer)
++            ));
++            wallet.cancel_prepared_sweep(batch).unwrap();
++            wallet.cancel_prepared_sweep(batch).unwrap();
++            assert_eq!(
++                batch_state(&wallet, batch),
++                ("cancelled".into(), TransferStatus::Failed, 0)
++            );
++            assert!(wallet.list_prepared_sweeps().unwrap().is_empty());
++            assert!(matches!(
++                wallet.delete_transfers(Some(batch), false),
++                Err(Error::CannotDeleteBatchTransfer)
++            ));
++            // a bulk delete skips the cancelled sweep instead of failing
++            assert!(!wallet.delete_transfers(None, false).unwrap());
++            assert_eq!(
++                batch_state(&wallet, batch),
++                ("cancelled".into(), TransferStatus::Failed, 0)
++            );
++            assert_eq!(
++                wallet.get_asset_balance(asset.clone()).unwrap().settled,
++                100
++            );
++            assert!(matches!(
++                wallet.sign_psbt(psbt.to_string(), None),
++                Err(Error::WrongOperation { .. })
++            ));
++
++            let txn = wallet.database().begin_transaction().unwrap();
++            let old_payload = txn.prepared_sweep_read(batch).unwrap().2;
++            txn.commit().unwrap();
++            let old: StoredSweep = serde_json::from_slice(&old_payload).unwrap();
++            let (mut second_psbt, second_coloring) = sweep(&mut wallet, online, &asset);
++            let second_outpoints = inputs(&second_psbt);
++            let second = wallet
++                .color_psbt_and_prepare_consume(
++                    &mut second_psbt,
++                    second_coloring,
++                    second_outpoints,
++                    1,
++                    None,
++                )
++                .unwrap();
++            let second_batch = second.batch_transfer_idx;
++            let txn = wallet.database().begin_transaction().unwrap();
++            let (second_txid, _, original_payload) = txn.prepared_sweep_read(second_batch).unwrap();
++            txn.commit().unwrap();
++            let mut substituted: StoredSweep = serde_json::from_slice(&original_payload).unwrap();
++            substituted.consignments = old.consignments; // same asset, different sweep witness/beneficiaries
++            let forged = serde_json::to_vec(&substituted).unwrap();
++            let digest = hex::encode(Sha256::digest(&forged));
++            sql(
++                &wallet,
++                &format!(
++                    "UPDATE prepared_rgb_sweep SET payload = X'{}', payload_sha256 = '{}' WHERE batch_transfer_idx = {second_batch}",
++                    hex::encode(&forged),
++                    digest
++                ),
++            );
++            assert!(StoredSweep::decode(&forged, &second_txid).is_err());
++            assert!(wallet.list_prepared_sweeps().is_err()); // recomputing the journal hash cannot admit substituted proof
++            assert!(
++                wallet
++                    .mark_prepared_sweep_handed_off(second_batch, second_txid)
++                    .is_err()
++            );
++            let original_digest = hex::encode(Sha256::digest(&original_payload));
++            sql(
++                &wallet,
++                &format!(
++                    "UPDATE prepared_rgb_sweep SET payload = X'{}', payload_sha256 = '{}' WHERE batch_transfer_idx = {second_batch}",
++                    hex::encode(&original_payload),
++                    original_digest
++                ),
++            );
++            wallet.cancel_prepared_sweep(second_batch).unwrap();
++        }
++    }
++}
+diff --git a/src/wallet/prepared_sweep_fixture.rs b/src/wallet/prepared_sweep_fixture.rs
+new file mode 100644
+index 0000000..c4d88be
+--- /dev/null
++++ b/src/wallet/prepared_sweep_fixture.rs
+@@ -0,0 +1,259 @@
++//! Regtest fixture of the funded prepared sweep tests.
++//!
++//! The standard test services are used by default. An already owned isolated fixture can be
++//! selected with `RGB_FUNDING_TEST_EXTERNAL=1` and explicit loopback RPC credentials; doing so
++//! does not start, stop or reset any service. Every mutation follows a regtest-chain check and
++//! uses a dedicated fixture-owned miner and freshly generated application wallet keys.
++
++#![cfg(feature = "bitcoind")]
++
++use std::{
++    collections::HashMap,
++    time::{Duration, Instant},
++};
++
++use bdk_wallet::bitcoin::Amount;
++use reqwest::blocking::Client;
++use serde_json::{Value, json};
++
++use super::*;
++use crate::{
++    AssetSchema, BitcoinNetwork,
++    keys::{WitnessVersion, generate_keys},
++};
++
++const SOURCE_MINER: &str = "rgb-channel-funding-source-tests";
++const SOURCE_MINER_PREFIX: &str = "rgb-channel-funding-";
++
++pub(super) struct Fixture {
++    client: Client,
++    url: String,
++    user: String,
++    password: String,
++    miner: String,
++    mining_address: String,
++}
++
++impl Fixture {
++    pub(super) fn new() -> Self {
++        if std::env::var("RGB_FUNDING_TEST_EXTERNAL").as_deref() != Ok("1") {
++            super::test::initialize();
++        }
++        let url = std::env::var("RGB_FUNDING_TEST_RPC_URL")
++            .unwrap_or_else(|_| "http://127.0.0.1:18443".into());
++        let parsed = reqwest::Url::parse(&url).unwrap();
++        assert_eq!(parsed.scheme(), "http");
++        assert!(matches!(parsed.host_str(), Some("127.0.0.1" | "localhost")));
++        assert!(parsed.username().is_empty() && parsed.password().is_none());
++        assert_eq!(parsed.path(), "/");
++        assert!(parsed.query().is_none() && parsed.fragment().is_none());
++        let mut fixture = Self {
++            client: Client::builder()
++                .timeout(Duration::from_secs(30))
++                .build()
++                .unwrap(),
++            url,
++            user: std::env::var("RGB_FUNDING_TEST_RPC_USER").unwrap_or_else(|_| "user".into()),
++            password: std::env::var("RGB_FUNDING_TEST_RPC_PASSWORD")
++                .unwrap_or_else(|_| "default_password".into()),
++            miner: SOURCE_MINER.into(),
++            mining_address: String::new(),
++        };
++        // Never fund or mine before proving that the selected node is a disposable regtest.
++        assert_eq!(
++            fixture.rpc(false, "getblockchaininfo", json!([]))["chain"],
++            "regtest"
++        );
++        let loaded = fixture.rpc(false, "listwallets", json!([]));
++        if !loaded
++            .as_array()
++            .unwrap()
++            .iter()
++            .any(|name| name.as_str() == Some(SOURCE_MINER))
++        {
++            let directory = fixture.rpc(false, "listwalletdir", json!([]));
++            let exists = directory["wallets"]
++                .as_array()
++                .unwrap()
++                .iter()
++                .any(|entry| entry["name"].as_str() == Some(SOURCE_MINER));
++            fixture.rpc(
++                false,
++                if exists { "loadwallet" } else { "createwallet" },
++                json!([SOURCE_MINER]),
++            );
++        }
++        fixture.mining_address = fixture
++            .rpc(true, "getnewaddress", json!([]))
++            .as_str()
++            .unwrap()
++            .to_owned();
++        fixture.ensure_source_funds(&loaded);
++        fixture
++    }
++
++    fn trusted_sats(&self, name: &str) -> u64 {
++        let value = self.named_wallet_rpc(name, "getbalances", json!([]));
++        Amount::from_btc(value["mine"]["trusted"].as_f64().unwrap())
++            .unwrap()
++            .to_sat()
++    }
++
++    fn ensure_source_funds(&self, previously_loaded: &Value) {
++        const BUDGET_SATS: u64 = 10_000_000;
++        if self.trusted_sats(SOURCE_MINER) >= BUDGET_SATS {
++            return;
++        }
++        // Repeated source suites must not spend another 101 blocks per case and exhaust
++        // regtest's 150-block subsidy halvings. Reuse only this harness's older miners.
++        let started = Instant::now();
++        let mut candidates: Vec<_> = previously_loaded
++            .as_array()
++            .unwrap()
++            .iter()
++            .filter_map(Value::as_str)
++            .filter(|name| *name != SOURCE_MINER && name.starts_with(SOURCE_MINER_PREFIX))
++            .collect();
++        candidates.sort_unstable();
++        for name in candidates.into_iter().take(64) {
++            assert!(
++                started.elapsed() < Duration::from_secs(30),
++                "owned source-miner scan timed out"
++            );
++            if self.trusted_sats(name) < 101_000_000 {
++                continue;
++            }
++            self.named_wallet_rpc(name, "sendtoaddress", json!([self.mining_address, 1]));
++            self.mine(1);
++            break;
++        }
++        if self.trusted_sats(SOURCE_MINER) < BUDGET_SATS {
++            let info = self.rpc(true, "getwalletinfo", json!([]));
++            // A fresh CI fixture matures its dedicated miner exactly once. Existing
++            // exhausted pools fail explicitly instead of mining indefinitely or borrowing
++            // from unrelated wallets such as iris-output-tests or the shared stack.
++            if info["txcount"].as_u64() == Some(0) {
++                self.mine(101);
++            }
++        }
++        assert!(
++            self.trusted_sats(SOURCE_MINER) >= BUDGET_SATS,
++            "owned source-test miner needs regtest funds; unrelated wallets are never used"
++        );
++    }
++
++    fn named_wallet_rpc(&self, name: &str, method: &str, params: Value) -> Value {
++        assert!(name.starts_with(SOURCE_MINER_PREFIX));
++        assert!(
++            name.bytes()
++                .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
++        );
++        self.request(
++            format!("{}/wallet/{name}", self.url.trim_end_matches('/')),
++            method,
++            params,
++        )
++    }
++
++    pub(super) fn rpc(&self, wallet: bool, method: &str, params: Value) -> Value {
++        let endpoint = if wallet {
++            format!("{}/wallet/{}", self.url.trim_end_matches('/'), self.miner)
++        } else {
++            self.url.clone()
++        };
++        self.request(endpoint, method, params)
++    }
++
++    fn request(&self, endpoint: String, method: &str, params: Value) -> Value {
++        let response: Value = self
++            .client
++            .post(endpoint)
++            .basic_auth(&self.user, Some(&self.password))
++            .json(&json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}))
++            .send()
++            .unwrap()
++            .json()
++            .unwrap();
++        assert!(
++            matches!(&response["error"], Value::Null),
++            "regtest RPC {method} failed: {}",
++            response["error"]
++        );
++        response["result"].clone()
++    }
++
++    pub(super) fn mine(&self, count: u32) {
++        self.rpc(
++            false,
++            "generatetoaddress",
++            json!([count, self.mining_address]),
++        );
++    }
++
++    pub(super) fn wallet(&self, fund: bool) -> (tempfile::TempDir, Wallet, Online) {
++        let directory = tempfile::tempdir().unwrap();
++        let keys = generate_keys(BitcoinNetwork::Regtest, WitnessVersion::Taproot);
++        let mut wallet = Wallet::new(
++            WalletData {
++                data_dir: directory.path().to_str().unwrap().into(),
++                bitcoin_network: BitcoinNetwork::Regtest,
++                database_type: DatabaseType::Sqlite,
++                max_allocations_per_utxo: 5,
++                supported_schemas: vec![AssetSchema::Nia],
++            },
++            SinglesigKeys::from_keys(&keys, None),
++        )
++        .unwrap();
++        if fund {
++            self.rpc(
++                true,
++                "sendtoaddress",
++                json!([wallet.get_address().unwrap(), 0.01]),
++            );
++            self.mine(1);
++        }
++        let online = wallet.go_online(self.online_options()).unwrap();
++        (directory, wallet, online)
++    }
++
++    pub(super) fn online_options(&self) -> OnlineOptions {
++        OnlineOptions {
++            indexer_config: IndexerConfig::Bitcoind {
++                url: self.url.clone(),
++                auth: BitcoindAuth::UserPass {
++                    username: self.user.clone(),
++                    password: self.password.clone(),
++                },
++            },
++            skip_consistency_check: false,
++            vanilla_sync_lookback: 20,
++            failed_witness_receive_grace_secs: 604800,
++            proxy_auth_keys: HashMap::new(),
++            evm_chains: HashMap::new(),
++        }
++    }
++
++    pub(super) fn colored_wallet(&self) -> (tempfile::TempDir, Wallet, Online, String) {
++        let (directory, mut wallet, online) = self.wallet(true);
++        assert_eq!(
++            wallet
++                .create_utxos(online, false, Some(5), Some(10_000), 2, false)
++                .unwrap(),
++            5
++        );
++        self.mine(1);
++        wallet
++            .sync(
++                online,
++                SyncOptions {
++                    keychain: SyncKeychain::Colored,
++                    strategy: SyncStrategy::FullSync,
++                },
++            )
++            .unwrap();
++        let asset = wallet
++            .issue_asset_nia("CHAN".into(), "Channel funding".into(), 0, vec![100])
++            .unwrap();
++        (directory, wallet, online, asset.asset_id)
++    }
++}
+diff --git a/src/wallet/rust_only.rs b/src/wallet/rust_only.rs
+index 70f0d8c..40e2e4c 100644
+--- a/src/wallet/rust_only.rs
++++ b/src/wallet/rust_only.rs
+@@ -4,6 +4,9 @@
+ 
+ use super::*;
+ 
++#[cfg(feature = "_online")]
++pub use super::prepared_sweep::{ColorPrepareResult, PreparedSweep};
++
+ /// RGB asset-specific information to color a transaction
+ #[derive(Debug, Clone)]
+ pub struct AssetColoringInfo {
+@@ -67,6 +70,19 @@ impl Wallet {
+         psbt: &mut Psbt,
+         coloring_info: ColoringInfo,
+     ) -> Result<(Fascia, AssetBeneficiariesMap), Error> {
++        let txn = self.database().begin_transaction()?;
++        let (fascia, beneficiaries, _) = self.color_psbt_in_txn(&txn, psbt, coloring_info)?;
++        txn.commit()?;
++        Ok((fascia, beneficiaries))
++    }
++
++    /// Share the caller's admission/reservation transaction when preparing an external sweep.
++    pub(crate) fn color_psbt_in_txn(
++        &self,
++        txn: &DbTxn,
++        psbt: &mut Psbt,
++        coloring_info: ColoringInfo,
++    ) -> Result<(Fascia, AssetBeneficiariesMap, Option<u64>), Error> {
+         info!(self.logger(), "Coloring PSBT...");
+         let mut transaction = match psbt.clone().extract_tx() {
+             Ok(tx) => tx,
+@@ -95,8 +111,7 @@ impl Wallet {
+             *psbt = Psbt::from_unsigned_tx(transaction).unwrap();
+         }
+ 
+-        let txn = self.database().begin_transaction()?;
+-        let stock = self.rgb_stock(&txn)?;
++        let stock = self.rgb_stock(txn)?;
+ 
+         let prev_outputs = psbt
+             .unsigned_tx
+@@ -232,12 +247,13 @@ impl Wallet {
+         psbt.set_rgb_close_method(CloseMethod::OpretFirst);
+         psbt.set_as_unmodifiable();
+         let fascia = psbt.rgb_commit().map_err(InternalError::from)?;
++        // the commitment entropy leaves the PSBT with the rest of the RGB data
++        let entropy = psbt.outputs.iter().find_map(|o| o.mpc_entropy());
+         strip_rgb_data(psbt);
+         check_psbt_parsable(psbt)?;
+ 
+-        txn.commit()?;
+         info!(self.logger(), "Color PSBT completed");
+-        Ok((fascia, asset_beneficiaries))
++        Ok((fascia, asset_beneficiaries, entropy))
+     }
+ 
+     /// Color a PSBT, consume the RGB fascia and return the related consignment.
+@@ -250,11 +266,13 @@ impl Wallet {
+         coloring_info: ColoringInfo,
+     ) -> Result<Vec<RgbTransfer>, Error> {
+         info!(self.logger(), "Coloring PSBT and consuming...");
+-        let (fascia, asset_beneficiaries) = self.color_psbt(psbt, coloring_info.clone())?;
++        let txn = self.database().begin_transaction()?;
++        txn.ensure_no_prepared_sweep_mutation(&psbt.unsigned_tx)?;
++        let (fascia, asset_beneficiaries, _) =
++            self.color_psbt_in_txn(&txn, psbt, coloring_info.clone())?;
+ 
+         let witness_txid = psbt.get_txid();
+ 
+-        let txn = self.database().begin_transaction()?;
+         let mut stock = self.rgb_stock(&txn)?;
+         stock.consume_fascia(fascia, None)?;
+ 
+@@ -311,6 +329,51 @@ impl Wallet {
+         Ok(())
+     }
+ 
++    /// Inspect arbitrary outpoints for assignments of a given contract.
++    ///
++    /// Results are returned in the same order as `outpoints`, including duplicate entries.
++    ///
++    /// <div class="warning">This method is meant for special usage and is normally not needed, use
++    /// it only if you know what you're doing</div>
++    pub fn contract_assignments_for_outpoints(
++        &self,
++        contract_id: ContractId,
++        outpoints: Vec<Outpoint>,
++    ) -> Result<Vec<(Outpoint, Vec<Assignment>)>, Error> {
++        let parsed: Vec<(Outpoint, OutPoint)> = outpoints
++            .into_iter()
++            .map(|outpoint| {
++                let vout = outpoint.vout;
++                let txid = Txid::from_str(&outpoint.txid).map_err(|_| Error::InvalidTxid)?;
++                Ok((outpoint, OutPoint { txid, vout }))
++            })
++            .collect::<Result<_, Error>>()?;
++        let txn = self.database().begin_transaction()?;
++        let stock = self.rgb_stock(&txn)?;
++        stock
++            .genesis(contract_id)
++            .map_err(|_| Error::AssetNotFound {
++                asset_id: contract_id.to_string(),
++            })?;
++        let state = stock
++            .contract_assignments_for(contract_id, parsed.iter().map(|(_, outpoint)| *outpoint))?;
++        let mut by_outpoint: HashMap<OutPoint, Vec<Assignment>> = HashMap::new();
++        for (seal, opout_state_map) in state {
++            let btc_outpoint = seal.to_outpoint();
++            let assignments = by_outpoint.entry(btc_outpoint).or_default();
++            for (opout, state) in opout_state_map {
++                assignments.push(Assignment::from_opout_and_state(opout, &state));
++            }
++        }
++        Ok(parsed
++            .into_iter()
++            .map(|(outpoint, btc_outpoint)| {
++                let assignments = by_outpoint.get(&btc_outpoint).cloned().unwrap_or_default();
++                (outpoint, assignments)
++            })
++            .collect())
++    }
++
+     /// Accept an RGB transfer using a consignment received out-of-band.
+     ///
+     /// The consignment is validated as a received one is when refreshing, its claims (mint locks)
+@@ -349,6 +412,21 @@ impl Wallet {
+         );
+ 
+         let txn = self.database().begin_transaction()?;
++        // This special off-chain acceptance API cannot bypass a prepared sweep's canonical
++        // confirmed consume. Inspect only the explicitly selected current witness; historical
++        // consumed ancestors remain valid inputs to ordinary later transfers.
++        if txn.is_prepared_rgb_sweep_txid(&txid)? {
++            return Err(Error::WrongOperation { txid });
++        }
++        if !super::prepared_sweep::prepared_sweep_ancestry_ready(&txn, &consignment, witness_id)? {
++            return Err(Error::WrongOperation { txid });
++        }
++        if let Some(witness) = consignment
++            .bundled_witnesses()
++            .find(|witness| witness.witness_id() == witness_id)
++        {
++            txn.ensure_no_prepared_sweep_mutation(&witness.tx)?;
++        }
+         let mut stock = self.rgb_stock(&txn)?;
+ 
+         let graph_seal = GraphSeal::with_blinded_vout(vout, blinding);
+@@ -415,6 +493,7 @@ impl Wallet {
+     ) -> Result<(), Error> {
+         info!(self.logger(), "Consuming fascia...");
+         let txn = self.database().begin_transaction()?;
++        txn.ensure_no_prepared_sweep_mutation(&fascia.seal_witness().tx)?;
+         self.rgb_stock(&txn)?
+             .consume_fascia(fascia.clone(), witness_ord)?;
+         txn.commit()?;
+@@ -666,3 +745,85 @@ impl Wallet {
+         })
+     }
+ }
++
++#[cfg(all(test, not(feature = "_online")))]
++mod prepared_sweep_offline_signing_tests {
++    use super::*;
++    use sea_orm::{ConnectionTrait, DbBackend, Statement};
++    use serial_test::parallel;
++
++    #[test]
++    #[parallel]
++    fn wallet_only_signing_rejects_protected_rows_without_requiring_online_apis() {
++        let directory = crate::wallet::test::PrivateDataDir::new();
++        let wallet = directory.wallet(false, None);
++        let script = ScriptBuf::from_bytes([vec![0x51, 0x20], vec![1; 32]].concat());
++        let previous = BdkTransaction {
++            version: bdk_wallet::bitcoin::transaction::Version::TWO,
++            lock_time: bdk_wallet::bitcoin::absolute::LockTime::ZERO,
++            input: vec![bdk_wallet::bitcoin::TxIn {
++                previous_output: OutPoint::new(Txid::from_str(&"01".repeat(32)).unwrap(), 0),
++                ..Default::default()
++            }],
++            output: vec![TxOut {
++                value: BdkAmount::from_sat(10000),
++                script_pubkey: script.clone(),
++            }],
++        };
++        let mut psbt = Psbt::from_unsigned_tx(BdkTransaction {
++            version: bdk_wallet::bitcoin::transaction::Version::TWO,
++            lock_time: bdk_wallet::bitcoin::absolute::LockTime::ZERO,
++            input: vec![bdk_wallet::bitcoin::TxIn {
++                previous_output: OutPoint::new(previous.compute_txid(), 0),
++                ..Default::default()
++            }],
++            output: vec![TxOut {
++                value: BdkAmount::from_sat(9000),
++                script_pubkey: script.clone(),
++            }],
++        })
++        .unwrap();
++        psbt.inputs[0].witness_utxo = Some(previous.output[0].clone());
++        psbt.inputs[0].non_witness_utxo = Some(previous);
++        let ordinary = wallet
++            .sign_psbt(psbt.to_string(), None)
++            .expect("ordinary watch-only signing must preserve partial PSBT semantics");
++        let ordinary = Psbt::from_str(&ordinary).unwrap();
++        assert_eq!(ordinary.unsigned_tx, psbt.unsigned_tx);
++        assert!(
++            ordinary
++                .inputs
++                .iter()
++                .all(|input| input.partial_sigs.is_empty()
++                    && input.tap_key_sig.is_none()
++                    && input.final_script_sig.is_none()
++                    && input.final_script_witness.is_none())
++        );
++        let txn = wallet.database().begin_transaction().unwrap();
++        let batch = txn
++            .set_batch_transfer(DbBatchTransferActMod {
++                incoming: ActiveValue::Set(false),
++                status: ActiveValue::Set(TransferStatus::Initiated),
++                min_confirmations: ActiveValue::Set(1),
++                created_at: ActiveValue::Set(1),
++                ..Default::default()
++            })
++            .unwrap();
++        txn.commit().unwrap();
++        let connection = block_on(Database::connect(format!(
++            "sqlite:{}?mode=rw",
++            wallet.get_wallet_dir().join("rgb_lib_db").display()
++        )))
++        .unwrap();
++        block_on(connection.execute_raw(Statement::from_sql_and_values(DbBackend::Sqlite,
++            "INSERT INTO prepared_rgb_sweep (batch_transfer_idx, txid, phase, payload, payload_sha256) VALUES (?, ?, 'handed_off', X'00', 'unsupported-offline-receipt')",
++            [batch.into(), psbt.unsigned_tx.compute_txid().to_string().into()],
++        ))).unwrap();
++        block_on(connection.close()).unwrap();
++        // Even a HandedOff row cannot be admitted by a build that omits full proof validation.
++        assert!(matches!(
++            wallet.sign_psbt(psbt.to_string(), None),
++            Err(Error::WrongOperation { .. })
++        ));
++    }
++}
+diff --git a/src/wallet/singlesig.rs b/src/wallet/singlesig.rs
+index 3fde3c5..3ed6a62 100644
+--- a/src/wallet/singlesig.rs
++++ b/src/wallet/singlesig.rs
+@@ -342,6 +342,16 @@ impl Wallet {
+     ) -> Result<String, Error> {
+         info!(self.logger(), "Signing PSBT...");
+         let mut psbt = Psbt::from_str(&unsigned_psbt)?;
++        #[cfg(feature = "_online")]
++        self.guard_prepared_sweep_signing(&psbt)?;
++        #[cfg(not(feature = "_online"))]
++        {
++            // Wallet-only builds cannot fully admit a prepared sweep's online journal.
++            // Ordinary offline signing remains available, but every protected witness fails closed.
++            let txn = self.database().begin_transaction()?;
++            txn.ensure_no_prepared_sweep_mutation(&psbt.unsigned_tx)?;
++            txn.commit()?;
++        }
+         self.sign_psbt_impl(&mut psbt, sign_options)?;
+         info!(self.logger(), "Sign PSBT completed");
+         Ok(psbt.to_string())
+@@ -712,6 +722,7 @@ impl Wallet {
+             expiration_timestamp as i64,
+             transport_endpoints,
+             RecipientType::Blind,
++            None,
+             encryption,
+         )?;
+         let batch_transfer_idx =
+@@ -795,6 +806,7 @@ impl Wallet {
+             expiration_timestamp as i64,
+             transport_endpoints,
+             RecipientType::Witness,
++            None,
+             encryption,
+         )?;
+         let batch_transfer_idx =
+@@ -810,6 +822,69 @@ impl Wallet {
+             public_key: hex::encode(&receive_data_internal.recipient_pubkey),
+         })
+     }
++
++    /// Like [`witness_receive`](Wallet::witness_receive), but for a script the wallet does not
++    /// own (e.g. an HTLC lock), given as hex.
++    ///
++    /// The transfer is fetched, validated and accepted by `refresh` as any witness receive, with
++    /// the paid output checked against the invoice script. Since the output is not a wallet UTXO
++    /// it is not listed as unspent and does not count towards the balance: the received
++    /// allocation is listed on the transfer and imported into the RGB stash, where it can be read
++    /// with `contract_assignments_for_outpoints` and spent by coloring a PSBT that spends the
++    /// output.
++    pub fn witness_receive_external(
++        &mut self,
++        online: Option<Online>,
++        script_pubkey: String,
++        asset_id: Option<String>,
++        assignment: Assignment,
++        expiration_timestamp: u64,
++        transport_endpoints: Vec<String>,
++        min_confirmations: u8,
++        encryption: Option<Encryption>,
++    ) -> Result<ReceiveData, Error> {
++        info!(
++            self.logger(),
++            "Receiving via witness TX on external script '{script_pubkey}' for asset '{:?}'...",
++            asset_id,
++        );
++        let script_pubkey =
++            ScriptBuf::from_hex(&script_pubkey).map_err(|e| Error::InvalidScript {
++                details: e.to_string(),
++            })?;
++        AddressPayload::from_script(&script_pubkey).map_err(|e| Error::InvalidScript {
++            details: e.to_string(),
++        })?;
++        if self.bdk_wallet().is_mine(script_pubkey.clone()) {
++            return Err(Error::InvalidScript {
++                details: s!("script belongs to this wallet, use witness_receive"),
++            });
++        }
++        let txn = self.database().begin_transaction()?;
++        let receive_data_internal = self.create_receive_data(
++            &txn,
++            online,
++            asset_id,
++            assignment,
++            expiration_timestamp as i64,
++            transport_endpoints,
++            RecipientType::Witness,
++            Some(script_pubkey),
++            encryption,
++        )?;
++        let batch_transfer_idx =
++            self.store_receive_transfer(&txn, &receive_data_internal, min_confirmations)?;
++        self.update_backup_info(&txn, false)?;
++        self.persist_and_commit(txn)?;
++        info!(self.logger(), "External witness receive completed");
++        Ok(ReceiveData {
++            invoice: receive_data_internal.invoice_string,
++            recipient_id: receive_data_internal.recipient_id,
++            expiration_timestamp: receive_data_internal.expiration_timestamp as u64,
++            batch_transfer_idx,
++            public_key: hex::encode(&receive_data_internal.recipient_pubkey),
++        })
++    }
+ }
+ 
+ /// Online APIs of the wallet.
+@@ -968,6 +1043,8 @@ impl Wallet {
+     /// operation, only do this if you know what you're doing! After draining the wallet will not
+     /// be usable anymore.</div>
+     ///
++    /// The inputs of active prepared sweeps are left out.
++    ///
+     /// If `dry_run` is true, the wallet does not reserve the selected vanilla TXOs. The returned
+     /// PSBT can still be signed and completed with [`drain_to_end`](Wallet::drain_to_end) but
+     /// concurrent vanilla operations may try to spend the same inputs.
+diff --git a/src/wallet/test/mod.rs b/src/wallet/test/mod.rs
+index 70ee057..0d24057 100644
+--- a/src/wallet/test/mod.rs
++++ b/src/wallet/test/mod.rs
+@@ -19,6 +19,8 @@ use std::path::MAIN_SEPARATOR_STR;
+ use amplify::set;
+ #[cfg(feature = "_online")]
+ use bdk_wallet::bitcoin::Denomination;
++#[cfg(feature = "electrum")]
++use bdk_wallet::bitcoin::{Sequence, TxIn, Witness, absolute::LockTime, transaction::Version};
+ use bdk_wallet::descriptor::ExtendedDescriptor;
+ #[cfg(feature = "electrum")]
+ use biscuit_auth::{KeyPair, builder::date, macros::*};
+@@ -209,7 +211,6 @@ const UNKNOWN_IDX: i32 = 9999;
+ const TINY_BTC_AMOUNT: u32 = 330;
+ #[cfg(feature = "_online")]
+ const QUEUE_DEPTH_EXCEEDED: &str = "Work queue depth exceeded";
+-#[cfg(feature = "_online")]
+ const DURATION_RCV_TRANSFER: u32 = 86400;
+ #[cfg(feature = "_online")]
+ const DURATION_SEND_TRANSFER: u32 = 3600;
+diff --git a/src/wallet/test/utils/helpers.rs b/src/wallet/test/utils/helpers.rs
+index c5a1df3..2a81e8d 100644
+--- a/src/wallet/test/utils/helpers.rs
++++ b/src/wallet/test/utils/helpers.rs
+@@ -880,7 +880,6 @@ pub(crate) fn test_evm_chains(evm_rpc_urls: HashMap<u64, String>) -> HashMap<u64
+         .collect()
+ }
+ 
+-#[cfg(feature = "_online")]
+ pub(crate) fn default_rcv_expiration() -> u64 {
+     (now().unix_timestamp() + DURATION_RCV_TRANSFER as i64) as u64
+ }
+diff --git a/src/wallet/test/witness_receive.rs b/src/wallet/test/witness_receive.rs
+index 8cc967e..699f0be 100644
+--- a/src/wallet/test/witness_receive.rs
++++ b/src/wallet/test/witness_receive.rs
+@@ -167,4 +167,1267 @@ fn fail() {
+         )
+         .unwrap_err();
+     assert_matches!(result, Error::InvalidExpiration);
++
++    // external script: not hex, not an address (OP_TRUE, OP_RETURN, empty, P2TR with an invalid
++    // key), a vanilla script and a colored script of the wallet
++    let bad_p2tr = format!("5120{}", "ff".repeat(32));
++    let vanilla = BdkAddress::from_str(&wallet.get_address().unwrap())
++        .unwrap()
++        .assume_checked()
++        .script_pubkey()
++        .to_hex_string();
++    let colored = wallet
++        .bdk_wallet()
++        .peek_address(KeychainKind::External, 0)
++        .address
++        .script_pubkey()
++        .to_hex_string();
++    for script in ["zz", "51", "6a", "", &bad_p2tr, &vanilla, &colored] {
++        let result = wallet
++            .witness_receive_external(
++                None,
++                script.to_string(),
++                None,
++                Assignment::Any,
++                default_rcv_expiration(),
++                vec![],
++                MIN_CONFIRMATIONS,
++                None,
++            )
++            .unwrap_err();
++        assert_matches!(result, Error::InvalidScript { .. });
++    }
++}
++
++/// A witness receive on a script the wallet does not own: the transfer settles with the
++/// allocation in the stash only, no UTXO or balance, and the allocation can be read on the paid
++/// outpoint.
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn external_script_success() {
++    initialize();
++
++    let amount = 66;
++    let mut party_send = get_funded_party!();
++    let mut party_recv = get_funded_party!();
++    let mut party_ext = get_empty_party!();
++    let asset = party_send.issue_asset_nia(Some(&[AMOUNT]));
++    let asset_id = asset.asset_id.clone();
++
++    // a script of a third wallet stands in for the HTLC lock
++    let script_pubkey = BdkAddress::from_str(&party_ext.get_address())
++        .unwrap()
++        .assume_checked()
++        .script_pubkey();
++    let receive_data = party_recv
++        .wallet
++        .witness_receive_external(
++            Some(party_recv.online),
++            script_pubkey.to_hex_string(),
++            None,
++            Assignment::Any,
++            default_rcv_expiration(),
++            TRANSPORT_ENDPOINTS.clone(),
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    assert_eq!(
++        script_buf_from_recipient_id(receive_data.recipient_id.clone()).unwrap(),
++        Some(script_pubkey.clone())
++    );
++    let recipient_map = HashMap::from([(
++        asset_id.clone(),
++        vec![Recipient {
++            recipient_id: receive_data.recipient_id.clone(),
++            witness_data: Some(WitnessData {
++                amount_sat: 1000,
++                blinding: None,
++            }),
++            assignment: Assignment::Fungible(amount),
++            transport_endpoints: TRANSPORT_ENDPOINTS.clone(),
++            public_key: Some(receive_data.public_key.clone()),
++            expiration_timestamp: Some(receive_data.expiration_timestamp),
++            encryption: Invoice::new(receive_data.invoice.clone())
++                .unwrap()
++                .invoice_data()
++                .encryption,
++        }],
++    )]);
++    let txid = party_send.send(recipient_map, FEE_RATE, None).txid;
++
++    // the invoice names no asset, so the receive is not covered by an asset-filtered refresh
++    party_recv.wait_for_refresh(None);
++    assert!(party_recv.check_test_transfer_status_recipient(
++        &receive_data.recipient_id,
++        TransferStatus::WaitingConfirmations
++    ));
++    party_send.wait_for_refresh(Some(&asset_id));
++    mine(false);
++    party_recv.wait_for_refresh(None);
++    assert!(
++        party_recv.check_test_transfer_status_recipient(
++            &receive_data.recipient_id,
++            TransferStatus::Settled
++        )
++    );
++
++    // nothing is the wallet's: no UTXO on the witness TX, nothing in the balance
++    assert!(
++        party_recv
++            .list_unspents(false)
++            .iter()
++            .all(|u| u.utxo.outpoint.txid != txid)
++    );
++    assert_eq!(
++        party_recv.get_asset_balance(&asset_id),
++        Balance {
++            settled: 0,
++            future: 0,
++            spendable: 0,
++        }
++    );
++    // the allocation sits in the stash, on the external outpoint
++    let transfer = party_recv.get_test_transfer_recipient(&receive_data.recipient_id);
++    let Some(RecipientTypeFull::External { vout: Some(vout) }) = transfer.recipient_type else {
++        panic!("external recipient with a vout expected");
++    };
++    let listed = party_recv
++        .list_transfers(Some(&asset_id))
++        .into_iter()
++        .find(|t| t.recipient_id.as_deref() == Some(&receive_data.recipient_id))
++        .unwrap();
++    assert_eq!(listed.kind, TransferKind::ReceiveWitness);
++    assert_eq!(listed.assignments, vec![Assignment::Fungible(amount)]);
++    assert_eq!(
++        listed.receive_utxo,
++        Some(Outpoint {
++            txid: txid.clone(),
++            vout,
++        })
++    );
++    assert_eq!(
++        party_recv
++            .wallet
++            .contract_assignments_for_outpoints(
++                ContractId::from_str(&asset_id).unwrap(),
++                vec![Outpoint {
++                    txid: txid.clone(),
++                    vout,
++                }],
++            )
++            .unwrap(),
++        vec![(
++            Outpoint {
++                txid: txid.clone(),
++                vout,
++            },
++            vec![Assignment::Fungible(amount)]
++        )]
++    );
++
++    party_send.wait_for_refresh(Some(&asset_id));
++    assert!(party_send.check_test_transfer_status_sender(&txid, TransferStatus::Settled));
++
++    // the allocation can be spent: the lock is colored to a witness receive of the receiver, with
++    // the consignment provided out of band and the lock owner signing the input
++    let claim = party_recv
++        .wallet
++        .witness_receive(
++            None,
++            None,
++            Assignment::Any,
++            default_rcv_expiration(),
++            vec![],
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    let tx = BdkTransaction {
++        version: Version::TWO,
++        lock_time: LockTime::ZERO,
++        input: vec![TxIn {
++            previous_output: OutPoint {
++                txid: Txid::from_str(&txid).unwrap(),
++                vout,
++            },
++            script_sig: ScriptBuf::new(),
++            sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
++            witness: Witness::new(),
++        }],
++        output: vec![TxOut {
++            value: BdkAmount::from_sat(600),
++            script_pubkey: script_buf_from_recipient_id(claim.recipient_id.clone())
++                .unwrap()
++                .unwrap(),
++        }],
++    };
++    let mut psbt = Psbt::from_unsigned_tx(tx).unwrap();
++    let coloring = ColoringInfo {
++        asset_info_map: HashMap::from([(
++            ContractId::from_str(&asset_id).unwrap(),
++            AssetColoringInfo {
++                output_map: HashMap::from([(0, amount)]),
++                static_blinding: None,
++            },
++        )]),
++        static_blinding: None,
++        nonce: None,
++    };
++    let transfers = party_recv
++        .wallet
++        .color_psbt_and_consume(&mut psbt, coloring)
++        .unwrap();
++    // coloring rebuilds the PSBT around the OP_RETURN output, so the input data goes after it
++    psbt.inputs[0].witness_utxo = Some(TxOut {
++        value: BdkAmount::from_sat(1000),
++        script_pubkey,
++    });
++    let proof_dir = tempfile::tempdir().unwrap();
++    let proof = proof_dir.path().join("claim.rgb");
++    transfers[0].save_file(&proof).unwrap();
++    party_recv
++        .wallet
++        .provide_out_of_band_consignment(party_recv.online, proof.to_str().unwrap().into(), vec![])
++        .unwrap();
++    let signed = party_ext
++        .wallet
++        .sign_psbt(
++            psbt.to_string(),
++            Some(SignOptions {
++                trust_witness_utxo: true,
++                ..Default::default()
++            }),
++        )
++        .unwrap();
++    let claim_tx = Psbt::from_str(&signed).unwrap().extract_tx().unwrap();
++    build_indexer(&IndexerConfig::Electrum {
++        url: ELECTRUM_URL.to_string(),
++    })
++    .unwrap()
++    .broadcast(&claim_tx)
++    .unwrap();
++    mine(false);
++    party_recv.wait_for_refresh(None);
++    assert!(
++        party_recv
++            .check_test_transfer_status_recipient(&claim.recipient_id, TransferStatus::Settled)
++    );
++    assert_eq!(party_recv.get_asset_balance(&asset_id).settled, amount);
++}
++
++/// An external receive on a script already received on is refused, and one failed or expiring
++/// unpaid leaves nothing behind.
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn external_script_fail() {
++    initialize();
++
++    // let the expired receive be failed as soon as its expiration has passed
++    MOCK_CLOCK_SKEW_MARGIN.replace(Some(0));
++
++    let mut party = get_funded_party!();
++    let mut party_ext = get_empty_party!();
++    let receive = |party: &mut SinglesigParty, script: &str, expiration: u64| {
++        party.wallet.witness_receive_external(
++            Some(party.online),
++            script.to_string(),
++            None,
++            Assignment::Any,
++            expiration,
++            TRANSPORT_ENDPOINTS.clone(),
++            MIN_CONFIRMATIONS,
++            None,
++        )
++    };
++    let leftovers = |party: &SinglesigParty| {
++        let txn = party.wallet.database().begin_transaction().unwrap();
++        let txos = txn.iter_txos().unwrap().len();
++        let scripts = txn.iter_pending_witness_scripts().unwrap().len();
++        txn.commit().unwrap();
++        (txos, scripts)
++    };
++    let before = leftovers(&party);
++
++    // an unknown contract is the caller's mistake, not a wallet fault
++    let unknown = "rgb:Ar4ouaLv-b7f7Dc_-z5EMvtu-FA5KNh1-nlae~jk-8xMBo7E";
++    let result = party
++        .wallet
++        .contract_assignments_for_outpoints(ContractId::from_str(unknown).unwrap(), vec![]);
++    assert!(matches!(result, Err(Error::AssetNotFound { asset_id }) if asset_id == unknown));
++
++    // a receive failed by fail_transfers leaves nothing behind
++    let failed_script = BdkAddress::from_str(&party_ext.get_address())
++        .unwrap()
++        .assume_checked()
++        .script_pubkey()
++        .to_hex_string();
++    let failed = receive(&mut party, &failed_script, default_rcv_expiration()).unwrap();
++    assert!(party.fail_transfers_single(failed.batch_transfer_idx));
++    assert!(
++        party.check_test_transfer_status_recipient(&failed.recipient_id, TransferStatus::Failed)
++    );
++    assert_eq!(leftovers(&party), before);
++
++    // a script can be received on once, as the receive files are keyed by recipient ID
++    let script = BdkAddress::from_str(&party_ext.get_address())
++        .unwrap()
++        .assume_checked()
++        .script_pubkey()
++        .to_hex_string();
++    let expiration_secs = 3;
++    let receive_data = receive(
++        &mut party,
++        &script,
++        (now().unix_timestamp() + expiration_secs) as u64,
++    )
++    .unwrap();
++    assert_matches!(
++        receive(&mut party, &script, default_rcv_expiration()),
++        Err(Error::RecipientIDAlreadyUsed)
++    );
++
++    // the receive expires unpaid
++    std::thread::sleep(std::time::Duration::from_millis(
++        expiration_secs as u64 * 1000 + 2000,
++    ));
++    assert!(party.fail_transfers_all());
++    assert!(
++        party.check_test_transfer_status_recipient(
++            &receive_data.recipient_id,
++            TransferStatus::Failed
++        )
++    );
++    assert_eq!(leftovers(&party), before);
++    assert!(
++        !party
++            .wallet
++            .get_transfers_dir()
++            .join(receive_data.recipient_id.replace(':', "_"))
++            .exists()
++    );
++    assert_matches!(
++        receive(&mut party, &script, default_rcv_expiration()),
++        Err(Error::RecipientIDAlreadyUsed)
++    );
++}
++
++/// A wallet script past the BDK lookahead is not detected as the wallet's, so it can be received
++/// on as an external script. Once the wallet reveals it, the paid output is a vanilla UTXO, but a
++/// vanilla send cannot spend it, which would burn the allocation.
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn external_script_past_lookahead() {
++    initialize();
++
++    let amount = 66;
++    let index = 1000;
++    let mut party_send = get_funded_party!();
++    let mut party_recv = get_funded_party!();
++    let asset = party_send.issue_asset_nia(Some(&[AMOUNT]));
++    let asset_id = asset.asset_id.clone();
++
++    let script_pubkey = party_recv
++        .wallet
++        .bdk_wallet()
++        .peek_address(KeychainKind::Internal, index)
++        .address
++        .script_pubkey();
++    let receive_data = party_recv
++        .wallet
++        .witness_receive_external(
++            Some(party_recv.online),
++            script_pubkey.to_hex_string(),
++            None,
++            Assignment::Any,
++            default_rcv_expiration(),
++            TRANSPORT_ENDPOINTS.clone(),
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    let recipient_map = HashMap::from([(
++        asset_id.clone(),
++        vec![Recipient {
++            recipient_id: receive_data.recipient_id.clone(),
++            witness_data: Some(WitnessData {
++                amount_sat: 2_500,
++                blinding: None,
++            }),
++            assignment: Assignment::Fungible(amount),
++            transport_endpoints: TRANSPORT_ENDPOINTS.clone(),
++            public_key: Some(receive_data.public_key.clone()),
++            expiration_timestamp: Some(receive_data.expiration_timestamp),
++            encryption: Invoice::new(receive_data.invoice.clone())
++                .unwrap()
++                .invoice_data()
++                .encryption,
++        }],
++    )]);
++    let txid = party_send.send(recipient_map, FEE_RATE, None).txid;
++    party_recv.wait_for_refresh(None);
++    party_send.wait_for_refresh(Some(&asset_id));
++    mine(false);
++    party_recv.wait_for_refresh(None);
++    party_send.wait_for_refresh(Some(&asset_id));
++    let transfer = party_recv.get_test_transfer_recipient(&receive_data.recipient_id);
++    let Some(RecipientTypeFull::External { vout: Some(vout) }) = transfer.recipient_type else {
++        panic!("external recipient with a vout expected");
++    };
++
++    // with the vanilla funds drained, the wallet reveals the script: the paid output is then its
++    // only vanilla UTXO, but a vanilla send cannot spend it
++    party_recv.drain_to(&party_send.get_address());
++    mine(false);
++    party_recv
++        .wallet
++        .bdk_wallet_mut()
++        .reveal_addresses_to(KeychainKind::Internal, index)
++        .last();
++    let result = party_recv.send_btc_result(&party_send.get_address(), 500);
++    assert_matches!(result, Err(Error::InsufficientBitcoins { .. }));
++    let result =
++        party_recv
++            .wallet
++            .create_utxos(party_recv.online, false, Some(1), None, FEE_RATE, false);
++    assert_matches!(result, Err(Error::InsufficientBitcoins { .. }));
++    assert!(party_recv.wallet.bdk_wallet().list_unspent().any(|o| {
++        o.outpoint
++            == OutPoint {
++                txid: Txid::from_str(&txid).unwrap(),
++                vout,
++            }
++    }));
++    assert_eq!(
++        party_recv
++            .wallet
++            .contract_assignments_for_outpoints(
++                ContractId::from_str(&asset_id).unwrap(),
++                vec![Outpoint {
++                    txid: txid.clone(),
++                    vout,
++                }],
++            )
++            .unwrap()[0]
++            .1,
++        vec![Assignment::Fungible(amount)]
++    );
++}
++
++/// HTLC claim and refund: the lock output on an external script is spent with a prepared sweep,
++/// by the receiver (claim) or by the sender (refund), to a witness receive of the spending wallet.
++/// a lock on a script of a third wallet, which stands in for the HTLC
++#[cfg(feature = "electrum")]
++fn lock_on_external_script(
++    party_send: &mut SinglesigParty,
++    party_recv: &mut SinglesigParty,
++    party_ext: &mut SinglesigParty,
++    asset_id: &str,
++    amount: u64,
++    lock_sats: u64,
++) -> (OutPoint, ScriptBuf) {
++    let lock_script = BdkAddress::from_str(&party_ext.get_address())
++        .unwrap()
++        .assume_checked()
++        .script_pubkey();
++    let receive_data = party_recv
++        .wallet
++        .witness_receive_external(
++            Some(party_recv.online),
++            lock_script.to_hex_string(),
++            None,
++            Assignment::Any,
++            default_rcv_expiration(),
++            TRANSPORT_ENDPOINTS.clone(),
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    let recipient_map = HashMap::from([(
++        asset_id.to_string(),
++        vec![Recipient {
++            recipient_id: receive_data.recipient_id.clone(),
++            witness_data: Some(WitnessData {
++                amount_sat: lock_sats,
++                blinding: None,
++            }),
++            assignment: Assignment::Fungible(amount),
++            transport_endpoints: TRANSPORT_ENDPOINTS.clone(),
++            public_key: Some(receive_data.public_key.clone()),
++            expiration_timestamp: Some(receive_data.expiration_timestamp),
++            encryption: Invoice::new(receive_data.invoice.clone())
++                .unwrap()
++                .invoice_data()
++                .encryption,
++        }],
++    )]);
++    let txid = party_send.send(recipient_map, FEE_RATE, None).txid;
++    party_recv.wait_for_refresh(None);
++    party_send.wait_for_refresh(Some(asset_id));
++    mine(false);
++    party_recv.wait_for_refresh(None);
++    party_send.wait_for_refresh(Some(asset_id));
++    let transfer = party_recv.get_test_transfer_recipient(&receive_data.recipient_id);
++    let Some(RecipientTypeFull::External { vout: Some(vout) }) = transfer.recipient_type else {
++        panic!("external recipient with a vout expected");
++    };
++    (
++        OutPoint {
++            txid: Txid::from_str(&txid).unwrap(),
++            vout,
++        },
++        lock_script,
++    )
++}
++
++/// an unsigned sweep of the lock to a new witness receive of the spending wallet, with the
++/// receive's recipient ID
++#[cfg(feature = "electrum")]
++fn lock_sweep_psbt(
++    party: &mut SinglesigParty,
++    lock: &(OutPoint, ScriptBuf),
++    lock_sats: u64,
++    fee: u64,
++) -> (Psbt, String) {
++    let receive_data = party
++        .wallet
++        .witness_receive(
++            None,
++            None,
++            Assignment::Any,
++            default_rcv_expiration(),
++            vec![],
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    let to = script_buf_from_recipient_id(receive_data.recipient_id.clone())
++        .unwrap()
++        .unwrap();
++    let tx = BdkTransaction {
++        version: Version::TWO,
++        lock_time: LockTime::ZERO,
++        input: vec![TxIn {
++            previous_output: lock.0,
++            script_sig: ScriptBuf::new(),
++            sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
++            witness: Witness::new(),
++        }],
++        output: vec![TxOut {
++            value: BdkAmount::from_sat(lock_sats - fee),
++            script_pubkey: to,
++        }],
++    };
++    let mut psbt = Psbt::from_unsigned_tx(tx).unwrap();
++    psbt.inputs[0].witness_utxo = Some(TxOut {
++        value: BdkAmount::from_sat(lock_sats),
++        script_pubkey: lock.1.clone(),
++    });
++    (psbt, receive_data.recipient_id)
++}
++
++/// prepare a sweep of the lock to a witness receive of the spending wallet, as an HTLC claim or
++/// refund would: the PSBT, the prepared sweep and the receive's recipient ID
++#[cfg(feature = "electrum")]
++fn prepare_lock_sweep(
++    party: &mut SinglesigParty,
++    lock: &(OutPoint, ScriptBuf),
++    lock_sats: u64,
++    fee: u64,
++    asset_id: &str,
++    coloring: &ColoringInfo,
++) -> (Psbt, ColorPrepareResult, String) {
++    let (mut psbt, recipient_id) = lock_sweep_psbt(party, lock, lock_sats, fee);
++    let balance = party.get_asset_balance(asset_id);
++    let prepared = party
++        .wallet
++        .color_psbt_and_prepare_consume(
++            &mut psbt,
++            coloring.clone(),
++            vec![lock.0.into()],
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    assert_eq!(prepared.transfers.len(), 1);
++    // the lock is not the wallet's allocation: preparing the sweep does not change the balance
++    assert_eq!(party.get_asset_balance(asset_id), balance);
++    assert!(party.wallet.list_assets(vec![]).is_ok());
++    (psbt, prepared, recipient_id)
++}
++
++/// provide the sweep consignments out of band (the spender is its own counterparty) and hand the
++/// sweep off for signing: its batch
++#[cfg(feature = "electrum")]
++fn hand_off_sweep(party: &mut SinglesigParty, psbt: &Psbt, prepared: &ColorPrepareResult) -> i32 {
++    let proof_dir = tempfile::tempdir().unwrap();
++    for (i, transfer) in prepared.transfers.iter().enumerate() {
++        let proof = proof_dir.path().join(format!("sweep{i}.rgb"));
++        transfer.save_file(&proof).unwrap();
++        party
++            .wallet
++            .provide_out_of_band_consignment(party.online, proof.to_str().unwrap().into(), vec![])
++            .unwrap();
++    }
++    let batch = prepared.batch_transfer_idx;
++    party
++        .wallet
++        .mark_prepared_sweep_handed_off(batch, psbt.unsigned_tx.compute_txid().to_string())
++        .unwrap();
++    batch
++}
++
++/// the sweep projects a transfer row on the same recipient, so look at the incoming batch
++#[cfg(feature = "electrum")]
++fn incoming_batch(party: &SinglesigParty, recipient_id: &str) -> DbBatchTransfer {
++    let txn = party.wallet.database().begin_transaction().unwrap();
++    let asset_transfers = txn.iter_asset_transfers().unwrap();
++    let batch_transfers = txn.iter_batch_transfers().unwrap();
++    let batch = txn
++        .iter_transfers()
++        .unwrap()
++        .into_iter()
++        .filter(|t| t.recipient_id.as_deref() == Some(recipient_id))
++        .map(|t| t.related_transfers(&asset_transfers, &batch_transfers).1)
++        .find(|b| b.incoming)
++        .unwrap();
++    txn.commit().unwrap();
++    batch
++}
++
++/// the sweep's phase, batch status and number of reserved TXOs
++#[cfg(feature = "electrum")]
++fn sweep_state(party: &SinglesigParty, batch: i32) -> (String, TransferStatus, usize) {
++    let txn = party.wallet.database().begin_transaction().unwrap();
++    let phase = txn.prepared_sweep_read(batch).unwrap().1;
++    let status = txn
++        .get_batch_transfer_or_fail(batch, &txn.iter_batch_transfers().unwrap())
++        .unwrap()
++        .status;
++    let reservations = txn
++        .iter_reserved_txos()
++        .unwrap()
++        .into_iter()
++        .filter(|r| r.reserved_for_colored == Some(batch))
++        .count();
++    txn.commit().unwrap();
++    (phase, status, reservations)
++}
++
++/// the lock script owner signs the lock inputs, then the sweep is broadcast, mined and consumed,
++/// settling the given receives: (recipient ID, asset ID, amount)
++#[cfg(feature = "electrum")]
++fn settle_lock_sweep(
++    party: &mut SinglesigParty,
++    party_ext: &mut SinglesigParty,
++    psbt: &Psbt,
++    batch: i32,
++    receives: &[(&str, &str, u64)],
++) {
++    let signed = party_ext
++        .wallet
++        .sign_psbt(
++            psbt.to_string(),
++            Some(SignOptions {
++                trust_witness_utxo: true,
++                ..Default::default()
++            }),
++        )
++        .unwrap();
++    let tx = Psbt::from_str(&signed).unwrap().extract_tx().unwrap();
++    let txid = tx.compute_txid().to_string();
++    build_indexer(&IndexerConfig::Electrum {
++        url: ELECTRUM_URL.to_string(),
++    })
++    .unwrap()
++    .broadcast(&tx)
++    .unwrap();
++    // the mempool is not enough to consume
++    assert!(matches!(
++        party.wallet.consume_transfer_fascia(party.online, batch),
++        Err(Error::InvalidColoringInfo { details })
++            if details == "prepared sweep witness is not sufficiently confirmed"
++    ));
++    mine_tx(&txid);
++    party
++        .wallet
++        .consume_transfer_fascia(party.online, batch)
++        .unwrap();
++    assert_eq!(sweep_state(party, batch).1, TransferStatus::Settled);
++    let settled = |party: &SinglesigParty| {
++        receives
++            .iter()
++            .all(|(r, _, _)| incoming_batch(party, r).status == TransferStatus::Settled)
++    };
++    for _ in 0..3 {
++        party.wait_for_refresh(None);
++        if settled(party) {
++            break;
++        }
++    }
++    assert!(settled(party));
++    let unspents = party.list_unspents(true);
++    for (_, asset_id, amount) in receives {
++        assert!(unspents.iter().any(|u| {
++            u.utxo.outpoint.txid == txid
++                && u.rgb_allocations.iter().any(|a| {
++                    a.asset_id.as_deref() == Some(asset_id)
++                        && a.assignment == Assignment::Fungible(*amount)
++                })
++        }));
++    }
++}
++
++#[cfg(feature = "electrum")]
++fn lock_coloring(contract_id: ContractId, amount: u64) -> ColoringInfo {
++    ColoringInfo {
++        asset_info_map: HashMap::from([(
++            contract_id,
++            AssetColoringInfo {
++                output_map: HashMap::from([(0, amount)]),
++                static_blinding: None,
++            },
++        )]),
++        static_blinding: None,
++        nonce: None,
++    }
++}
++
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn external_script_claim_and_refund() {
++    initialize();
++
++    let amount = 66;
++    let lock_sats = 1000;
++    let mut party_send = get_funded_party!();
++    let mut party_recv = get_funded_party!();
++    let mut party_ext = get_empty_party!();
++    let asset = party_send.issue_asset_nia(Some(&[AMOUNT]));
++    let asset_id = asset.asset_id.clone();
++    let coloring = lock_coloring(ContractId::from_str(&asset_id).unwrap(), amount);
++
++    let mut locks = vec![];
++    for _ in 0..2 {
++        locks.push(lock_on_external_script(
++            &mut party_send,
++            &mut party_recv,
++            &mut party_ext,
++            &asset_id,
++            amount,
++            lock_sats,
++        ));
++    }
++    assert_eq!(
++        party_send.get_asset_balance(&asset_id).settled,
++        AMOUNT - 2 * amount
++    );
++
++    let balances = |party_send: &SinglesigParty, party_recv: &SinglesigParty| {
++        (
++            party_send.get_asset_balance(&asset_id),
++            party_recv.get_asset_balance(&asset_id),
++        )
++    };
++    let balance = |amount| Balance {
++        settled: amount,
++        future: amount,
++        spendable: amount,
++    };
++
++    // claim by the receiver: the lock counts for neither party before the claim settles
++    let (psbt, prepared, receive) = prepare_lock_sweep(
++        &mut party_recv,
++        &locks[0],
++        lock_sats,
++        400,
++        &asset_id,
++        &coloring,
++    );
++    assert_eq!(
++        balances(&party_send, &party_recv),
++        (balance(AMOUNT - 2 * amount), balance(0))
++    );
++    let batch = hand_off_sweep(&mut party_recv, &psbt, &prepared);
++    settle_lock_sweep(
++        &mut party_recv,
++        &mut party_ext,
++        &psbt,
++        batch,
++        &[(&receive, &asset_id, amount)],
++    );
++    assert_eq!(
++        balances(&party_send, &party_recv),
++        (balance(AMOUNT - 2 * amount), balance(amount))
++    );
++
++    // refund by the sender
++    let (psbt, prepared, receive) = prepare_lock_sweep(
++        &mut party_send,
++        &locks[1],
++        lock_sats,
++        400,
++        &asset_id,
++        &coloring,
++    );
++    assert_eq!(
++        balances(&party_send, &party_recv),
++        (balance(AMOUNT - 2 * amount), balance(amount))
++    );
++    let batch = hand_off_sweep(&mut party_send, &psbt, &prepared);
++    settle_lock_sweep(
++        &mut party_send,
++        &mut party_ext,
++        &psbt,
++        batch,
++        &[(&receive, &asset_id, amount)],
++    );
++    assert_eq!(
++        balances(&party_send, &party_recv),
++        (balance(AMOUNT - amount), balance(amount))
++    );
++}
++
++/// one sweep moves the locks of two assets, each to its own receive of the claimer
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn external_script_claim_two_assets() {
++    initialize();
++
++    let amount = 66;
++    let lock_sats = 1000;
++    let mut party_send = get_funded_party!();
++    let mut party_recv = get_funded_party!();
++    let mut party_ext = get_empty_party!();
++    let assets = [
++        party_send.issue_asset_nia(Some(&[AMOUNT])).asset_id,
++        party_send.issue_asset_nia(Some(&[AMOUNT])).asset_id,
++    ];
++    let locks: Vec<_> = assets
++        .iter()
++        .map(|asset_id| {
++            lock_on_external_script(
++                &mut party_send,
++                &mut party_recv,
++                &mut party_ext,
++                asset_id,
++                amount,
++                lock_sats,
++            )
++        })
++        .collect();
++
++    // one receive per asset
++    let mut receives = vec![];
++    let mut output = vec![];
++    for _ in &assets {
++        let receive_data = party_recv
++            .wallet
++            .witness_receive(
++                None,
++                None,
++                Assignment::Any,
++                default_rcv_expiration(),
++                vec![],
++                MIN_CONFIRMATIONS,
++                None,
++            )
++            .unwrap();
++        output.push(TxOut {
++            value: BdkAmount::from_sat(lock_sats - 400),
++            script_pubkey: script_buf_from_recipient_id(receive_data.recipient_id.clone())
++                .unwrap()
++                .unwrap(),
++        });
++        receives.push(receive_data.recipient_id);
++    }
++    let tx = BdkTransaction {
++        version: Version::TWO,
++        lock_time: LockTime::ZERO,
++        input: locks
++            .iter()
++            .map(|lock| TxIn {
++                previous_output: lock.0,
++                script_sig: ScriptBuf::new(),
++                sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
++                witness: Witness::new(),
++            })
++            .collect(),
++        output,
++    };
++    let mut psbt = Psbt::from_unsigned_tx(tx).unwrap();
++    for (input, lock) in psbt.inputs.iter_mut().zip(&locks) {
++        input.witness_utxo = Some(TxOut {
++            value: BdkAmount::from_sat(lock_sats),
++            script_pubkey: lock.1.clone(),
++        });
++    }
++    let coloring = ColoringInfo {
++        asset_info_map: assets
++            .iter()
++            .enumerate()
++            .map(|(vout, asset_id)| {
++                (
++                    ContractId::from_str(asset_id).unwrap(),
++                    AssetColoringInfo {
++                        output_map: HashMap::from([(vout as u32, amount)]),
++                        static_blinding: None,
++                    },
++                )
++            })
++            .collect(),
++        static_blinding: None,
++        nonce: None,
++    };
++    let prepared = party_recv
++        .wallet
++        .color_psbt_and_prepare_consume(
++            &mut psbt,
++            coloring,
++            locks.iter().map(|lock| lock.0.into()).collect(),
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    assert_eq!(prepared.transfers.len(), 2);
++    for asset_id in &assets {
++        assert_eq!(party_recv.get_asset_balance(asset_id).future, 0);
++        assert_eq!(
++            party_send.get_asset_balance(asset_id).future,
++            AMOUNT - amount
++        );
++    }
++    let batch = hand_off_sweep(&mut party_recv, &psbt, &prepared);
++    settle_lock_sweep(
++        &mut party_recv,
++        &mut party_ext,
++        &psbt,
++        batch,
++        &[
++            (&receives[0], &assets[0], amount),
++            (&receives[1], &assets[1], amount),
++        ],
++    );
++    for asset_id in &assets {
++        assert_eq!(party_recv.get_asset_balance(asset_id).settled, amount);
++        assert_eq!(
++            party_send.get_asset_balance(asset_id).settled,
++            AMOUNT - amount
++        );
++    }
++}
++
++/// the receiver's handed-off claims lose to the sender's confirmed refunds of the same locks
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn external_script_lost_race() {
++    initialize();
++
++    let amount = 66;
++    let lock_sats = 1000;
++    let mut party_send = get_funded_party!();
++    let mut party_recv = get_funded_party!();
++    let mut party_ext = get_empty_party!();
++    let asset = party_send.issue_asset_nia(Some(&[AMOUNT]));
++    let asset_id = asset.asset_id.clone();
++    let coloring = lock_coloring(ContractId::from_str(&asset_id).unwrap(), amount);
++
++    let mut locks = vec![];
++    for _ in 0..2 {
++        locks.push(lock_on_external_script(
++            &mut party_send,
++            &mut party_recv,
++            &mut party_ext,
++            &asset_id,
++            amount,
++            lock_sats,
++        ));
++    }
++    let mut claims = vec![];
++    for lock in &locks {
++        let (psbt, prepared, receive) =
++            prepare_lock_sweep(&mut party_recv, lock, lock_sats, 400, &asset_id, &coloring);
++        let batch = hand_off_sweep(&mut party_recv, &psbt, &prepared);
++        assert_eq!(
++            sweep_state(&party_recv, batch),
++            ("handed_off".to_string(), TransferStatus::Initiated, 1)
++        );
++        assert_eq!(
++            incoming_batch(&party_recv, &receive).txid,
++            Some(psbt.unsigned_tx.compute_txid().to_string())
++        );
++        claims.push((psbt, batch, receive));
++    }
++    // the sender refunds the locks and the refunds confirm
++    for lock in &locks {
++        let (psbt, prepared, receive) =
++            prepare_lock_sweep(&mut party_send, lock, lock_sats, 400, &asset_id, &coloring);
++        let batch = hand_off_sweep(&mut party_send, &psbt, &prepared);
++        settle_lock_sweep(
++            &mut party_send,
++            &mut party_ext,
++            &psbt,
++            batch,
++            &[(&receive, &asset_id, amount)],
++        );
++    }
++    assert_eq!(party_send.get_asset_balance(&asset_id).settled, AMOUNT);
++
++    // a lost claim is released on consume, the others on refresh
++    assert!(
++        party_recv
++            .wallet
++            .consume_transfer_fascia(party_recv.online, claims[1].1)
++            .is_err()
++    );
++    assert_eq!(
++        sweep_state(&party_recv, claims[0].1),
++        ("handed_off".to_string(), TransferStatus::Initiated, 1)
++    );
++    party_recv
++        .wallet
++        .refresh(party_recv.online, None, vec![], false)
++        .unwrap();
++    for (psbt, batch, receive) in &claims {
++        assert_eq!(
++            sweep_state(&party_recv, *batch),
++            ("cancelled".to_string(), TransferStatus::Failed, 0)
++        );
++        // the receive already holds the claim consignment, which can never confirm
++        assert_eq!(
++            incoming_batch(&party_recv, receive).status,
++            TransferStatus::Failed
++        );
++        assert!(matches!(
++            party_recv.wallet.sign_psbt(psbt.to_string(), None),
++            Err(Error::WrongOperation { .. })
++        ));
++        assert!(
++            party_recv
++                .wallet
++                .consume_transfer_fascia(party_recv.online, *batch)
++                .is_err()
++        );
++    }
++    assert!(party_recv.wallet.list_prepared_sweeps().unwrap().is_empty());
++    let balance = party_recv.get_asset_balance(&asset_id);
++    assert_eq!((balance.settled, balance.future), (0, 0));
++    // the failed receives are deleted, the released sweeps stay as tombstones
++    assert!(party_recv.wallet.delete_transfers(None, false).unwrap());
++    for (_, batch, _) in &claims {
++        assert_eq!(sweep_state(&party_recv, *batch).1, TransferStatus::Failed);
++    }
++}
++
++/// a handed-off claim paying too low a fee is replaced by one paying a higher fee
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn external_script_replace_claim() {
++    initialize();
++
++    let amount = 66;
++    let lock_sats = 1000;
++    let mut party_send = get_funded_party!();
++    let mut party_recv = get_funded_party!();
++    let mut party_ext = get_empty_party!();
++    let asset = party_send.issue_asset_nia(Some(&[AMOUNT]));
++    let asset_id = asset.asset_id.clone();
++    let coloring = lock_coloring(ContractId::from_str(&asset_id).unwrap(), amount);
++    let lock = lock_on_external_script(
++        &mut party_send,
++        &mut party_recv,
++        &mut party_ext,
++        &asset_id,
++        amount,
++        lock_sats,
++    );
++
++    // a sweep not handed off yet cannot be replaced, only cancelled
++    let (mut first, _) = lock_sweep_psbt(&mut party_recv, &lock, lock_sats, 400);
++    let first_batch = party_recv
++        .wallet
++        .color_psbt_and_prepare_consume(
++            &mut first,
++            coloring.clone(),
++            vec![lock.0.into()],
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap()
++        .batch_transfer_idx;
++    let (mut second, _) = lock_sweep_psbt(&mut party_recv, &lock, lock_sats, 600);
++    assert!(matches!(
++        party_recv.wallet.color_psbt_and_prepare_consume(
++            &mut second,
++            coloring.clone(),
++            vec![lock.0.into()],
++            MIN_CONFIRMATIONS,
++            None,
++        ),
++        Err(Error::InvalidColoringInfo { .. })
++    ));
++    party_recv
++        .wallet
++        .cancel_prepared_sweep(first_batch)
++        .unwrap();
++
++    // the lock stays reserved by the handed-off claim, its replacement reserves nothing new
++    let (psbt_low, low, receive_low) =
++        prepare_lock_sweep(&mut party_recv, &lock, lock_sats, 400, &asset_id, &coloring);
++    let batch_low = hand_off_sweep(&mut party_recv, &psbt_low, &low);
++    let (psbt_high, high, receive_high) =
++        prepare_lock_sweep(&mut party_recv, &lock, lock_sats, 600, &asset_id, &coloring);
++    let batch_high = hand_off_sweep(&mut party_recv, &psbt_high, &high);
++    assert_eq!(
++        sweep_state(&party_recv, batch_low),
++        ("handed_off".to_string(), TransferStatus::Initiated, 1)
++    );
++    assert_eq!(
++        sweep_state(&party_recv, batch_high),
++        ("handed_off".to_string(), TransferStatus::Initiated, 0)
++    );
++
++    // the replacement confirms and settles, the replaced claim is released
++    settle_lock_sweep(
++        &mut party_recv,
++        &mut party_ext,
++        &psbt_high,
++        batch_high,
++        &[(&receive_high, &asset_id, amount)],
++    );
++    assert_eq!(
++        sweep_state(&party_recv, batch_low),
++        ("cancelled".to_string(), TransferStatus::Failed, 0)
++    );
++    assert_eq!(
++        incoming_batch(&party_recv, &receive_low).status,
++        TransferStatus::Failed
++    );
++    assert!(party_recv.wallet.list_prepared_sweeps().unwrap().is_empty());
++    assert_eq!(party_recv.get_asset_balance(&asset_id).settled, amount);
++}
++
++/// a send signed before a sweep reserved its inputs cannot be ended
++#[cfg(feature = "electrum")]
++#[test]
++#[parallel]
++fn send_end_refuses_sweep_inputs() {
++    initialize();
++
++    let mut party_send = get_funded_party!();
++    let mut party_recv = get_funded_party!();
++    let asset = party_send.issue_asset_nia(Some(&[AMOUNT]));
++    let asset_id = asset.asset_id.clone();
++
++    // a dry-run send reserves nothing
++    let receive_data = party_recv.blind_receive();
++    let recipient_map = HashMap::from([(
++        asset_id.clone(),
++        vec![Recipient {
++            assignment: Assignment::Fungible(10),
++            recipient_id: receive_data.recipient_id.clone(),
++            public_key: Some(receive_data.public_key.clone()),
++            expiration_timestamp: Some(receive_data.expiration_timestamp),
++            encryption: Encryption::Optional,
++            witness_data: None,
++            transport_endpoints: TRANSPORT_ENDPOINTS.clone(),
++        }],
++    )]);
++    let send = party_send
++        .wallet
++        .send_begin(
++            party_send.online,
++            recipient_map,
++            false,
++            FEE_RATE,
++            MIN_CONFIRMATIONS,
++            default_send_expiration(),
++            Some(PROXY_ENDPOINT.clone()),
++            true,
++        )
++        .unwrap();
++    let signed = party_send
++        .wallet
++        .sign_psbt(send.psbt.clone(), None)
++        .unwrap();
++    let send_txid = Psbt::from_str(&send.psbt)
++        .unwrap()
++        .unsigned_tx
++        .compute_txid();
++
++    // a sweep of the asset UTXO to a receive of the sender
++    let input: OutPoint = party_send
++        .list_unspents(false)
++        .into_iter()
++        .find(|u| {
++            u.rgb_allocations
++                .iter()
++                .any(|a| a.asset_id.as_deref() == Some(&asset_id))
++        })
++        .unwrap()
++        .utxo
++        .outpoint
++        .into();
++    let self_receive = party_send
++        .wallet
++        .witness_receive(
++            None,
++            None,
++            Assignment::Any,
++            default_rcv_expiration(),
++            vec![],
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++    let to = script_buf_from_recipient_id(self_receive.recipient_id)
++        .unwrap()
++        .unwrap();
++    let mut builder = party_send.wallet.bdk_wallet_mut().build_tx();
++    builder
++        .add_utxo(input)
++        .unwrap()
++        .manually_selected_only()
++        .drain_to(to)
++        .fee_rate(FeeRate::from_sat_per_vb_u32(FEE_RATE as u32));
++    let mut sweep = builder.finish().unwrap();
++    let coloring = lock_coloring(ContractId::from_str(&asset_id).unwrap(), AMOUNT);
++    party_send
++        .wallet
++        .color_psbt_and_prepare_consume(
++            &mut sweep,
++            coloring,
++            vec![input.into()],
++            MIN_CONFIRMATIONS,
++            None,
++        )
++        .unwrap();
++
++    // the send is refused before anything is published
++    assert!(matches!(
++        party_send.wallet.send_end(party_send.online, signed),
++        Err(Error::WrongOperation { .. })
++    ));
++    let txn = party_send.wallet.database().begin_transaction().unwrap();
++    assert!(
++        txn.get_batch_transfers_by_txid(&send_txid.to_string())
++            .unwrap()
++            .is_empty()
++    );
++    txn.commit().unwrap();
++    // nothing reached the proxy: the recipient keeps waiting for the counterparty
++    party_recv
++        .wallet
++        .refresh(party_recv.online, None, vec![], false)
++        .unwrap();
++    let transfer = party_recv.get_test_transfer_recipient(&receive_data.recipient_id);
++    let (transfer_data, _) = party_recv.get_test_transfer_data(&transfer);
++    assert_eq!(transfer_data.status, TransferStatus::WaitingCounterparty);
+ }

@@ -109,12 +109,14 @@ export 'src/wallet/rgb_lib/config.dart'
         RgbLibEvmChain,
         RgbLibIndexerKind,
         RgbLibKeys,
+        RgbLibMintLockBlocks,
         RgbLibMnemonicReader,
         RgbLibPublicKeys,
         RgbLibUnlockParams,
         RgbLibWalletException,
         RgbLibWalletParams,
         RgbLibWitnessVersion,
+        defaultRgbLibEvmMintLockBlocks,
         getRgbLibNetworkDefaults;
 export 'src/wallet/rgb_lib/rgb_lib_wallet.dart'
     show
@@ -122,7 +124,8 @@ export 'src/wallet/rgb_lib/rgb_lib_wallet.dart'
         RgbLibDurableOperations,
         RgbLibPendingOnchainOperation,
         RgbLibOnchainSendReceipt,
-        RgbLibOnchainSendReceiptPage;
+        RgbLibOnchainSendReceiptPage,
+        restoreBackupFromFile;
 export 'src/wallet/rgb_lib/wire.dart'
     show
         RgbLibAssetMetadata,
@@ -155,12 +158,14 @@ export 'src/wallet/utexo_wallet.dart'
         RecoverableOnchainSendCommand,
         RecoverableOnchainSendKind,
         RecoverableOnchainSendPhase,
-        RecoverableOnchainSendStatus;
+        RecoverableOnchainSendStatus,
+        UtexoWalletEngineAccess;
 export 'src/wallet/utexo_wallet_types.dart';
 
-/// Flutter entry point for RGB Lightning Node bindings.
+/// Flutter entry point for Bitcoin, RGB and RGB Lightning Node wallets.
 ///
-/// App code should usually create [UtexoWallet] instances through [wallet].
+/// [wallet] creates the legacy RLN facade. Use [UtexoWallet.rgbLib] to
+/// select an existing on-chain RGB_L1 engine.
 /// Low-level RN/native parity APIs live in `rgb_sdk_flutter_advanced.dart`.
 class RgbSdkFlutter {
   const RgbSdkFlutter();

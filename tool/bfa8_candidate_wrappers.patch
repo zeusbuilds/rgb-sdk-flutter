@@ -1,0 +1,189 @@
+--- a/ios/Classes/RgbLibSwiftHelper.swift
++++ b/ios/Classes/RgbLibSwiftHelper.swift
+@@ -282,8 +282,15 @@
+     profile.removeValue(forKey: "cachedAddress")
+     let session: RgbLibSession
+     do {
++      let supportedSchemas: [RGBLib.AssetSchema] = net == "mainnet"
++        ? [.nia, .uda, .cfa]
++        : [.nia, .uda, .cfa, .ifa, .bfa]
+       let wallet = try RGBLib.Wallet(
+-        walletData: RGBLib.WalletData(dataDir: lease.root.path, bitcoinNetwork: rgbNetworkFromName(net), databaseType: .sqlite, maxAllocationsPerUtxo: max, supportedSchemas: [.nia, .uda, .cfa, .ifa, .bfa]),
++        walletData: RGBLib.WalletData(
++          dataDir: lease.root.path, bitcoinNetwork: rgbNetworkFromName(net), databaseType: .sqlite,
++          maxAllocationsPerUtxo: max, supportedSchemas: supportedSchemas,
++          allowRecklessSchemas: false
++        ),
+         keys: RGBLib.SinglesigKeys(accountXpubVanilla: keys.vanilla, accountXpubColored: keys.colored, vanillaKeychain: nil, masterFingerprint: keys.fingerprint, mnemonic: mnemonic, witnessVersion: witness)
+       )
+       session = RgbLibSession(wallet: wallet, lease: lease, profile: profile, reuse: try p.bool("reuseAddresses"))
+@@ -605,11 +612,24 @@
+     case "issueAssetNia": return try rgbDto(w.issueAssetNia(ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }))
+     case "issueAssetCfa": return try rgbDto(w.issueAssetCfa(name: p.string("name"), details: p.optional("details"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, filePath: p.optional("filePath")))
+     case "issueAssetUda": return try rgbDto(w.issueAssetUda(ticker: p.string("ticker"), name: p.string("name"), details: p.optional("details"), precision: p.number("precision", UInt8.self), mediaFilePath: p.optional("mediaFilePath"), attachmentsFilePaths: p.strings("attachmentsFilePaths")))
+-    case "issueAssetIfa": return try rgbDto(w.issueAssetIfa(ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, inflationAmounts: p.strings("inflationAmounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, rejectListUrl: p.optional("rejectListUrl"), linkRight: false, linkedFromContract: nil))
++    case "issueAssetIfa":
++      let amounts = try p.strings("amounts").map { value -> UInt64 in
++        guard let amount = UInt64(value) else { throw rgbInvalid("Invalid amount") }
++        return amount
++      }
++      let inflationAmounts = try p.strings("inflationAmounts").map { value -> UInt64 in
++        guard let amount = UInt64(value) else { throw rgbInvalid("Invalid amount") }
++        return amount
++      }
++      return try rgbDto(w.issueAssetIfa(
++        ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self),
++        amounts: amounts, inflationAmounts: inflationAmounts, rejectListUrl: p.optional("rejectListUrl"),
++        linkRight: false, linkedFromContract: nil, skipContractChecks: false
++      ))
+     case "inflate": return try rgbDto(w.inflate(online: s.requireOnline(), assetId: p.string("assetId"), inflationAmounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self)))
+     case "burn":
+       guard RgbLibNetworkPolicy.permitsBurn(s.profile["network"] as! String) else {
+-        throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Hosted Dev burns are unavailable")
++        throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Burning is unavailable on this network")
+       }
+       return try rgbDto(w.burn(online: s.requireOnline(), assetId: p.string("assetId"), amount: p.amount("amount"), burnReason: p.optional("burnReason"), feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self)))
+     case "failTransfers": return try w.failTransfers(online: s.requireOnline(), batchTransferIdx: p.has("batchTransferIdx") ? p.number("batchTransferIdx", Int32.self) : nil, noAssetOnly: p.bool("noAssetOnly"), skipSync: p.bool("skipSync"))
+--- a/android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbLibSessionStore.kt
++++ b/android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbLibSessionStore.kt
+@@ -206,8 +206,17 @@
+         write(marker, profile)
+         created = true
+       }
++      val supportedSchemas = if (net == "mainnet") {
++        listOf(AssetSchema.NIA, AssetSchema.UDA, AssetSchema.CFA)
++      } else {
++        listOf(AssetSchema.NIA, AssetSchema.UDA, AssetSchema.CFA, AssetSchema.IFA, AssetSchema.BFA)
++      }
+       wallet = Wallet(
+-        WalletData(lease.root.path, network(net), DatabaseType.SQLITE, max, AssetSchema.entries.toList()),
++        WalletData(
++          dataDir = lease.root.path, bitcoinNetwork = network(net), databaseType = DatabaseType.SQLITE,
++          maxAllocationsPerUtxo = max, supportedSchemas = supportedSchemas,
++          allowRecklessSchemas = false
++        ),
+         SinglesigKeys(keys.first, keys.second, null, keys.third, mnemonic, witness)
+       )
+       val session = Session(wallet, lease, profile, p.getBoolean("reuseAddresses"))
+@@ -484,11 +493,17 @@
+       "issueAssetNia" -> rgbDto(w.issueAssetNia(p.getString("ticker"),p.getString("name"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() }))
+       "issueAssetCfa" -> rgbDto(w.issueAssetCfa(p.getString("name"),optional(p,"details"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() },optional(p,"filePath")))
+       "issueAssetUda" -> rgbDto(w.issueAssetUda(p.getString("ticker"),p.getString("name"),optional(p,"details"),number(p,"precision",18).toUByte(),optional(p,"mediaFilePath"),strings(p,"attachmentsFilePaths")))
+-      "issueAssetIfa" -> rgbDto(w.issueAssetIfa(p.getString("ticker"),p.getString("name"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() },strings(p,"inflationAmounts").map { it.toULong() },optional(p,"rejectListUrl"),false,null))
++      "issueAssetIfa" -> rgbDto(w.issueAssetIfa(
++        ticker = p.getString("ticker"), name = p.getString("name"), precision = number(p,"precision",18).toUByte(),
++        amounts = strings(p,"amounts").map { it.toULong() },
++        inflationAmounts = strings(p,"inflationAmounts").map { it.toULong() },
++        rejectListUrl = optional(p,"rejectListUrl"), linkRight = false, linkedFromContract = null,
++        skipContractChecks = false
++      ))
+       "inflate" -> rgbDto(w.inflate(online(s),p.getString("assetId"),strings(p,"amounts").map { it.toULong() },amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte()))
+       "burn" -> {
+         if (!RgbLibNetworkPolicy.permitsBurn(s.profile.getString("network")))
+-          throw RgbLibBridgeError("UNSUPPORTED_CAPABILITY", "Hosted Dev burns are unavailable")
++          throw RgbLibBridgeError("UNSUPPORTED_CAPABILITY", "Burning is unavailable on this network")
+         rgbDto(w.burn(online(s),p.getString("assetId"),amount(p,"amount"),optional(p,"burnReason"),amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte()))
+       }
+       "failTransfers" -> w.failTransfers(online(s),if(p.isNull("batchTransferIdx")) null else number(p,"batchTransferIdx",Int.MAX_VALUE.toLong()).toInt(),p.getBoolean("noAssetOnly"),p.getBoolean("skipSync"))
+--- a/ios/Classes/RgbLibNetworkPolicy.swift
++++ b/ios/Classes/RgbLibNetworkPolicy.swift
+@@ -27,7 +27,7 @@
+     logical != "utexo" || (permitsReceive(logical, endpoints: endpoints) && sender == devProxy)
+   }
+ 
+-  static func permitsBurn(_ logical: String) -> Bool { logical != "utexo" }
++  static func permitsBurn(_ logical: String) -> Bool { logical != "utexo" && logical != "mainnet" }
+ 
+   static func permitsOnline(_ logical: String, proxy: String?, proxyAuthEndpoints: [String],
+                             chainIds: [String], rpcUrls: [String], minimums: [String], maximums: [String]) -> Bool {
+--- a/android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbLibNetworkPolicy.kt
++++ b/android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbLibNetworkPolicy.kt
+@@ -23,7 +23,7 @@
+   fun permitsSend(logical: String, endpoints: List<String>, sender: String?): Boolean =
+     logical != "utexo" || (permitsReceive(logical, endpoints) && sender == DEV_PROXY)
+ 
+-  fun permitsBurn(logical: String): Boolean = logical != "utexo"
++  fun permitsBurn(logical: String): Boolean = logical != "utexo" && logical != "mainnet"
+ 
+   fun permitsOnline(
+     logical: String, proxy: String?, proxyAuthEndpoints: List<String>,
+--- a/lib/src/wallet/rgb_lib/rgb_lib_wallet.dart
++++ b/lib/src/wallet/rgb_lib/rgb_lib_wallet.dart
+@@ -63,6 +63,7 @@
+   String get network => params.network;
+   String getNetwork() => network;
+   bool get watchOnly => _keys.readMnemonic == null;
++  bool get _allowsBfaSchema => network != 'mainnet';
+   bool isDisposed() => _disposed;
+ 
+   /// Shared engine capabilities. Durable sends use [RgbLibDurableOperations].
+@@ -468,7 +469,10 @@
+   }) => _accept(() async {
+     _requireIdentity();
+     if ((signing && watchOnly) ||
+-        (burn && (network == 'utexo' || _runtime?.capabilities.burn != true)) ||
++        (burn &&
++            (!_allowsBfaSchema ||
++                network == 'utexo' ||
++                _runtime?.capabilities.burn != true)) ||
+         (registration && _runtime?.contractRegistration != true)) {
+       throw const RgbLibWalletException(
+         'This wallet cannot sign the requested operation.',
+@@ -1049,9 +1053,10 @@
+         _closing == null &&
+         !_closeRequired;
+     return BfaCapabilities(
+-      burn: ready && network != 'utexo' && !watchOnly && capabilities.burn,
++      burn:
++          ready && _allowsBfaSchema && network != 'utexo' && !watchOnly && capabilities.burn,
+       consignment: ready && capabilities.consignment,
+-      bfa: ready && capabilities.bfa,
++      bfa: ready && _allowsBfaSchema && capabilities.bfa,
+     );
+   }
+ 
+--- a/example/integration_test/rgb_lib_native_smoke_test.dart
++++ b/example/integration_test/rgb_lib_native_smoke_test.dart
+@@ -12,6 +12,42 @@
+ 
+ void main() {
+   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
++
++  testWidgets('mainnet opens with the supported schema policy', (tester) async {
++    final scratch = await Directory.systemTemp.createTemp('rgb-lib-mainnet-');
++    final wallet = RgbLibWallet(
++      params: RgbLibWalletParams(
++        network: 'mainnet',
++        storageDirPath: '${scratch.path}/wallet',
++      ),
++      keys: RgbLibKeys.mnemonic(_testMnemonic),
++    );
++    try {
++      final runtime = await RgbLibWallet.getRuntimeInfo();
++      expect(runtime.capabilities.bfa, isTrue);
++      await wallet.init();
++      expect((await wallet.getWalletIdentity()).network, 'mainnet');
++      expect(await wallet.getAddress(), startsWith('bc1p'));
++      final capabilities = await wallet.getBfaCapabilities();
++      expect(capabilities.bfa, isFalse);
++      expect(capabilities.burn, isFalse);
++      expect(capabilities.consignment, isTrue);
++      await expectLater(
++        wallet.burn(const BurnParams(
++          assetId: 'rgb:offline-smoke',
++          amount: '1',
++          feeRate: 1,
++          minConfirmations: 1,
++        )),
++        throwsA(isA<RgbLibWalletException>().having(
++          (error) => error.code, 'code', 'UNSUPPORTED_CAPABILITY',
++        )),
++      );
++    } finally {
++      await wallet.destroy();
++      await scratch.delete(recursive: true);
++    }
++  });
+ 
+   testWidgets(
+     'pinned RGB Lib bridge opens, locks and quarantines restored authority',

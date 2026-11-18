@@ -82,6 +82,33 @@ def read_source(pin, path):
     return files
 
 
+def read_npm_package(registry, path):
+    data = read_archive(registry['url'], path)
+    require(len(data) == registry['sizeBytes'], 'npm archive size does not match its pin')
+    require(hashlib.sha256(data).hexdigest() == registry['archiveSha256'],
+            'npm archive SHA-256 does not match its pin')
+    integrity = 'sha512-' + base64.b64encode(hashlib.sha512(data).digest()).decode('ascii')
+    require(integrity == registry['integritySha512'], 'npm registry integrity check failed')
+    package = source_files(data, 'package')
+    require(len(package) == registry['fileCount'], 'Unexpected npm archive file count')
+    return package
+
+
+def verify_source_delta(older, source, expected):
+    added = source.keys() - older.keys()
+    removed = older.keys() - source.keys()
+    modified = {name for name in older.keys() & source.keys() if older[name] != source[name]}
+    changes = sorted([f'+ {name}' for name in added]
+                     + [f'- {name}' for name in removed]
+                     + [f'~ {name}' for name in modified])
+    require((len(added), len(removed), len(modified))
+            == (expected['added'], expected['removed'], expected['modified']),
+            'Unexpected number of changed upstream paths')
+    require(hashlib.sha256('\n'.join(changes).encode()).hexdigest() == expected['pathsSha256'],
+            'Upstream delta paths do not match the audit')
+    return changes
+
+
 def verify(args):
     lock = json.loads(LOCK.read_text(encoding='utf-8'))
     if args.check_latest:
@@ -96,14 +123,7 @@ def verify(args):
             'Legacy package version does not match its source pin')
 
     registry = lock['registry']
-    data = read_archive(registry['url'], args.package)
-    require(len(data) == registry['sizeBytes'], 'npm archive size does not match its pin')
-    require(hashlib.sha256(data).hexdigest() == registry['archiveSha256'],
-            'npm archive SHA-256 does not match its pin')
-    integrity = 'sha512-' + base64.b64encode(hashlib.sha512(data).digest()).decode('ascii')
-    require(integrity == registry['integritySha512'], 'npm registry integrity check failed')
-    package = source_files(data, 'package')
-    require(len(package) == registry['fileCount'], 'Unexpected npm archive file count')
+    package = read_npm_package(registry, args.package)
     shared = source.keys() & package.keys()
     require(len(shared) == registry['sharedSourceFileCount'],
             'Unexpected number of npm files shared with the GitHub source')
@@ -136,19 +156,10 @@ def verify(args):
     flutter_native = json.loads(LOCK.with_name('rgb_lib_native_baseline.json')
                                 .read_text(encoding='utf-8'))
     validate_flutter_native_upgrade(flutter_native, reference_native)
+    if flutter_native != reference_native:
+        print('Flutter BFA.7 overlay is separate from the frozen RN beta.40 native reference.')
 
-    added = source.keys() - older.keys()
-    removed = older.keys() - source.keys()
-    modified = {name for name in older.keys() & source.keys() if older[name] != source[name]}
-    changes = sorted([f'+ {name}' for name in added]
-                     + [f'- {name}' for name in removed]
-                     + [f'~ {name}' for name in modified])
-    expected = lock['delta']
-    require((len(added), len(removed), len(modified))
-            == (expected['added'], expected['removed'], expected['modified']),
-            'Unexpected number of changed upstream paths')
-    require(hashlib.sha256('\n'.join(changes).encode()).hexdigest() == expected['pathsSha256'],
-            'Upstream delta paths do not match the audit')
+    changes = verify_source_delta(older, source, lock['delta'])
     if args.list_changes:
         print('\n'.join(changes))
     print(f"Verified {lock['package']}@{lock['version']} at {lock['source']['commit']}. "
@@ -205,7 +216,7 @@ def validate_flutter_native_upgrade(current, reference):
             and type(current['android']['archiveSizeBytes']) is int
             and current['android']['archiveSizeBytes'] > 0,
             'Flutter native archive sizes must be pinned')
-    print('Flutter BFA.7 overlay is separate from the frozen RN beta.40 native reference.')
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

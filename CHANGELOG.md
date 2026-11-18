@@ -2,6 +2,16 @@
 
 ## 0.2.0-beta.3 - Unreleased
 
+- Add `UtexoWallet.rgbLib(engine: ...)` and `UtexoWallet.rln(config: ...)` in
+  the existing package. Common calls stay bound to the selected native engine,
+  including contract registration and durable recovery. RGB_L1 exposes a typed
+  `getReceivedMint` lookup and retains its existing production gate.
+
+- Bring the RGB_L1 wallet up to the React Native beta.41 on-chain contract,
+  including offline encrypted backup export, constructor online settings,
+  offline skip-sync reads, per-chain mint-lock bounds, exact BFA supply and
+  every transfer change output. Keep the BFA.7 native core and recovery overlay.
+
 - Upgrade the separate RGB_L1 native engine to source-pinned BFA.7 with matching
   UniFFI bridge-5 Android/iOS bindings and exact source/overlay/lock metadata.
   Keep the released RN beta.40 BFA.5 reference independently immutable.

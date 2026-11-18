@@ -139,7 +139,8 @@ void _validateStableWalletBoundary(List<String> errors) {
     r"export 'src/wallet/utexo_wallet\.dart'\s+show\s+"
     r'UtexoWallet\s*,\s*resolveUnlockParams\s*,\s*'
     r'RecoverableOnchainSendCommand\s*,\s*RecoverableOnchainSendKind\s*,\s*'
-    r'RecoverableOnchainSendPhase\s*,\s*RecoverableOnchainSendStatus\s*;',
+    r'RecoverableOnchainSendPhase\s*,\s*RecoverableOnchainSendStatus\s*,\s*'
+    r'UtexoWalletEngineAccess\s*;',
   ).hasMatch(root)) {
     errors.add(
       'The stable root must export only the reviewed wallet, helper and '
@@ -156,6 +157,7 @@ void _validateStableWalletBoundary(List<String> errors) {
 
   const stableWalletFiles = <String>[
     'lib/src/wallet/utexo_wallet.dart',
+    'lib/src/wallet/rln_wallet_backend.dart',
     'lib/src/wallet/utexo_wallet_bfa.dart',
     'lib/src/wallet/utexo_wallet_lifecycle.dart',
     'lib/src/wallet/utexo_wallet_lsp_apay.dart',

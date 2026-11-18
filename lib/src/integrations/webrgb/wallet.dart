@@ -7,7 +7,14 @@ import '../../wallet/utexo_wallet_types.dart';
 
 /// Shared WebRGB calls without granting either engine the other's capabilities.
 final class WebRgbWallet {
-  WebRgbWallet.rln(UtexoWallet wallet)
+  factory WebRgbWallet.fromFacade(UtexoWallet wallet) {
+    final engine = wallet.rgbLibEngine;
+    return engine == null
+        ? WebRgbWallet._rln(wallet)
+        : WebRgbWallet.rgbLib(engine);
+  }
+
+  WebRgbWallet._rln(UtexoWallet wallet)
     : burnWallet = wallet,
       protocol = 'RGB_LN',
       getNetwork = wallet.getNetwork,
