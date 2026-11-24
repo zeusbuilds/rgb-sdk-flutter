@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 mixin _UtexoWalletAssetMedia on _UtexoWalletInternals {
   /// Returns on-chain asset metadata with exact supply values.

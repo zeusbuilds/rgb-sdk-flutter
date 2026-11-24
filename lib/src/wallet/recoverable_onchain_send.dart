@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'onchain_recovery.dart';
 
 /// The on-chain operation recorded by the durable native send journal.
 enum RecoverableOnchainSendKind { bitcoin, rgb }

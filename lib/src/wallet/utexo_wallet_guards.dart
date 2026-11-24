@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 mixin _UtexoWalletGuards on _UtexoWalletInternals {
   @override
@@ -51,7 +51,6 @@ mixin _UtexoWalletGuards on _UtexoWalletInternals {
 
   @override
   void _ensureActive() {
-    _ensureRln();
     _ensureNotDisposed();
     if (_lifecycleState == _WalletLifecycleState.shutDown) {
       throw const WalletException(

@@ -1,5 +1,10 @@
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+
+import 'api_export_graph.dart';
+
 const _barrelPath = 'lib/rgb_sdk_flutter.dart';
 const _docPath = 'doc/PUBLIC_API_REFERENCE.md';
 const _forbiddenStableRootSymbols = <String>{
@@ -43,6 +48,13 @@ const _forbiddenStableRootSymbols = <String>{
   'RlnVerifyMessageResult',
   'configureLogging',
   'createRLNManager',
+  'createAdvancedRlnWallet',
+  'createAdvancedUtexoWallet',
+  'RlnWalletRawApi',
+  'UtexoWalletRawApi',
+  'RlnRecoverableCodec',
+  'RgbLibRecoverableCodec',
+  'RgbLibFacadeAdapter',
   'logger',
   'mapNativeBridgeException',
 };
@@ -157,6 +169,7 @@ void _validateStableWalletBoundary(List<String> errors) {
 
   const stableWalletFiles = <String>[
     'lib/src/wallet/utexo_wallet.dart',
+    'lib/src/wallet/rln_wallet.dart',
     'lib/src/wallet/rln_wallet_backend.dart',
     'lib/src/wallet/utexo_wallet_bfa.dart',
     'lib/src/wallet/utexo_wallet_lifecycle.dart',
@@ -221,39 +234,49 @@ void _validateStableWalletBoundary(List<String> errors) {
   final walletSource = File(
     'lib/src/wallet/utexo_wallet.dart',
   ).readAsStringSync();
-  final constructor = RegExp(
-    r'\n  UtexoWallet\(\{([\s\S]*?)\n  \}\)\s*:\s*this\._\(',
-  ).firstMatch(walletSource);
-  if (constructor == null) {
-    errors.add('Stable UtexoWallet constructor shape could not be verified.');
-  } else {
-    final parameters = constructor.group(1)!;
-    for (final forbidden in <String>['RlnClient', 'RLNBinding']) {
-      if (parameters.contains(forbidden)) {
-        errors.add(
-          'Stable UtexoWallet constructor exposes advanced type `$forbidden`.',
-        );
-      }
+  errors.addAll(walletFacadeArchitectureErrors(walletSource));
+  for (final required in [
+    "export 'src/wallet/rln_wallet.dart' show RlnWallet;",
+    "export 'src/wallet/wallet_engine.dart' show WalletEngine;",
+  ]) {
+    if (!root.contains(required)) {
+      errors.add(
+        'Stable entrypoint must expose reviewed engine contract: $required',
+      );
+    }
+  }
+  for (final path in ['rln_wallet.dart', 'rgb_lib/rgb_lib_wallet.dart']) {
+    final source = File('lib/src/wallet/$path').readAsStringSync();
+    final unit = parseString(content: source).unit;
+    if (unit.directives.whereType<UriBasedDirective>().any(
+      (directive) =>
+          directive.uri.stringValue?.endsWith('/utexo_wallet.dart') == true ||
+          directive.uri.stringValue == 'utexo_wallet.dart',
+    )) {
+      errors.add('Engine $path must not depend on the wallet facade library.');
     }
   }
 
-  final rawSource = File(
-    'lib/src/wallet/utexo_wallet_raw.dart',
-  ).readAsStringSync();
-  if (!rawSource.contains('extension UtexoWalletRawApi on UtexoWallet')) {
-    errors.add('Missing advanced-only UtexoWalletRawApi extension.');
-  }
-  for (final required in <String>[
-    'issueAssetNiaRaw',
-    'issueAssetIfaRaw',
-    'inflateRaw',
-    'estimateFeeRateRaw',
-    'checkIndexerUrlRaw',
-    'createRlnLightningInvoice',
-    'payRlnLightningInvoice',
+  for (final (path, extensionName, onType) in [
+    ('utexo_wallet_raw.dart', 'RlnWalletRawApi', 'RlnWallet'),
+    ('utexo_wallet_raw_compatibility.dart', 'UtexoWalletRawApi', 'UtexoWallet'),
   ]) {
-    if (!RegExp('\\b${RegExp.escape(required)}\\s*\\(').hasMatch(rawSource)) {
-      errors.add('Advanced wallet API is missing `$required`.');
+    final rawSource = File('lib/src/wallet/$path').readAsStringSync();
+    if (!rawSource.contains('extension $extensionName on $onType')) {
+      errors.add('Missing advanced-only $extensionName extension.');
+    }
+    for (final required in <String>[
+      'issueAssetNiaRaw',
+      'issueAssetIfaRaw',
+      'inflateRaw',
+      'estimateFeeRateRaw',
+      'checkIndexerUrlRaw',
+      'createRlnLightningInvoice',
+      'payRlnLightningInvoice',
+    ]) {
+      if (!RegExp('\\b${RegExp.escape(required)}\\s*\\(').hasMatch(rawSource)) {
+        errors.add('Advanced $extensionName is missing `$required`.');
+      }
     }
   }
 
@@ -315,33 +338,87 @@ void _validateStableWalletBoundary(List<String> errors) {
   }
 }
 
-Set<String> _exportedPublicSymbols() {
-  final barrel = File(_barrelPath).readAsStringSync();
-  final symbols = <String>{'RgbSdkFlutter'};
-
-  for (final match in _exportDirectives(barrel)) {
-    final file = File('lib/${match.path}');
-    if (!file.existsSync()) {
-      throw StateError('Exported file does not exist: ${file.path}');
-    }
-    final librarySymbols = <String>{};
-    for (final libraryFile in _dartLibraryFiles(file)) {
-      librarySymbols.addAll(publicSymbolsIn(libraryFile.readAsStringSync()));
-    }
-    symbols.addAll(_filterSymbols(librarySymbols, match));
+/// Guards the composition boundary without relying on a constructor regex.
+List<String> walletFacadeArchitectureErrors(String source) {
+  final errors = <String>[];
+  final unit = parseString(content: source).unit;
+  final classes = unit.declarations.whereType<ClassDeclaration>();
+  final facade = classes
+      .where((node) => node.namePart.typeName.lexeme == 'UtexoWallet')
+      .singleOrNull;
+  if (facade == null || facade.body is! BlockClassBody) {
+    return ['Missing concrete UtexoWallet facade.'];
   }
-  return symbols;
+  if (facade.extendsClause != null || facade.withClause != null) {
+    errors.add(
+      'UtexoWallet must use composition without engine inheritance or mixins.',
+    );
+  }
+  final members = (facade.body as BlockClassBody).members;
+  final fields = members.whereType<FieldDeclaration>().toList();
+  final names = fields
+      .expand((field) => field.fields.variables.map((v) => v.name.lexeme))
+      .toSet();
+  if (names.length != 2 ||
+      !names.containsAll({'engine', '_rgbApi'}) ||
+      fields.any((field) => !field.fields.isFinal)) {
+    errors.add(
+      'UtexoWallet may own only the immutable engine and stateless typed adapter.',
+    );
+  }
+  final constructor = members
+      .whereType<ConstructorDeclaration>()
+      .where((node) => node.name == null)
+      .singleOrNull;
+  if (constructor == null || constructor.factoryKeyword == null) {
+    errors.add('UtexoWallet must use the reviewed engine-selecting factory.');
+  } else {
+    final actual = <String, String>{};
+    for (final raw in constructor.parameters.parameters) {
+      final parameter = raw is DefaultFormalParameter ? raw.parameter : raw;
+      if (parameter is SimpleFormalParameter) {
+        actual[parameter.name!.lexeme] =
+            parameter.type?.toSource() ?? 'dynamic';
+      }
+    }
+    const expected = {
+      'engine': 'WalletEngine?',
+      'params': 'RgbLibWalletParams?',
+      'keys': 'RgbLibKeys?',
+      'online': 'RgbLibUnlockParams?',
+    };
+    if (actual.length != expected.length ||
+        expected.entries.any((e) => actual[e.key] != e.value)) {
+      errors.add(
+        'Default UtexoWallet parameters must select an engine or typed RGB_L1 configuration.',
+      );
+    }
+  }
+  final selection = unit.declarations
+      .whereType<FunctionDeclaration>()
+      .where((node) => node.name.lexeme == '_selectEngine')
+      .singleOrNull;
+  final selectionBody = selection?.functionExpression.body.toSource() ?? '';
+  if (!selectionBody.contains('return RgbLibWallet(') ||
+      selectionBody.contains('RlnWallet(')) {
+    errors.add(
+      'Default wallet selection must create RGB_L1 and never implicitly create RLN.',
+    );
+  }
+  return errors;
 }
 
-List<File> _dartLibraryFiles(File file) {
-  final source = file.readAsStringSync();
-  final directory = file.parent.path;
-  final partPattern = RegExp(r"part '([^']+)';");
-  return <File>[
-    file,
-    for (final match in partPattern.allMatches(source))
-      File('$directory/${match.group(1)!}'),
-  ];
+Set<String> _exportedPublicSymbols() {
+  final graph = collectDartExportGraph(
+    entrypoints: [_barrelPath],
+    readSource: (path) => File(path).readAsStringSync(),
+  );
+  return {
+    for (final entry in graph.entries)
+      ...publicSymbolsIn(
+        File(entry.key).readAsStringSync(),
+      ).where(entry.value.allows),
+  };
 }
 
 /// Enumerates declarations that require public API documentation.
@@ -367,48 +444,4 @@ Set<String> publicSymbolsIn(String source) {
     if (!name.startsWith('_')) declarations.add(name);
   }
   return declarations;
-}
-
-List<_ExportDirective> _exportDirectives(String barrel) {
-  final exportPattern = RegExp(r"export '([^']+)'([^;]*);");
-  return exportPattern
-      .allMatches(barrel)
-      .map(
-        (match) => _ExportDirective(
-          match.group(1)!,
-          show: _symbolsFromCombinator(match.group(2)!, 'show'),
-          hide: _symbolsFromCombinator(match.group(2)!, 'hide'),
-        ),
-      )
-      .toList(growable: false);
-}
-
-Set<String>? _symbolsFromCombinator(String source, String keyword) {
-  final match = RegExp('(?:^|\\s)$keyword\\s+([^;]+)').firstMatch(source);
-  if (match == null) return null;
-  final raw = match.group(1)!;
-  final stop = RegExp(r'\s(?:show|hide)\s').firstMatch(raw);
-  final values = stop == null ? raw : raw.substring(0, stop.start);
-  return values
-      .split(',')
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toSet();
-}
-
-Set<String> _filterSymbols(Set<String> symbols, _ExportDirective directive) {
-  final show = directive.show;
-  final hide = directive.hide ?? const <String>{};
-  return symbols
-      .where((symbol) => show == null || show.contains(symbol))
-      .where((symbol) => !hide.contains(symbol))
-      .toSet();
-}
-
-class _ExportDirective {
-  const _ExportDirective(this.path, {this.show, this.hide});
-
-  final String path;
-  final Set<String>? show;
-  final Set<String>? hide;
 }

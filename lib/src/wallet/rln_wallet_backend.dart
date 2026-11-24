@@ -1,7 +1,7 @@
 // Private mixin contracts are consumed across this library's part files.
 // ignore_for_file: unused_element, unused_element_parameter
 
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 enum _WalletLifecycleState {
   uninitialized,
@@ -15,7 +15,7 @@ enum _WalletLifecycleState {
 }
 
 abstract class _UtexoWalletInternals {
-  UtexoWallet get _walletSelf;
+  ILspWallet get _walletSelf;
   UtexoWalletConfig get _config;
   RlnClient get _client;
   RLNBinding get _binding;
@@ -63,7 +63,6 @@ abstract class _UtexoWalletInternals {
   RlnMap _asRlnMap(Object? value);
   int _requireNode();
   int _requireUnlockedNode();
-  void _ensureRln();
   void _ensureInitialized();
   void _ensureActive();
   void _assertLightningEnabled();
@@ -102,7 +101,7 @@ abstract class _RlnWalletBackend extends _UtexoWalletInternals
   static const _defaultOperationTimeouts = RlnOperationTimeoutPolicy();
 
   _RlnWalletBackend({
-    required UtexoWalletConfig config,
+    required RlnWalletConfig config,
     RlnClient? client,
     RLNBinding? binding,
     RlnOperationTimeoutPolicy? operationTimeouts,
@@ -129,38 +128,19 @@ abstract class _RlnWalletBackend extends _UtexoWalletInternals
     );
   }
 
-  _RlnWalletBackend.withoutRln() : _rln = null;
-
-  late final ({UtexoWalletConfig config, RlnClient client, RLNBinding binding})?
+  late final ({UtexoWalletConfig config, RlnClient client, RLNBinding binding})
   _rln;
 
   @override
-  void _ensureRln() {
-    if (_rln == null) {
-      throw const UnsupportedWalletFeatureException(
-        'This operation requires an RGB_LN wallet. For RGB_L1-specific '
-        'operations, use rgbLibEngine.',
-        feature: 'RGB_LN',
-      );
-    }
-  }
-
-  ({UtexoWalletConfig config, RlnClient client, RLNBinding binding})
-  get _requireRln {
-    _ensureRln();
-    return _rln!;
-  }
-
-  @override
-  UtexoWalletConfig get _config => _requireRln.config;
+  UtexoWalletConfig get _config => _rln.config;
 
   /// Canonical native network used by decoded RGB and Lightning invoices.
   @override
   String get network => normalizeNativeRlnNetwork(_config.network);
   @override
-  RlnClient get _client => _requireRln.client;
+  RlnClient get _client => _rln.client;
   @override
-  RLNBinding get _binding => _requireRln.binding;
+  RLNBinding get _binding => _rln.binding;
   @override
   RlnSigner? _signer;
 

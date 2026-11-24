@@ -168,7 +168,7 @@ void main() {
     final storageDir = await Directory.systemTemp.createTemp(
       'rgb-sdk-flutter-wallet-regtest-',
     );
-    final wallet = UtexoWallet(
+    final wallet = UtexoWallet.rln(
       config: UtexoWalletConfig(
         storageDirPath: storageDir.path,
         daemonListeningPort: 34021,
@@ -452,7 +452,7 @@ Future<_RegtestWalletFixture> _makeRegtestWallet(
   );
   return _RegtestWalletFixture(
     storageDir: storageDir,
-    wallet: UtexoWallet(
+    wallet: UtexoWallet.rln(
       config: UtexoWalletConfig(
         storageDirPath: storageDir.path,
         daemonListeningPort: daemonPort,

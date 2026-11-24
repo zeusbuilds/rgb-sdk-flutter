@@ -105,7 +105,7 @@ Future<Map<String, Object?>> _command(
   );
 }
 
-UtexoWallet _wallet(Directory directory, int offset) => UtexoWallet(
+UtexoWallet _wallet(Directory directory, int offset) => UtexoWallet.rln(
   config: UtexoWalletConfig(
     storageDirPath: directory.path,
     network: 'regtest',

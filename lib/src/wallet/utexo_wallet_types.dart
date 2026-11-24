@@ -1,5 +1,12 @@
 import '../errors/rgb_sdk_exception.dart';
 
+/// Configuration for the standalone RGB Lightning Node engine.
+/// The legacy name remains available for source compatibility.
+typedef RlnWalletConfig = UtexoWalletConfig;
+
+/// Connection configuration for the standalone RGB Lightning Node engine.
+typedef RlnUnlockConfig = UtexoUnlockConfig;
+
 /// Configuration used to create an RLN node.
 ///
 /// [storageDirPath] must point at an app-owned persistent directory. On native

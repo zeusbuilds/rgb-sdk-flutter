@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 mixin _UtexoWalletLspApay on _UtexoWalletInternals {
   Future<ApayNewResponse> apayNew(String hostNodeId) async {

@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+
+import 'api_export_graph.dart';
 import 'evidence_target.dart';
 
 const _validSupport = <String>{
@@ -122,6 +126,18 @@ void main() {
     lspClientMatrix: lspClientMatrix,
     errors: errors,
   );
+  _validateCallableImplementations('wallet_methods.json', walletMatrix, errors);
+  for (final (name, path) in const [
+    ('RlnWallet', 'lib/src/wallet/rln_wallet.dart'),
+    ('WalletEngine', 'lib/src/wallet/wallet_engine.dart'),
+  ]) {
+    final methods = _extractPublicClassMethods(path, name);
+    for (final method in methods.difference(_methodIds(walletMatrix))) {
+      errors.add(
+        '$name.$method is public but has no reviewed wallet matrix row.',
+      );
+    }
+  }
   _validateCallableImplementations('lsp_methods.json', lspMatrix, errors);
   _validateCallableImplementations(
     'lsp_client_methods.json',
@@ -385,35 +401,21 @@ Set<String> _collectEntrypointSymbols(
     errors.add('Missing package entrypoint: $entrypointPath');
     return <String>{};
   }
-  final symbols = _publicTopLevelSymbols(entrypoint);
-  final exportPattern = RegExp(r"export\s+'([^']+)'([^;]*);");
-  for (final match in exportPattern.allMatches(entrypoint.readAsStringSync())) {
-    final target = File('${entrypoint.parent.path}/${match.group(1)!}');
-    if (!target.existsSync()) {
-      errors.add('$entrypointPath exports missing file ${target.path}.');
-      continue;
-    }
-    final available = <String>{};
-    for (final libraryFile in _dartLibraryFiles(target)) {
-      available.addAll(_publicTopLevelSymbols(libraryFile));
-    }
-    final combinators = match.group(2)!;
-    final show = _combinatorSymbols(combinators, 'show');
-    final hide = _combinatorSymbols(combinators, 'hide') ?? const <String>{};
-    symbols.addAll(
-      available.where(
-        (name) => (show == null || show.contains(name)) && !hide.contains(name),
-      ),
-    );
-  }
-  return symbols;
+  final graph = collectDartExportGraph(
+    entrypoints: [entrypointPath],
+    readSource: (path) => File(path).readAsStringSync(),
+  );
+  return {
+    for (final entry in graph.entries)
+      ..._publicTopLevelSymbols(File(entry.key)).where(entry.value.allows),
+  };
 }
 
 Set<String> _publicTopLevelSymbols(File file) {
   final symbols = <String>{};
   final declaration = RegExp(
     r'^(?:abstract\s+final\s+class|abstract\s+interface\s+class|'
-    r'abstract\s+class|sealed\s+class|class|enum|typedef|extension)\s+'
+    r'abstract\s+class|sealed\s+class|final\s+class|class|enum|typedef|extension)\s+'
     r'([A-Za-z_][A-Za-z0-9_]*)',
   );
   final callable = RegExp(
@@ -435,18 +437,6 @@ Set<String> _publicTopLevelSymbols(File file) {
     }
   }
   return symbols;
-}
-
-Set<String>? _combinatorSymbols(String source, String keyword) {
-  final match = RegExp('(?:^|\\s)$keyword\\s+([^;]+)').firstMatch(source);
-  if (match == null) return null;
-  final raw = match.group(1)!;
-  final stop = RegExp(r'\s(?:show|hide)\s').firstMatch(raw);
-  return (stop == null ? raw : raw.substring(0, stop.start))
-      .split(',')
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toSet();
 }
 
 Map<String, Object?> _readMatrix(
@@ -639,11 +629,25 @@ Set<String> _extractPublicClassMethods(String relativePath, String className) {
     );
   }
   if (className == 'UtexoWallet') {
+    methods.addAll(
+      _extractPublicMembersFromScope(
+        file,
+        'extension',
+        'UtexoWalletEngineAccess',
+      ),
+    );
+    methods.addAll(
+      _extractPublicMembersFromScope(
+        File('lib/src/wallet/utexo_wallet_raw_compatibility.dart'),
+        'extension',
+        'UtexoWalletRawApi',
+      ),
+    );
+  } else if (className == 'RlnWallet') {
     const scopes = <(String, String)>[
       ('class', '_RlnWalletBackend'),
       ('mixin', '_UtexoWallet'),
-      ('extension', 'UtexoWalletEngineAccess'),
-      ('extension', 'UtexoWalletRawApi'),
+      ('extension', 'RlnWalletRawApi'),
     ];
     for (final libraryFile in files) {
       for (final (keyword, scope) in scopes) {
@@ -687,67 +691,46 @@ Set<String> _extractPublicMembersFromScope(
   String keyword,
   String scopeName,
 ) {
+  final unit = parseString(
+    content: file.readAsStringSync(),
+    path: file.path,
+  ).unit;
   final methods = <String>{};
-  final methodRegex = RegExp(
-    r'^\s*(?:[A-Za-z_][A-Za-z0-9_<>, ?]*[>?]*\s+)+([A-Za-z_][A-Za-z0-9_]*)(?:<[^>]+>)?\s*\(',
-  );
-  var inScope = false;
-  var seenBody = false;
-  var braceDepth = 0;
-
-  for (final line in file.readAsLinesSync()) {
-    if (!inScope) {
-      if (line.contains(RegExp('$keyword\\s+$scopeName'))) {
-        inScope = true;
-        braceDepth += _braceDelta(line);
-      }
-      continue;
-    }
-
-    braceDepth += _braceDelta(line);
-    if (!seenBody) {
-      if (braceDepth <= 0) continue;
-      seenBody = true;
-    } else if (braceDepth <= 0) {
-      break;
-    }
-
-    final trimmed = line.trimLeft();
-    if (trimmed.startsWith('_') ||
-        trimmed.startsWith('if ') ||
-        trimmed.startsWith('for ') ||
-        trimmed.startsWith('while ') ||
-        trimmed.startsWith('switch ') ||
-        trimmed.startsWith('catch ') ||
-        trimmed.startsWith('try ') ||
-        trimmed.startsWith('throw ') ||
-        trimmed.startsWith('return ') ||
-        trimmed.startsWith('await ') ||
-        trimmed.startsWith('final ') ||
-        trimmed.startsWith('late ') ||
-        trimmed.startsWith('var ') ||
-        trimmed.startsWith('factory ') ||
-        trimmed.startsWith('static ') ||
-        trimmed.startsWith('get ') ||
-        trimmed.contains(' Function(')) {
-      continue;
-    }
-
-    final match = methodRegex.firstMatch(line);
-    if (match == null) continue;
-
-    final methodName = match.group(1)!;
-    if (methodName.startsWith('_') || methodName == scopeName) continue;
-    methods.add(methodName);
+  for (final declaration in unit.declarations) {
+    final (kind, name, members) = switch (declaration) {
+      ClassDeclaration(:final namePart, :final body) => (
+        'class',
+        namePart.typeName.lexeme,
+        body is BlockClassBody ? body.members : const <ClassMember>[],
+      ),
+      MixinDeclaration(:final name, :final body) => (
+        'mixin',
+        name.lexeme,
+        body.members,
+      ),
+      ExtensionDeclaration(:final name, :final body) => (
+        'extension',
+        name?.lexeme,
+        body.members,
+      ),
+      _ => ('', null, const <ClassMember>[]),
+    };
+    final matches =
+        name == scopeName ||
+        (scopeName == '_UtexoWallet' && (name?.startsWith(scopeName) ?? false));
+    if (kind != keyword || !matches) continue;
+    methods.addAll(
+      members
+          .whereType<MethodDeclaration>()
+          .where(
+            (method) =>
+                !method.isGetter &&
+                !method.isSetter &&
+                !method.isStatic &&
+                !method.name.lexeme.startsWith('_'),
+          )
+          .map((method) => method.name.lexeme),
+    );
   }
   return methods;
-}
-
-int _braceDelta(String line) {
-  var delta = 0;
-  for (final codeUnit in line.codeUnits) {
-    if (codeUnit == 123) delta += 1;
-    if (codeUnit == 125) delta -= 1;
-  }
-  return delta;
 }

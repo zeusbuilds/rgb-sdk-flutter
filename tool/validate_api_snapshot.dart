@@ -143,7 +143,9 @@ Map<String, Object?> _buildSnapshot() {
     ),
     'stableWalletSurface': _dartMemberSurface(<String>[
       'lib/src/wallet/utexo_wallet.dart',
+      'lib/src/wallet/rln_wallet.dart',
       'lib/src/wallet/rln_wallet_backend.dart',
+      'lib/src/wallet/wallet_engine.dart',
       'lib/src/wallet/utexo_wallet_bfa.dart',
       'lib/src/wallet/utexo_wallet_lifecycle.dart',
       'lib/src/wallet/utexo_wallet_lsp_apay.dart',
@@ -154,6 +156,7 @@ Map<String, Object?> _buildSnapshot() {
     ]),
     'advancedWalletRawSurface': _dartMemberSurface(<String>[
       'lib/src/wallet/utexo_wallet_raw.dart',
+      'lib/src/wallet/utexo_wallet_raw_compatibility.dart',
     ]),
     'pigeonSchema': _surface(<String>['pigeons/rln_api.dart']),
     'generatedPigeonSurface': _surface(generatedPigeonFiles),
@@ -233,7 +236,11 @@ List<String> _publicDartMembers(String path, String source) {
       if (member is MethodDeclaration && !member.name.lexeme.startsWith('_')) {
         members.add(_methodSignature(member));
       } else if (member is ConstructorDeclaration &&
-          ownerName == 'UtexoWallet' &&
+          const {
+            'UtexoWallet',
+            'RlnWallet',
+            'RgbLibWallet',
+          }.contains(ownerName) &&
           (member.name == null || !member.name!.lexeme.startsWith('_'))) {
         members.add(_constructorSignature(ownerName!, member));
       }

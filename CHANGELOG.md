@@ -2,10 +2,17 @@
 
 ## 0.2.0-beta.3 - Unreleased
 
-- Add `UtexoWallet.rgbLib(engine: ...)` and `UtexoWallet.rln(config: ...)` in
-  the existing package. Common calls stay bound to the selected native engine,
-  including contract registration and durable recovery. RGB_L1 exposes a typed
-  `getReceivedMint` lookup and retains its existing production gate.
+- Make `UtexoWallet` a composition-only facade over independent `RlnWallet`
+  and `RgbLibWallet` engines in the same package. Each engine owns its own
+  config, lifecycle, native session and durable recovery. Both engine types
+  share burn journal ownership with every facade that wraps them.
+- Change the default constructor and package wallet factory to RGB_L1 with
+  typed params/keys/online settings. Existing RLN consumers must use
+  `UtexoWallet.rln`, `RgbSdkFlutter.rlnWallet`, or pass an explicit `RlnWallet`.
+  Add `RlnWalletConfig` and `RlnUnlockConfig` aliases and retain advanced raw
+  access on the typed RLN engine. Preserve wallet storage and recovery formats.
+  Production RGB_L1 remains gated; published BFA.7 pins and the separate BFA.8
+  candidate retain their independent qualification requirements.
 
 - Bring the RGB_L1 wallet up to the React Native beta.41 on-chain contract,
   including offline encrypted backup export, constructor online settings,

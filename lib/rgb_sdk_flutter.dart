@@ -1,8 +1,12 @@
+import 'src/binding/rln_binding.dart';
 import 'src/native_artifact_info.dart';
 import 'src/native_artifact_provider.dart';
 import 'src/release_baseline.g.dart';
+import 'src/wallet/rgb_lib/config.dart';
+import 'src/wallet/rln_signers.dart';
 import 'src/wallet/utexo_wallet.dart';
 import 'src/wallet/utexo_wallet_types.dart';
+import 'src/wallet/wallet_engine.dart';
 
 export 'src/binding/rln_binding.dart' show RlnOperationTimeoutPolicy;
 export 'src/crypto/constants.dart'
@@ -151,6 +155,7 @@ export 'src/wallet/rln_signers.dart'
         RlnSeedHexKeyMaterial,
         RlnSigner,
         RlnSignerHost;
+export 'src/wallet/rln_wallet.dart' show RlnWallet;
 export 'src/wallet/utexo_wallet.dart'
     show
         UtexoWallet,
@@ -161,11 +166,12 @@ export 'src/wallet/utexo_wallet.dart'
         RecoverableOnchainSendStatus,
         UtexoWalletEngineAccess;
 export 'src/wallet/utexo_wallet_types.dart';
+export 'src/wallet/wallet_engine.dart' show WalletEngine;
 
 /// Flutter entry point for Bitcoin, RGB and RGB Lightning Node wallets.
 ///
-/// [wallet] creates the legacy RLN facade. Use [UtexoWallet.rgbLib] to
-/// select an existing on-chain RGB_L1 engine.
+/// [wallet] defaults to the on-chain RGB_L1 engine. Use [rlnWallet]
+/// to select RGB Lightning Node explicitly, or supply an existing engine.
 /// Low-level RN/native parity APIs live in `rgb_sdk_flutter_advanced.dart`.
 class RgbSdkFlutter {
   const RgbSdkFlutter();
@@ -188,7 +194,21 @@ class RgbSdkFlutter {
   }
 
   /// Creates a typed wallet facade for app-level wallet workflows.
-  UtexoWallet wallet({required UtexoWalletConfig config}) {
-    return UtexoWallet(config: config);
-  }
+  UtexoWallet wallet({
+    WalletEngine? engine,
+    RgbLibWalletParams? params,
+    RgbLibKeys? keys,
+    RgbLibUnlockParams? online,
+  }) => UtexoWallet(engine: engine, params: params, keys: keys, online: online);
+
+  /// Selects the independent RLN engine explicitly.
+  UtexoWallet rlnWallet({
+    required RlnWalletConfig config,
+    RlnOperationTimeoutPolicy? operationTimeouts,
+    RlnSigner? signer,
+  }) => UtexoWallet.rln(
+    config: config,
+    operationTimeouts: operationTimeouts,
+    signer: signer,
+  );
 }

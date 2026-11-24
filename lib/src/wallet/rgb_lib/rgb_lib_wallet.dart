@@ -8,9 +8,8 @@ import '../../errors/rgb_sdk_exception.dart';
 import '../../models/burn_models.dart';
 import '../../models/imported_rgb_contract.dart';
 import '../../models/utexo_core_models.dart';
-import '../burn_operations.dart';
 import '../dev_signet_policy.dart';
-import '../utexo_wallet.dart'
+import '../onchain_recovery.dart'
     show
         RecoverableOnchainSendCommand,
         RecoverableOnchainSendStatus,
@@ -18,6 +17,7 @@ import '../utexo_wallet.dart'
         RecoverableOnchainSendPhase,
         RgbLibRecoverableCodec;
 import '../utexo_wallet_types.dart';
+import '../wallet_engine.dart';
 import 'config.dart';
 import 'network_profile.dart';
 import 'wire.dart';
@@ -31,7 +31,7 @@ part 'hosted_dev_bridge.dart';
 /// All calls on one wallet execute in order. Native owns the exclusive storage
 /// claim. Use [destroy] when the object will no longer be used. A mnemonic
 /// reader should only read keys and must not call this wallet from inside init.
-final class RgbLibWallet implements BurnCapabilityWallet {
+final class RgbLibWallet implements WalletEngine {
   /// [online] provides connection defaults without connecting during [init].
   RgbLibWallet({
     required this.params,
@@ -59,11 +59,16 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   RgbLibOnlineConfig? _online;
   RgbLibRuntimeInfo? _runtime;
 
+  @override
   String get protocol => 'RGB_L1';
+  @override
   String get contractVersion => '1';
+  @override
   String get network => params.network;
+  @override
   String getNetwork() => network;
   bool get watchOnly => _keys.readMnemonic == null;
+  @override
   bool isDisposed() => _disposed;
 
   /// Shared engine capabilities. Durable sends use [RgbLibDurableOperations].
@@ -75,6 +80,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   );
 
   /// Whether an authenticated session is open and available for calls.
+  @override
   bool get isInitialized =>
       _identity != null &&
       !_disposeRequested &&
@@ -82,9 +88,11 @@ final class RgbLibWallet implements BurnCapabilityWallet {
       _closing == null;
 
   /// Whether the available session has connected to its configured network.
+  @override
   bool get isUnlocked => isInitialized && _online != null;
 
   /// Whether an opened session was shut down and may be reopened.
+  @override
   bool get isShutdown => _shutDown && !_disposeRequested && _closing == null;
 
   /// Whether the opened signing backend implements the native recovery protocol.
@@ -243,6 +251,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   }
 
   /// Opens a native session. No network connection is required.
+  @override
   Future<void> init() => _accept(_open, operation: 'init');
   Future<void> initialize() => init();
 
@@ -405,6 +414,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   /// This retains legacy behavior: missing or empty storage can be initialized
   /// as a new profile. Call [openExisting] for a previously provisioned wallet
   /// when missing storage must fail instead of creating a new cohort.
+  @override
   Future<void> reinit([RgbLibUnlockParams? params]) => _accept(() async {
     if (_handle != null) {
       throw const RgbLibWalletException(
@@ -435,9 +445,11 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   });
 
   /// Closes the native session without removing wallet data.
+  @override
   Future<void> shutdown() => _close(terminal: false);
 
   /// Closes this session permanently. Wallet files remain on disk.
+  @override
   Future<void> destroy() => _close(terminal: true);
   Future<void> dispose() => destroy();
 
@@ -578,7 +590,9 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     return (message: 'Wallet restored successfully');
   }
 
+  @override
   Future<String> getAddress() => _address(rotate: false);
+  @override
   Future<String> rotateVanillaAddress() => _address(rotate: true);
 
   Future<String> _address({required bool rotate}) => _call(
@@ -637,6 +651,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     );
   }
 
+  @override
   Future<CoreBtcBalance> getBtcBalance({bool skipSync = false}) => _call(
     'getBtcBalance',
     (value) {
@@ -650,6 +665,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     online: !skipSync,
   );
 
+  @override
   Future<CoreAssetBalance> getAssetBalance(String assetId) => _call(
     'getAssetBalance',
     (value) => RgbLibWire(value, 'assetBalance').assetBalance,
@@ -680,12 +696,14 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     },
   );
 
+  @override
   Future<RgbLibAssetMetadata> getAssetMetadata(String assetId) => _call(
     'getAssetMetadata',
     (value) => RgbLibWire(value, 'assetMetadata').metadata,
     arguments: {'assetId': _assetId(assetId)},
   );
 
+  @override
   Future<List<CoreUnspent>> listUnspents({bool skipSync = false}) => _call(
     'listUnspents',
     (value) => List.unmodifiable(
@@ -695,6 +713,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     online: !skipSync,
   );
 
+  @override
   Future<List<CoreTransaction>> listTransactions({bool skipSync = false}) =>
       _call(
         'listTransactions',
@@ -705,6 +724,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
         online: !skipSync,
       );
 
+  @override
   Future<List<CoreTransaction>> listTransactionsByTxid(
     String txid, {
     bool skipSync = false,
@@ -718,6 +738,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   Future<List<RgbLibTransfer>> listTransfers({String? assetId}) =>
       _listTransfers(assetId: assetId);
 
+  @override
   Future<List<RgbLibTransfer>> listTransfersByTxid(String txid) =>
       _listTransfers(txid: _validateTxid(txid));
 
@@ -865,6 +886,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     );
   }
 
+  @override
   Future<RgbLibInvoiceData> decodeRgbInvoice(String invoice) => _call(
     'decodeInvoice',
     (value) => RgbLibWire(value, 'invoice').invoice(invoice),
@@ -1095,6 +1117,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
   Future<String> getConsignment(String assetId, String txid) =>
       _consignment('getConsignment', assetId, txid);
 
+  @override
   Future<String> getConsignmentPath(String assetId, String txid) =>
       _consignment('getConsignmentPath', assetId, txid);
 
@@ -1107,6 +1130,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     );
   }
 
+  @override
   Future<bool> failTransfers({
     int? batchTransferIdx,
     bool noAssetOnly = false,
@@ -1160,11 +1184,13 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     online: true,
   );
 
+  @override
   Future<RefreshTransfersResult> refreshTransfers({bool skipSync = false}) =>
       refresh(skipSync: skipSync);
 
   /// Completes a refresh only when every native transfer observation succeeded.
   /// Use [refreshTransfers] to inspect deliberate partial results directly.
+  @override
   Future<void> refreshWallet() async {
     final result = await refreshTransfers();
     if (result.transfers.values.any((transfer) => transfer.failure != null)) {
@@ -1175,6 +1201,7 @@ final class RgbLibWallet implements BurnCapabilityWallet {
     }
   }
 
+  @override
   Future<void> syncWallet() =>
       _call('sync', _void, online: true, publicOperation: 'syncWallet');
 

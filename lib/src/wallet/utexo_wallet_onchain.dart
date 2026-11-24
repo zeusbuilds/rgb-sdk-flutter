@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 // A fresh command can initialize its outbox only on its first status attempt.
 // This session latch is deliberately absent from the persisted JSON envelope.
@@ -17,7 +17,7 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     _requireRecoverableMode();
     _requireUnlockedNode();
     _requireFeeRate(feeRate, 'feeRate');
-    return _validatedRecoverableCommand(
+    return RlnRecoverableCodec.create(
       network: normalizeNativeRlnNetwork(_config.network),
       walletBinding: await _recoverableWalletBinding(),
       request: <String, Object?>{
@@ -44,19 +44,19 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     _requireUnlockedNode();
     _requireFeeRate(request.feeRate, 'feeRate');
     _requireSupportedRgbSendSkipSync(request.skipSync);
-    if (request.donation) _recoverableInvalid('donation');
-    if (request.amount == null) _recoverableInvalid('amount');
+    if (request.donation) RlnRecoverableCodec.invalid('donation');
+    if (request.amount == null) RlnRecoverableCodec.invalid('amount');
     final decoded = await _decodeRgbInvoiceRaw(request.invoice);
     if (normalizeNativeRlnNetwork(decoded.network) !=
         normalizeNativeRlnNetwork(_config.network)) {
-      _recoverableInvalid('invoice.network');
+      RlnRecoverableCodec.invalid('invoice.network');
     }
     if (decoded.assetId != null &&
         request.assetId != null &&
         decoded.assetId != request.assetId) {
-      _recoverableInvalid('invoice.assetId');
+      RlnRecoverableCodec.invalid('invoice.assetId');
     }
-    return _validatedRecoverableCommand(
+    return RlnRecoverableCodec.create(
       network: normalizeNativeRlnNetwork(_config.network),
       walletBinding: await _recoverableWalletBinding(),
       request: <String, Object?>{
@@ -84,7 +84,7 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     final nodeId = _requireUnlockedNode();
     final info = await _binding.rlnNodeInfo();
     if (_requireUnlockedNode() != nodeId) {
-      _recoverableInvalid('command.wallet');
+      RlnRecoverableCodec.invalid('command.wallet');
     }
     final vanilla = info.accountXpubVanilla;
     final colored = info.accountXpubColored;
@@ -123,11 +123,11 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
   }) async {
     _requireRecoverableMode();
     _requireUnlockedNode();
-    if (command.version == 3) _recoverableInvalid('command.backend');
+    if (command.version == 3) RlnRecoverableCodec.invalid('command.backend');
     if (command.network != normalizeNativeRlnNetwork(_config.network) ||
         (command.version == 1 &&
             command.storageDirPath != _config.storageDirPath)) {
-      _recoverableInvalid('command.wallet');
+      RlnRecoverableCodec.invalid('command.wallet');
     }
     // Check the current physical cohort before any native identity/outbox call.
     await requireRecoverableStorage(
@@ -136,7 +136,7 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     );
     if (command.version == 2 &&
         command.walletBinding != await _recoverableWalletBinding()) {
-      _recoverableInvalid('command.wallet');
+      RlnRecoverableCodec.invalid('command.wallet');
     }
   }
 
@@ -157,8 +157,10 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     RecoverableOnchainSendCommand command,
   ) => _withLifecycle(() async {
     await _requireRecoverableCommandWallet(command);
-    return _decodeRecoverableStatus(
-      await _binding.rlnPrepareOnchainSend(command._nativeRequestJson),
+    return RlnRecoverableCodec.decodeStatus(
+      await _binding.rlnPrepareOnchainSend(
+        RlnRecoverableCodec.nativeRequestJson(command),
+      ),
       command,
     );
   });
@@ -169,8 +171,10 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     RecoverableOnchainSendCommand command,
   ) => _withLifecycle(() async {
     await _requireRecoverableCommandWallet(command);
-    return _decodeRecoverableStatus(
-      await _binding.rlnCommitOnchainSend(command._nativeRequestJson),
+    return RlnRecoverableCodec.decodeStatus(
+      await _binding.rlnCommitOnchainSend(
+        RlnRecoverableCodec.nativeRequestJson(command),
+      ),
       command,
     );
   });
@@ -188,14 +192,17 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     RecoverableOnchainSendCommand command,
   ) => _withLifecycle(() async {
     final canInitialize =
-        !command._restored && _recoverableStatusAttempted[command] != true;
+        !RlnRecoverableCodec.isRestored(command) &&
+        _recoverableStatusAttempted[command] != true;
     _recoverableStatusAttempted[command] = true;
     await _requireRecoverableCommandWallet(
       command,
       allowMissingOutbox: canInitialize,
     );
-    final status = _decodeRecoverableStatus(
-      await _binding.rlnOnchainSendStatus(command._nativeRequestJson),
+    final status = RlnRecoverableCodec.decodeStatus(
+      await _binding.rlnOnchainSendStatus(
+        RlnRecoverableCodec.nativeRequestJson(command),
+      ),
       command,
     );
     await requireRecoverableStorage(_config.storageDirPath);
@@ -210,8 +217,10 @@ mixin _UtexoWalletOnchain on _UtexoWalletInternals {
     RecoverableOnchainSendCommand command,
   ) => _withLifecycle(() async {
     await _requireRecoverableCommandWallet(command);
-    return _decodeRecoverableStatus(
-      await _binding.rlnCancelOnchainSend(command._nativeRequestJson),
+    return RlnRecoverableCodec.decodeStatus(
+      await _binding.rlnCancelOnchainSend(
+        RlnRecoverableCodec.nativeRequestJson(command),
+      ),
       command,
     );
   });

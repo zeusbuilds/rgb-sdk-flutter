@@ -7,17 +7,23 @@ were removed because they overlapped and had drifted from the implementation.
 
 ## Document Control
 
-### November 18 single-package wallet facade
+### November 24 independent engines and RGB_L1 default
 
 | ID | Pri | Status | Finding and evidence | Required outcome |
 | --- | --- | --- | --- | --- |
-| NOV-006 | P1 | Verified | `UtexoWallet` selects a single RLN or RGB_L1 engine. Facade tests prove dispatch, exact contract registration and nullable mint observation, durable recovery after uncertain dispatch, shared lifecycle and burn journal ownership, and wrong-engine rejection. | Keep separate backend pins, configuration, and recovery checks in the single package. Production RGB_L1 still requires NOV-002 through NOV-004. |
+| NOV-007 | P1 | Verified | Extracted independent `RlnWallet`, shared `WalletEngine` contract and recovery codecs; `UtexoWallet` now uses composition and defaults to RGB_L1. All 748 SDK tests and 2,090 Aster tests pass, with clean analysis. Four native smoke cases pass on each of iOS 27 and Android 17 with 16 KiB pages using the BFA.8 candidate: schema policy, restored-authority fence, default RGB_L1 session and standalone RLN/facade lifecycle. Architecture and dispatch regressions cover no fallback, shared burn journal ownership and advanced/typed boundaries. | Keep native artifact qualification and production RGB_L1 admission under NOV-002 through NOV-004. These architecture/smoke checks do not establish funded settlement or authorize production. |
+| NOV-006 | P1 | Verified | Initial single-package engine selection added exact contract registration, nullable mint observation, durable recovery delegation, shared lifecycle and RGB_L1 burn journal ownership. NOV-007 corrects its remaining inheritance/default architecture. | Retain the verified operation semantics while completing the independent-engine correction. Production RGB_L1 still requires NOV-002 through NOV-004. |
 
-API change and migration note for NOV-006. The existing constructor and
-`RgbSdkFlutter.wallet` retain RLN. New callers can explicitly use
-`UtexoWallet.rln` or wrap their existing `RgbLibWallet` using
-`UtexoWallet.rgbLib`. The facade and the supplied RGB_L1 engine share one
-session. Existing storage, contract and recovery formats require no migration.
+API change and migration note for NOV-007. `UtexoWallet(params: ..., keys: ...)`
+and `RgbSdkFlutter.wallet(...)` now construct RGB_L1 by default. Existing RLN
+callers must use `UtexoWallet.rln(config: ...)`,
+`RgbSdkFlutter.rlnWallet(config: ...)`, or pass an explicit `RlnWallet` engine.
+Each engine owns its configuration, lifecycle, native session and recovery;
+the facade delegates to the same immutable engine. Both engine types share
+burn journal ownership with direct and wrapped callers. Existing storage,
+contract and recovery formats require no migration. Aster retains explicit
+backend selection and its production RGB_L1 gate. Published BFA.7 pins and the
+separate BFA.8 candidate are unchanged by this architecture correction.
 See the [wallet engine guide](PUBLIC_API_REFERENCE.md#choose-a-wallet-engine).
 
 ### November 9 hosted Dev Signet profile
@@ -857,9 +863,9 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 
 | Measure | Count |
 | --- | ---: |
-| Total tracked findings | 294 |
+| Total tracked findings | 295 |
 | P0 | 14 |
-| P1 | 201 |
+| P1 | 202 |
 | P2 | 79 |
 | P3 | 0 |
 | Open | 2 |
@@ -867,7 +873,7 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 | Blocked upstream | 3 |
 | Needs decision | 0 |
 | Accepted constraint | 7 |
-| Verified | 256 |
+| Verified | 257 |
 
 This rollup is generated from all finding rows; verified code is not equivalent
 to clean-candidate platform qualification. Seven accepted constraints remain.
@@ -1091,7 +1097,7 @@ native-bridge layers. Remaining release work is deliberately narrow:
 | LIFE-009 | P1 | In progress | Reopened by 2026-09-20 audit (AUD-04, AUD-05): iOS engine-detach cleanup is not registered for notification; Android detach is neither an in-flight barrier nor engine-scoped. Earlier evidence: Android and iOS detach now unregister generated Pigeon APIs and clear engine-owned native node/signer stores; same-storage restart after shutdown uses deterministic created-state replacement, and Android/iOS native bridge suites plus store-level tests pass on the current candidate. | Complete the corrective contracts and verification in the September remediation register below. Earlier passing tests do not close these reproduced/source-confirmed gaps. |
 | LIFE-010 | P1 | In progress | Reopened by 2026-09-20 audit (AUD-06): Reused handle IDs let an old wallet destroy a replacement. Earlier evidence: iOS same-path replacement now removes the old shutdown node before installing the replacement node, returns the same handle in `created` state, and both Android and iOS reject `markInitialized` after unlocked/shutdown state drift. | Complete the corrective contracts and verification in the September remediation register below. Earlier passing tests do not close these reproduced/source-confirmed gaps. |
 | LIFE-011 | P1 | Verified | Reopened by 2026-09-20 audit (AUD-01): Invalid send deadline still dispatches the send. Earlier evidence: `RLNBinding` now has explicit `RlnOperationTimeoutPolicy` categories for lifecycle, unlock, network, channel/payment, send/asset/UTXO, and sync/refresh operations. Defaults match core `DEFAULT_API_TIMEOUT`; `RlnOperationTimeoutException` documents the elapsed operation/deadline. Since Pigeon cannot cancel an in-flight native RLN call, timeout marks the binding unknown for regular operations, keeps the queue waiting for native completion, and leaves destroy as the ordered cleanup gate. | 2026-09-20 corrective verification (working tree, not release qualification): Deadline validation precedes queueing; expired queued work never dispatches; timeout quarantine retains native queue ownership. Corrective safety and wallet suites pass. |
-| LIFE-012 | P2 | Verified | Wallet public contract types/status helpers live in `utexo_wallet_types.dart`, `UtexoWallet` owns lifecycle/orchestration, raw operations live in an advanced-only extension, and native plugin files stay below the documented 1500-line guardrail. | Keep DTOs, raw adaptation, orchestration, and native ownership in their current focused modules. |
+| LIFE-012 | P2 | Verified | Wallet public contract types/status helpers live in `utexo_wallet_types.dart`; NOV-007 moves RLN lifecycle/orchestration into `RlnWallet` and keeps `UtexoWallet` as composition. Raw operations stay in advanced-only extensions, and native plugin files remain below the documented 1500-line guardrail. | Keep DTOs, raw adaptation, orchestration, and native ownership in their focused modules. |
 | LIFE-013 | P2 | Verified | The misleading template platform-interface/method-channel abstraction was removed along with the `plugin_platform_interface` dependency. Native runtime work now has one owner: generated Pigeon `RlnHostApi` wrapped by `RlnClient` and serialized/quarantined by `RLNBinding`; `RgbSdkFlutter.nativeArtifactInfo()` is explicitly an internal diagnostics read through the same generated host API. | Keep metadata diagnostics internal and do not reintroduce a partial platform substitution layer unless it owns the complete bridge contract. |
 | LIFE-014 | P1 | Verified | Native init/unlock no longer treats message text containing `"conflict"` as success, and init no longer returns an empty pubkey after a failed native init. The platform state machines either validate already-unlocked readiness or throw the original bridge error. | Keep conflict/error normalization covered whenever native init or unlock paths change. |
 | LIFE-015 | P1 | Verified | Native external signer creation/attach is transactional in Dart: handles are assigned only after successful init/attach, failed temporary handles are destroyed, orphan cleanup blocks reuse until resolved, and retry/failure tests cover both init and cold attach paths. | Keep platform-level leak checks under LIFE-009/TEST-007. |

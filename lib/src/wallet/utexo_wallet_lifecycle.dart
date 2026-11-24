@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 mixin _UtexoWalletLifecycle on _UtexoWalletInternals {
   Future<void> init({String? password, String? mnemonic}) {

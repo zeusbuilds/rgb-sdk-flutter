@@ -33,7 +33,15 @@ CoreAssetBalance _balance(BigInt amount) => CoreAssetBalance(
   offchainOutbound: BigInt.zero,
 );
 
-class _Wallet implements UtexoWallet {
+class _Wallet implements UtexoWallet, RlnWallet {
+  @override
+  WalletEngine get engine => this;
+  @override
+  BurnWallet get burnWalletOwner => this;
+  @override
+  String get protocol => 'RGB_LN';
+  @override
+  String get contractVersion => '1';
   bool disposed = false;
   int burns = 0;
   String proof = base64Encode(utf8.encode('abc'));

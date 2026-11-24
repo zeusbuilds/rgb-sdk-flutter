@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'onchain_recovery.dart';
 
 /// Internal codec shared by the two native facade libraries.
 ///

@@ -1,11 +1,11 @@
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 /// Native-shaped wallet operations for diagnostics, parity testing, and
 /// migrations.
 ///
 /// This extension is exported only from `rgb_sdk_flutter_advanced.dart`.
-/// Application code should use the canonical methods on [UtexoWallet].
-extension UtexoWalletRawApi on UtexoWallet {
+/// Application code should use the canonical methods on [RlnWallet].
+extension RlnWalletRawApi on RlnWallet {
   Future<RlnNodeInfo> nodeInfoRaw() => _nodeInfoRaw();
 
   Future<RlnNodeInfo> getNodeInfoRaw() => _nodeInfoRaw();

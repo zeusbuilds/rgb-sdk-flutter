@@ -4,8 +4,8 @@ import '../crypto/validation.dart';
 import '../errors/rgb_sdk_exception.dart';
 import '../models/utexo_core_models.dart';
 import '../wallet/lightning_policy.dart';
-import '../wallet/utexo_wallet.dart' show UtexoWallet, UtexoWalletEngineAccess;
 import '../wallet/utexo_wallet_types.dart';
+import '../wallet/wallet_engine.dart';
 import 'lsp_address_quote_verifier.dart';
 import 'lsp_address_types.dart';
 import 'lsp_asset_selection.dart';
@@ -89,7 +89,7 @@ IUtexoLspClient _checkedLspClient(
   LspPeer peer,
   IUtexoLspClient? client,
 ) {
-  if (wallet is UtexoWallet && wallet.rgbLibEngine != null) {
+  if (wallet is WalletEngine && (wallet as WalletEngine).protocol != 'RGB_LN') {
     throw const UnsupportedWalletFeatureException(
       'LSP requires an RGB_LN wallet.',
       feature: 'LSP',

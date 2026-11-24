@@ -57,7 +57,7 @@ ship.
 
 | Divergence | Owner | Tracker | Current decision | Evidence | Reversal trigger |
 | --- | --- | --- | --- | --- | --- |
-| Wallet engine selection | Flutter maintainer | `NOV-006` | Offer the upstream single-engine facade in the same Flutter package. Existing callers select RLN through the original constructor. New callers may explicitly provide a typed RGB_L1 engine. | `test/utexo_wallet_facade_test.dart` and [migration note](PUBLIC_API_REFERENCE.md#choose-a-wallet-engine). | Revisit the default only after release approval and a compatible migration plan. |
+| Single-package engine architecture | Flutter maintainer | `NOV-006`, `NOV-007` | Match upstream composition: standalone `RlnWallet` and `RgbLibWallet`, one immutable selected engine per `UtexoWallet`, RGB_L1 default and explicit RLN choice. Flutter retains typed engine APIs where input/result models differ. | `test/utexo_wallet_facade_test.dart`, architecture guard in `tool/validate_public_api_docs.dart`, and [migration note](PUBLIC_API_REFERENCE.md#choose-a-wallet-engine). | Re-audit on an upstream engine contract change; preserve exact types and native recovery authority. |
 | Separate BFA.7 RGB_L1 native integration | Flutter/native maintainers | `NOV-001`, `NOV-003` | Pin base source, reviewed overlays, locked dependencies, UniFFI bridge 5 and matching Android/iOS artifacts independently of the frozen RN BFA.5 reference. Keep production and Aster activation gated. | `native/rgb_l1/source-manifest.json`, exact archive baseline, reconstruction/tooling tests and `BFA7_QUALIFICATION.md`. | Re-audit when upstream publishes compatible source and independently verified mobile artifacts; never substitute a differently generated Bare addon. |
 | RGB_L1 durable operation version 3 | Flutter/native maintainers | `NOV-002` | Bind canonical approval to wallet, source/overlay and native cohort; authenticate the outbox; retain cancellation tombstones and accepted receipts. Reconcile only exact positive evidence without submission replay. Restored snapshots cannot grant spending authority or prove absence. Legacy RLN versions 1/2 remain unchanged. | Frozen Dart/native vectors, native fault/backup tests, and real funded BTC/proxy lost-response qualification in `BFA7_QUALIFICATION.md`. | Upstream offers an equivalent reviewed native protocol and backup-freshness authority, followed by exact-candidate qualification. |
 | RGB_L1 standalone genesis registration | Flutter/native maintainers | `NOV-004` | Register only a bounded canonical public genesis with an exact expected ID, native schema/network checks and no balance credit; admission still requires issuer-approved contract bytes and metadata. | Native idempotent/zero-balance tests and actual funded fixture bootstrap; `test/rgb_lib_recovery_test.dart`. | Re-audit the wrapper when RN exposes an equivalent registration API. |
@@ -70,7 +70,7 @@ ship.
 | `sendRgb(skipSync: true)` | Flutter maintainer | `API-006` | Fail fast instead of accepting and silently discarding the value. | `test/rln_client_contract_test.dart::sendRgb rejects skipSync true before native call`; Android/iOS native skip-sync rejection cases. | Pinned native RLN exposes a real skip-sync request field and RN/core define semantics. |
 | `gossipRgsServerUrl` unlock field | Flutter maintainer | `API-030` | Forward for password-backed unlock. Reject non-empty values only for native external signers, whose ABI has no RGS argument. | Password forwarding and external-signer rejection tests in `test/utexo_wallet_test.dart`. | Pinned native external-signer unlock consumes the field end to end. |
 | Fractional native fee rates | Flutter maintainer | `MODEL-014` | Require integer-equivalent sats/vbyte and reject fractional values before native execution. RN currently defaults some calls to `1.5`, then truncates through the UInt64 bridge; Flutter does not reproduce that data-loss bug. | Dart wallet validation plus mirrored Android/iOS bridge numeric vectors. | Native/core adopt an exact fractional fee-rate representation end to end. |
-| RGB_L1 backend and legacy RLN constructor | Flutter and Aster maintainers | `NOV-001`, `NOV-002` | Select `RgbLibWallet` explicitly. Existing `UtexoWallet` callers retain RLN and their storage format. RGB_L1 distinguishes the UTEXO custom Signet chain from public Signet. | SDK and native session tests, plus Aster backend validation. | Activate Aster RGB_L1 when durable recovery and the new deployment are qualified. |
+| RGB_L1 package default and application admission | Flutter and Aster maintainers | `NOV-001`, `NOV-002`, `NOV-007` | SDK construction defaults to RGB_L1; existing RLN consumers select `.rln` explicitly and retain their storage format. Aster uses its explicit backend configuration and keeps production RGB_L1 gated. RGB_L1 distinguishes UTEXO Dev Signet from public Signet. | SDK engine/default/session tests and Aster backend/release validation. | Activate production Aster RGB_L1 only after durable recovery, deployment and release qualification. |
 | High-level CFA/UDA issuance | Flutter maintainer | `API-017`, `NOV-001` | beta.40 adds wallet-level CFA/UDA issuance. Flutter preserves the raw digest methods and adds stable file-based APIs with bounded uploads. | Wallet and native wire matrix, invalid media path and upload boundaries. | Keep both surfaces through the SDK's normal compatibility policy. |
 | Standalone account-key Schnorr signing default | Flutter maintainer plus release security owner | `SEC-007` | Fail closed by default and require `SchnorrSigningMode.experimentalDart` for the pure-Dart signer, even though RN's top-level core `signMessage` is callable by default. Wallet/node-key signing remains native RLN-backed and RN-aligned. | `test/crypto_bip340_vectors_test.dart::standalone Schnorr signing fails closed without explicit opt in`; `test/utexo_wallet_test.dart::signs and verifies RN-core compatible Schnorr messages`; `tool/validate_codebase_hardening.dart`. | Replace the pure-Dart implementation with a vetted/native signing primitive or complete a formal crypto review proving production suitability, then update public docs and parity tests before changing the default. |
 | Durable credential storage | Consuming app owner plus Flutter maintainer | `SEC-009` | App-owned storage boundary; SDK owns only in-memory minimization and diagnostics. | `doc/INTEGRATION_SECURITY_AND_RELEASE.md`; release package validation requires `doc/SECURITY.md`. | SDK product scope expands to include a native secure-storage subsystem. |
@@ -78,11 +78,28 @@ ship.
 
 ## Pre-Release Contract Changes
 
+### Independent engines and RGB_L1 default
+
+`NOV-007` replaces facade inheritance with composition in the existing package.
+`RlnWallet` and `RgbLibWallet` each own a native engine session. `UtexoWallet`
+accepts that engine through the `WalletEngine` interface and forwards common
+operations. Typed engine adapters preserve differing model contracts; they do
+not own native state or authorize cross-engine retries.
+
+The default constructor and `RgbSdkFlutter.wallet` accept RGB_L1 params and
+keys. Legacy RLN calls change to `UtexoWallet.rln(config: ...)` or
+`RgbSdkFlutter.rlnWallet(config: ...)`. Standalone RLN construction accepts
+`RlnWalletConfig` / `RlnUnlockConfig` aliases for the existing config types.
+The unreleased beta API intentionally breaks ambiguous construction so old
+RLN storage cannot silently open with RGB_L1. All record formats and native
+artifact pins remain independently versioned. This is not production admission.
+
 ### React Native beta.40 adaptation
 
 `NOV-001` adds an explicit `RgbLibWallet` facade and a separate native
 runtime pin. Use a dedicated wallet directory and protocol 1.0 proxy.
-Legacy RLN callers retain their constructor and storage. Rebuild the
+That earlier addition retained RLN construction. NOV-007 above now requires
+explicit RLN selection while preserving its storage. Rebuild the
 mobile app when updating the SDK. The generated RLN invoice bridge adds
 an optional description, and the new native methods handle file media and
 asset metadata. These changes require the corresponding native bridge.
@@ -189,7 +206,7 @@ carrier. Raw RN/native parity symbols must live behind
 
 | Tier | Meaning | Examples today | Compatibility rule |
 | --- | --- | --- | --- |
-| Stable facade | App-facing APIs intended to survive release. | `RgbSdkFlutter`, `UtexoWallet`, signer config, domain wallet DTOs. | Breaking changes require a tracker row, migration note, API snapshot update, and semver plan. |
+| Stable facade | App-facing APIs intended to survive release. | `RgbSdkFlutter`, `UtexoWallet`, `WalletEngine`, `RlnWallet`, `RgbLibWallet`, signer config, domain wallet DTOs. | Breaking changes require a tracker row, migration note, API snapshot update, and semver plan. |
 | Advanced parity | RN/native-shaped APIs for parity testing, diagnostics, migration tooling, and explicit escape hatches. | `RlnClient`, `RLNBinding`, `RLNManager`, `IRLN*`, raw `Rln*` models, native bridge mapper. | Can change when RN/native changes, but changes must cite the RN baseline and update parity tests. |
 | Compatibility shim | A narrowly documented RN spelling kept outside the stable root. | Advanced `decodeRGBInvoice`. | Must remain advanced-only and is removable when migration consumers no longer need it. |
 | Unsupported/native-blocked | Public names that exist only to fail honestly. | `createBackup` while native backup is blocked. | Must fail before native side effects and must be documented as not release-ready. |
@@ -203,11 +220,13 @@ The SDK keeps model layers intentionally one-directional:
 | --- | --- | --- | --- |
 | Raw native wire | `Rln*` models and generated Pigeon carriers | Pigeon JSON/maps, strict required-field decoding, `NativeProtocolException` | Return from stable canonical wallet methods. |
 | Stable domain | `Core*`, `Lightning*`, wallet response DTOs | Raw models plus `UtexoDomainPolicy` mapper decisions | Decode platform maps directly or call native clients. |
-| Wallet facade | `UtexoWallet` | Stable request/response DTOs, `WalletInputPolicy`, binding owner | Own raw validation constants, duplicate status tables, or expose native handles from stable methods. |
+| Wallet facade | `UtexoWallet` | Stable request/response DTOs, one `WalletEngine`, typed adapters | Own native handles, credentials, lifecycle/operation queues or recovery state; inherit either engine implementation. |
+| RLN engine | `RlnWallet` | RLN config/signer, native binding, lifecycle and recovery codecs | Delegate ownership to the facade or open RGB_L1 as a fallback. |
 | Compatibility / advanced | `rgb_sdk_flutter_advanced.dart` | Stable root plus raw bridge/client/binding/manager APIs | Leak into `rgb_sdk_flutter.dart` without a tracker row and migration note. |
 | Network/LSP | `UtexoLsp` and `UtexoLspClient` | Stable wallet DTOs, LSP wire DTOs, SDK error taxonomy | Throw Dart core exceptions or duplicate wallet/Lightning status normalization. |
 
-`WalletInputPolicy` owns stable facade numeric/string/range validation.
+`WalletInputPolicy` owns the shared numeric/string/range rules used by RLN and
+facade adapters; native RGB_L1 retains its typed input validation.
 `UtexoDomainPolicy` owns public transaction, transfer, and channel vocabulary
 mapping. Network defaults remain in `network_defaults.dart` because they are a
 separate environment-resolution policy shared by wallet creation and LSP

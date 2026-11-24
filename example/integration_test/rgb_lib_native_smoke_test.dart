@@ -163,11 +163,11 @@ void main() {
     timeout: const Timeout(Duration(minutes: 3)),
   );
 
-  testWidgets('facade shares one offline native RGB_L1 session', (
+  testWidgets('default facade shares one offline native RGB_L1 session', (
     tester,
   ) async {
     final scratch = await Directory.systemTemp.createTemp('rgb-facade-smoke-');
-    final engine = RgbLibWallet(
+    final wallet = UtexoWallet(
       params: RgbLibWalletParams(
         network: 'regtest',
         storageDirPath: '${scratch.path}/wallet',
@@ -175,10 +175,14 @@ void main() {
       ),
       keys: RgbLibKeys.reader(() => _testMnemonic),
     );
-    final wallet = UtexoWallet.rgbLib(engine: engine);
+    final engine = wallet.rgbLibEngine!;
+    final alias = UtexoWallet(engine: engine);
     try {
       expect(wallet.protocol, 'RGB_L1');
       expect(wallet.rgbLibEngine, same(engine));
+      expect(wallet.engine, same(engine));
+      expect(alias.engine, same(engine));
+      expect(wallet, isNot(isA<RlnWallet>()));
       expect(wallet.isInitialized, isFalse);
       await wallet.init();
       expect(wallet.isInitialized, isTrue);
@@ -193,7 +197,7 @@ void main() {
         wallet.listChannels(),
         throwsA(isA<UnsupportedWalletFeatureException>()),
       );
-      await wallet.shutdown();
+      await alias.shutdown();
       expect(wallet.isShutdown, isTrue);
       await engine.openExisting();
       expect(wallet.isInitialized, isTrue);
@@ -207,4 +211,45 @@ void main() {
       await scratch.delete(recursive: true);
     }
   });
+
+  testWidgets('standalone RLN and facade share the native lifecycle', (
+    tester,
+  ) async {
+    final scratch = await Directory.systemTemp.createTemp('rln-engine-smoke-');
+    final engine = RlnWallet(
+      config: RlnWalletConfig(storageDirPath: '${scratch.path}/wallet'),
+    );
+    final wallet = UtexoWallet(engine: engine);
+    final alias = UtexoWallet(engine: engine);
+    var disposed = false;
+    try {
+      expect(wallet.engine, same(engine));
+      expect(wallet.rlnEngine, same(engine));
+      expect(wallet.rgbLibEngine, isNull);
+      expect(wallet.protocol, 'RGB_LN');
+      expect(wallet, isNot(isA<RlnWallet>()));
+      await wallet.init(
+        password: 'public-smoke-password',
+        mnemonic: _testMnemonic,
+      );
+      expect(engine.isInitialized, isTrue);
+      expect(alias.isInitialized, isTrue);
+      expect(wallet.nodeId, engine.nodeId);
+      await alias.shutdown();
+      expect(engine.isShutdown, isTrue);
+      expect(wallet.isShutdown, isTrue);
+      await engine.reinit(password: 'public-smoke-password');
+      expect(wallet.isInitialized, isTrue);
+      await wallet.destroy();
+      disposed = true;
+      expect(engine.isDisposed(), isTrue);
+      expect(alias.isDisposed(), isTrue);
+    } finally {
+      if (!disposed) {
+        await engine.destroy();
+        disposed = true;
+      }
+      if (disposed) await scratch.delete(recursive: true);
+    }
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

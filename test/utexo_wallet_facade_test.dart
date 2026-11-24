@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -53,6 +54,67 @@ const _mint = {
   'bridgeContract': '0x1111111111111111111111111111111111111111',
 };
 
+/// An integration-owned engine exercises only the advertised shared contract.
+class _CustomEngine implements WalletEngine {
+  _CustomEngine({this.protocol = 'RGB_L1', this.contractVersion = '1'});
+
+  @override
+  final String protocol;
+  @override
+  final String contractVersion;
+  @override
+  String get network => 'regtest';
+  @override
+  String getNetwork() => network;
+  @override
+  bool isInitialized = false;
+  @override
+  bool isUnlocked = false;
+  @override
+  bool isShutdown = false;
+  bool disposed = false;
+  final calls = <String>[];
+  Future<String>? addressReply;
+
+  @override
+  bool isDisposed() => disposed;
+  @override
+  Future<void> init() async {
+    calls.add('init');
+    isInitialized = true;
+  }
+
+  @override
+  Future<void> reinit() async {
+    calls.add('reinit');
+    isInitialized = true;
+    isShutdown = false;
+  }
+
+  @override
+  Future<void> shutdown() async {
+    calls.add('shutdown');
+    isInitialized = false;
+    isShutdown = true;
+  }
+
+  @override
+  Future<void> destroy() async {
+    calls.add('destroy');
+    isInitialized = false;
+    disposed = true;
+  }
+
+  @override
+  Future<String> getAddress() {
+    calls.add('getAddress');
+    return addressReply ?? Future.value('custom-engine-address');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   final messenger =
       TestWidgetsFlutterBinding.ensureInitialized().defaultBinaryMessenger;
@@ -61,6 +123,14 @@ void main() {
   final rlnReplies = <String, Object?>{
     'rlnCreateNode': 14,
     'rlnInitNode': 'test-init-response',
+    'rlnUnlockNode': null,
+    'rlnAddress': RlnWireResponse(json: jsonEncode({'address': _address})),
+    'rlnBfaCapabilities': RlnWireResponse(
+      json: '{"burn":true,"consignment":true,"bfa":true}',
+    ),
+    'rlnBurn': RlnWireResponse(
+      json: jsonEncode({'txid': _txid, 'batchTransferIdx': 6}),
+    ),
     'rlnShutdown': null,
     'rlnDestroyNode': null,
     'rlnLnInvoice': null,
@@ -74,6 +144,7 @@ void main() {
       ),
   };
   late Object? Function(MethodCall) rgbReply;
+  late Object? Function(String, Object?) rlnReply;
   late String sendPhase;
 
   Object? defaultRgbReply(MethodCall call) {
@@ -154,6 +225,7 @@ void main() {
     rgbCalls.clear();
     rlnCalls.clear();
     rgbReply = defaultRgbReply;
+    rlnReply = (method, _) => rlnReplies[method];
     sendPhase = 'absent';
     messenger.setMockMethodCallHandler(_rgbChannel, (call) async {
       rgbCalls.add(call);
@@ -162,7 +234,11 @@ void main() {
     for (final MapEntry(:key, :value) in rlnChannels.entries) {
       messenger.setMockDecodedMessageHandler<Object?>(value, (message) async {
         rlnCalls.add((key, message));
-        return <Object?>[rlnReplies[key]];
+        try {
+          return <Object?>[rlnReply(key, message)];
+        } on PlatformException catch (error) {
+          return <Object?>[error.code, error.message, error.details];
+        }
       });
     }
   });
@@ -174,42 +250,366 @@ void main() {
     }
   });
 
-  test(
-    'legacy and named RLN constructors keep the same native backend',
-    () async {
-      final config = UtexoWalletConfig(
-        storageDirPath: '/private/facade-rln-test',
+  test('default and package constructors select RGB_L1 only', () async {
+    const params = RgbLibWalletParams(
+      network: 'regtest',
+      storageDirPath: _storage,
+    );
+    final keys = RgbLibKeys.reader(() => 'test-only-key-source');
+    final wallets = [
+      UtexoWallet(params: params, keys: keys),
+      const RgbSdkFlutter().wallet(params: params, keys: keys),
+    ];
+    for (final wallet in wallets) {
+      expect(wallet.protocol, 'RGB_L1');
+      expect(wallet.contractVersion, '1');
+      expect(wallet.engine, same(wallet.rgbLibEngine));
+      expect(wallet.engine, isA<RgbLibWallet>());
+      expect(wallet.rlnEngine, isNull);
+      expect(wallet, isNot(isA<RlnWallet>()));
+      expect(rgbCalls, isEmpty);
+      expect(rlnCalls, isEmpty);
+      await wallet.init();
+      expect(await wallet.getAddress(), _address);
+      await wallet.destroy();
+      expect(rgbCalls.map((call) => call.method), [
+        'getRuntimeInfo',
+        'openWallet',
+        'getWalletIdentity',
+        'getAddress',
+        'closeWallet',
+      ]);
+      expect(rgbCalls[1].arguments['dataDir'], _storage);
+      expect(rlnCalls, isEmpty);
+      rgbCalls.clear();
+    }
+  });
+
+  test('default RGB_L1 failure never creates an RLN fallback', () async {
+    final wallet = UtexoWallet(
+      params: const RgbLibWalletParams(
+        network: 'regtest',
+        storageDirPath: _storage,
+      ),
+      keys: RgbLibKeys.reader(() => 'test-only-key-source'),
+    );
+    final selected = wallet.engine;
+    rgbReply = (call) {
+      if (call.method == 'openWallet') {
+        throw PlatformException(code: 'NATIVE_BRIDGE_ERROR');
+      }
+      return defaultRgbReply(call);
+    };
+    await expectLater(wallet.init(), throwsA(isA<RgbLibWalletException>()));
+    expect(wallet.engine, same(selected));
+    expect(wallet.protocol, 'RGB_L1');
+    expect(wallet.isInitialized, isFalse);
+    expect(rlnCalls, isEmpty);
+    expect(rgbCalls.map((call) => call.method), [
+      'getRuntimeInfo',
+      'openWallet',
+    ]);
+    rgbReply = defaultRgbReply;
+    await wallet.init();
+    expect(wallet.engine, same(selected));
+    expect(await wallet.getAddress(), _address);
+    expect(rlnCalls, isEmpty);
+    await wallet.destroy();
+  });
+
+  test('default construction rejects incomplete or mixed engine input', () {
+    const params = RgbLibWalletParams(
+      network: 'regtest',
+      storageDirPath: _storage,
+    );
+    final keys = RgbLibKeys.reader(() => 'test-only-key-source');
+    final engine = rgbEngine();
+    for (final construct in <UtexoWallet Function()>[
+      () => UtexoWallet(),
+      () => UtexoWallet(params: params),
+      () => UtexoWallet(keys: keys),
+      () => UtexoWallet(engine: engine, params: params),
+      () => UtexoWallet(engine: engine, keys: keys),
+      () => UtexoWallet(engine: engine, online: RgbLibUnlockParams()),
+      () => const RgbSdkFlutter().wallet(),
+    ]) {
+      expect(construct, throwsA(isA<WalletValidationException>()));
+    }
+    expect(rgbCalls, isEmpty);
+    expect(rlnCalls, isEmpty);
+    expect(engine.isDisposed(), isFalse);
+  });
+
+  test('a facade cannot be supplied as another facade engine', () {
+    final engines = <WalletEngine>[
+      rgbEngine(),
+      RlnWallet(config: RlnWalletConfig(storageDirPath: '/private/facade-rln')),
+    ];
+    for (final engine in engines) {
+      final inner = UtexoWallet(engine: engine);
+      expect(
+        () => UtexoWallet(engine: inner),
+        throwsA(isA<WalletValidationException>()),
       );
-      final wallets = [
-        UtexoWallet(config: config),
-        UtexoWallet.rln(config: config),
-        const RgbSdkFlutter().wallet(config: config),
-      ];
-      for (final wallet in wallets) {
-        expect(wallet.protocol, 'RGB_LN');
-        expect(wallet.rgbLibEngine, isNull);
+      expect(
+        () => const RgbSdkFlutter().wallet(engine: inner),
+        throwsA(isA<WalletValidationException>()),
+      );
+      final alias = UtexoWallet(engine: inner.engine);
+      final store = burn_test.MemoryBurnStore();
+      final operations = BurnOperations(inner, store);
+      expect(operations.belongsTo(alias), isTrue);
+      expect(operations.belongsTo(engine), isTrue);
+    }
+    expect(rgbCalls, isEmpty);
+    expect(rlnCalls, isEmpty);
+  });
+
+  test(
+    'custom engine shared operations preserve lifecycle and errors',
+    () async {
+      final engine = _CustomEngine();
+      final wallet = UtexoWallet(engine: engine);
+      expect(wallet.engine, same(engine));
+      expect(wallet.protocol, 'RGB_L1');
+      expect(wallet.getNetwork(), 'regtest');
+      expect(wallet.rgbLibEngine, isNull);
+      expect(wallet.rlnEngine, isNull);
+      await wallet.init();
+      expect(wallet.isInitialized, isTrue);
+      final pending = Completer<String>();
+      engine.addressReply = pending.future;
+      final address = wallet.getAddress();
+      expect(address, same(pending.future));
+      pending.complete('custom-engine-address');
+      expect(await address, 'custom-engine-address');
+      const failure = WalletException('A custom engine failure');
+      engine.addressReply = Future.error(failure);
+      await expectLater(wallet.getAddress(), throwsA(same(failure)));
+      await wallet.shutdown();
+      expect(wallet.isShutdown, isTrue);
+      await wallet.reinit();
+      expect(wallet.isInitialized, isTrue);
+      expect(wallet.isShutdown, isFalse);
+      for (final operation in <Future<void> Function()>[
+        () => wallet.init(password: 'RLN credentials'),
+        () => wallet.reinit(unlockConfig: RlnUnlockConfig()),
+        () => wallet.unlock(config: RlnUnlockConfig()),
+      ]) {
         await expectLater(
-          () => wallet.getReceivedMint(_recipientId),
+          operation,
           throwsA(isA<UnsupportedWalletFeatureException>()),
         );
-        expect(rlnCalls, isEmpty);
-        await wallet.init(password: 'test-password');
-        expect(wallet.isInitialized, isTrue);
-        await wallet.destroy();
-        expect(wallet.isDisposed(), isTrue);
-        expect(rlnCalls.map((call) => call.$1), [
-          'rlnCreateNode',
-          'rlnInitNode',
-          'rlnShutdown',
-          'rlnDestroyNode',
-        ]);
-        expect(
-          (rlnCalls.first.$2 as List<Object?>).first,
-          config.storageDirPath,
-        );
-        rlnCalls.clear();
       }
+      await wallet.destroy();
+      expect(wallet.isDisposed(), isTrue);
+      expect(engine.calls, [
+        'init',
+        'getAddress',
+        'getAddress',
+        'shutdown',
+        'reinit',
+        'destroy',
+      ]);
       expect(rgbCalls, isEmpty);
+      expect(rlnCalls, isEmpty);
+    },
+  );
+
+  test('WebRGB never infers native capabilities for a custom engine', () {
+    for (final protocol in ['RGB_L1', 'RGB_LN']) {
+      final engine = _CustomEngine(protocol: protocol);
+      final wallet = UtexoWallet(engine: engine);
+      var prompts = 0;
+      expect(
+        () => WebRgbProvider(
+          wallet,
+          WebRgbOptions(
+            origin: 'https://wallet.example',
+            sessionApproved: true,
+            confirm: (_) async {
+              prompts++;
+              return true;
+            },
+          ),
+        ),
+        throwsA(isA<UnsupportedWalletFeatureException>()),
+      );
+      expect(prompts, 0);
+      expect(engine.calls, isEmpty);
+      expect(wallet.protocol, protocol);
+    }
+    expect(rgbCalls, isEmpty);
+    expect(rlnCalls, isEmpty);
+  });
+
+  test('unknown engine contracts are rejected before lifecycle', () {
+    final invalidEngines = [
+      _CustomEngine(protocol: 'future-protocol'),
+      _CustomEngine(contractVersion: '2'),
+    ];
+    for (final engine in invalidEngines) {
+      expect(
+        () => UtexoWallet(engine: engine),
+        throwsA(isA<WalletValidationException>()),
+      );
+      expect(engine.calls, isEmpty);
+    }
+    expect(rgbCalls, isEmpty);
+    expect(rlnCalls, isEmpty);
+  });
+
+  test('RLN constructor and package helper select RLN explicitly', () async {
+    final config = RlnWalletConfig(storageDirPath: '/private/facade-rln-test');
+    final wallets = [
+      UtexoWallet.rln(config: config),
+      const RgbSdkFlutter().rlnWallet(config: config),
+    ];
+    for (final wallet in wallets) {
+      expect(wallet.protocol, 'RGB_LN');
+      expect(wallet.contractVersion, '1');
+      expect(wallet.engine, same(wallet.rlnEngine));
+      expect(wallet.engine, isA<RlnWallet>());
+      expect(wallet.rgbLibEngine, isNull);
+      expect(wallet, isNot(isA<RlnWallet>()));
+      await expectLater(
+        () => wallet.getReceivedMint(_recipientId),
+        throwsA(isA<UnsupportedWalletFeatureException>()),
+      );
+      expect(rlnCalls, isEmpty);
+      await wallet.init(password: 'test-password');
+      expect(wallet.isInitialized, isTrue);
+      await wallet.destroy();
+      expect(wallet.isDisposed(), isTrue);
+      expect(rlnCalls.map((call) => call.$1), [
+        'rlnCreateNode',
+        'rlnInitNode',
+        'rlnShutdown',
+        'rlnDestroyNode',
+      ]);
+      expect((rlnCalls.first.$2 as List<Object?>).first, config.storageDirPath);
+      rlnCalls.clear();
+    }
+    expect(rgbCalls, isEmpty);
+  });
+
+  test(
+    'supplied RLN engine shares its lifecycle across facade aliases',
+    () async {
+      final engine = RlnWallet(
+        config: RlnWalletConfig(storageDirPath: '/private/facade-rln-test'),
+      );
+      final wallet = UtexoWallet(engine: engine);
+      final alias = UtexoWallet(engine: engine);
+      expect(wallet.engine, same(engine));
+      expect(alias.rlnEngine, same(engine));
+      expect(wallet.protocol, 'RGB_LN');
+      expect(engine.isInitialized, isFalse);
+      expect(rlnCalls, isEmpty);
+
+      await Future.wait([
+        engine.init(password: 'test-password'),
+        wallet.init(password: 'test-password'),
+        alias.initialize(password: 'test-password'),
+      ]);
+      expect(rlnCalls.map((call) => call.$1), ['rlnCreateNode', 'rlnInitNode']);
+      expect(wallet.isInitialized, isTrue);
+      expect(alias.isInitialized, isTrue);
+      await engine.unlock(password: 'test-password', config: RlnUnlockConfig());
+      expect(wallet.isUnlocked, isTrue);
+      expect(alias.isUnlocked, isTrue);
+      expect(await wallet.getAddress(), _address);
+      expect(await alias.getAddress(), _address);
+      expect(rlnCalls.where((call) => call.$1 == 'rlnAddress'), hasLength(2));
+      for (final call in rlnCalls.where((call) => call.$1 == 'rlnAddress')) {
+        expect((call.$2 as List<Object?>).first, 14);
+      }
+      await alias.shutdown();
+      expect(engine.isShutdown, isTrue);
+      expect(wallet.isShutdown, isTrue);
+      expect(alias.isShutdown, isTrue);
+      await engine.destroy();
+      expect(wallet.isDisposed(), isTrue);
+      expect(alias.isDisposed(), isTrue);
+      expect(
+        rlnCalls.where((call) => call.$1 == 'rlnCreateNode'),
+        hasLength(1),
+      );
+      expect(
+        rlnCalls.where((call) => call.$1 == 'rlnDestroyNode'),
+        hasLength(1),
+      );
+      expect(rgbCalls, isEmpty);
+    },
+  );
+
+  test(
+    'RLN engine and every facade share one uncertain burn journal',
+    () async {
+      final engine = RlnWallet(
+        config: RlnWalletConfig(storageDirPath: '/private/facade-rln-test'),
+      );
+      final wallet = UtexoWallet(engine: engine);
+      final alias = UtexoWallet(engine: engine);
+      final store = burn_test.MemoryBurnStore();
+      final facadeBurns = BurnOperations(wallet, store);
+      final directBurns = BurnOperations(engine, store);
+      expect(facadeBurns.belongsTo(engine), isTrue);
+      expect(directBurns.belongsTo(alias), isTrue);
+      expect(
+        () => BurnOperations(alias, burn_test.MemoryBurnStore()),
+        throwsA(isA<ConfigurationError>()),
+      );
+      expect(
+        facadeBurns.belongsTo(
+          RlnWallet(config: RlnWalletConfig(storageDirPath: '/private/other')),
+        ),
+        isFalse,
+      );
+      await wallet.init(password: 'test-password');
+      await engine.unlock(password: 'test-password', config: RlnUnlockConfig());
+      final webRgb = WebRgbProvider(
+        alias,
+        WebRgbOptions(
+          origin: burn_test.metadata.origin,
+          confirm: (_) async => true,
+          sessionApproved: true,
+          burn: WebRgbBurnOptions(
+            operations: facadeBurns,
+            allowedPayoutChainIds: [burn_test.metadata.payout.chainId],
+          ),
+        ),
+      );
+      expect((await webRgb.getInfo()).protocol, 'RGB_LN');
+      expect((await webRgb.getInfo()).methods, contains('burnAsset'));
+      webRgb.revoke();
+      rlnReply = (method, _) {
+        if (method == 'rlnBurn') {
+          throw PlatformException(code: 'NATIVE_BRIDGE_ERROR');
+        }
+        return rlnReplies[method];
+      };
+      await expectLater(
+        facadeBurns.execute(burn_test.params, burn_test.metadata, () {}),
+        throwsA(isA<RgbSdkException>()),
+      );
+      expect(
+        (await directBurns.records()).single.state,
+        BurnOperationState.pending,
+      );
+      await expectLater(
+        directBurns.execute(burn_test.params, burn_test.metadata, () {}),
+        throwsA(
+          isA<WalletError>().having(
+            (error) => error.code,
+            'code',
+            'BURN_OUTCOME_UNRESOLVED',
+          ),
+        ),
+      );
+      expect(rlnCalls.where((call) => call.$1 == 'rlnBurn'), hasLength(1));
+      expect(rgbCalls, isEmpty);
+      await wallet.destroy();
     },
   );
 
@@ -217,7 +617,9 @@ void main() {
     'RGB_L1 dispatch preserves the supplied engine and native session',
     () async {
       final engine = rgbEngine();
-      final wallet = UtexoWallet.rgbLib(engine: engine);
+      final wallet = UtexoWallet(engine: engine);
+      expect(wallet.engine, same(engine));
+      expect(wallet.rlnEngine, isNull);
       expect(wallet.protocol, 'RGB_L1');
       expect(wallet.rgbLibEngine, same(engine));
       expect(wallet.isInitialized, isFalse);

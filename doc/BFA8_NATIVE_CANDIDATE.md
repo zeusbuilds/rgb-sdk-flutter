@@ -68,6 +68,17 @@ settlement still requires a compatible fixture. The existing shared regtest
 USDT export is a version-0 consignment, while this native runtime requires
 version 1.
 
+### Independent-engine follow-up, November 24
+
+After extracting `RlnWallet` and changing `UtexoWallet` to composition with
+RGB_L1 default, four native smoke cases passed on both iOS 27 and Android 17
+with 16 KiB pages. They covered mainnet schema policy, the restored RGB wallet
+spending fence, the default facade sharing one RGB_L1 session, and the explicit
+RLN engine sharing its lifecycle with the facade. The SDK passed all 748 Dart
+tests, and Aster passed 2,090 tests with explicit backend selection. Both
+repositories passed analysis. These tests used isolated unfunded wallet storage;
+production RGB_L1 and funded BFA.8 settlement qualification remain gated.
+
 ## Dependency review
 
 The binding lock retains the guarded Esplora and SQLite builds, carries

@@ -109,15 +109,15 @@
      logical: String, proxy: String?, proxyAuthEndpoints: List<String>,
 --- a/lib/src/wallet/rgb_lib/rgb_lib_wallet.dart
 +++ b/lib/src/wallet/rgb_lib/rgb_lib_wallet.dart
-@@ -63,6 +63,7 @@
-   String get network => params.network;
+@@ -68,6 +68,7 @@
+   @override
    String getNetwork() => network;
    bool get watchOnly => _keys.readMnemonic == null;
 +  bool get _allowsBfaSchema => network != 'mainnet';
+   @override
    bool isDisposed() => _disposed;
  
-   /// Shared engine capabilities. Durable sends use [RgbLibDurableOperations].
-@@ -468,7 +469,10 @@
+@@ -497,7 +498,10 @@
    }) => _accept(() async {
      _requireIdentity();
      if ((signing && watchOnly) ||
@@ -129,7 +129,7 @@
          (registration && _runtime?.contractRegistration != true)) {
        throw const RgbLibWalletException(
          'This wallet cannot sign the requested operation.',
-@@ -1049,9 +1053,10 @@
+@@ -1088,9 +1092,10 @@
          _closing == null &&
          !_closeRequired;
      return BfaCapabilities(

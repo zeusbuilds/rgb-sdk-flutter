@@ -34,6 +34,10 @@ void main() {
   }
 
   for (final path in <String>[
+    'lib/src/wallet/rln_wallet.dart',
+    'lib/src/wallet/wallet_engine.dart',
+    'lib/src/wallet/onchain_recovery.dart',
+    'lib/src/wallet/utexo_wallet_raw_compatibility.dart',
     'lib/src/wallet/utexo_wallet_types.dart',
     'lib/src/wallet/utexo_wallet_guards.dart',
     'lib/src/wallet/utexo_wallet_lifecycle.dart',
@@ -134,7 +138,8 @@ void main() {
   }
 
   final wallet = _readLibraryFiles('lib/src/wallet', <String>[
-    'utexo_wallet.dart',
+    'rln_wallet.dart',
+    'rln_wallet_backend.dart',
     'utexo_wallet_guards.dart',
     'utexo_wallet_lifecycle.dart',
     'utexo_wallet_lsp_apay.dart',
@@ -235,7 +240,9 @@ void main() {
     'class ListLightningPaymentsResponse',
   ]) {
     if (wallet.contains(type)) {
-      failures.add('lib/src/wallet/utexo_wallet.dart still owns `$type`.');
+      failures.add(
+        'The RLN engine must keep shared DTO `$type` in the model library.',
+      );
     }
   }
   for (final required in <String>[
@@ -246,7 +253,7 @@ void main() {
   ]) {
     if (!wallet.contains(required)) {
       failures.add(
-        'lib/src/wallet/utexo_wallet.dart must delegate validation through `$required`.',
+        'The RLN engine must delegate validation through `$required`.',
       );
     }
   }
@@ -282,9 +289,7 @@ void main() {
     'const validKinds',
   ]) {
     if (wallet.contains(forbidden)) {
-      failures.add(
-        'lib/src/wallet/utexo_wallet.dart must not contain `$forbidden`.',
-      );
+      failures.add('The RLN engine must not contain `$forbidden`.');
     }
   }
   for (final required in <String>[

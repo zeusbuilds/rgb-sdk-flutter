@@ -174,7 +174,7 @@ and includes its legacy numeric `amount` only through 2^53 - 1.
 | Tier | Symbols | Contract |
 | --- | --- | --- |
 | Stable wallet facade | `package:rgb_sdk_flutter/rgb_sdk_flutter.dart`: `RgbSdkFlutter`, `UtexoWallet`, wallet config/request/response types, signer strategies, domain DTOs, public wallet errors | Intended for app code, subject to documented breaking-change policy. |
-| Advanced/native bridge | `package:rgb_sdk_flutter/rgb_sdk_flutter_advanced.dart`: `RlnClient`, `RLNBinding`, `RLNManager`, `IRLN*`, raw `Rln*` native models, `createAdvancedUtexoWallet`, native bridge error mapper, logger, and RN/raw compatibility extensions | Available for RN/native parity, diagnostics, migration tools, and explicit escape hatches; shape follows the pinned RN/native baseline. |
+| Advanced/native bridge | `package:rgb_sdk_flutter/rgb_sdk_flutter_advanced.dart`: `RlnClient`, `RLNBinding`, `RLNManager`, `IRLN*`, raw `Rln*` native models, `createAdvancedRlnWallet`, `createAdvancedUtexoWallet`, native bridge error mapper, logger, and RN/raw compatibility extensions | Available for RN/native parity, diagnostics, migration tools, and explicit escape hatches; shape follows the pinned RN/native baseline. |
 | Core/domain adapters | Stable domain `Core*`/`Lightning*` DTOs are root-exported; raw mapper extensions remain advanced-only | Flutter domain adaptation of current RN/core concepts. |
 | Capability and blocked boundaries | Absent PSBT/begin-end carriers and native-blocked backup/recovery | Optional carriers are `null`; backup fails explicitly while the tracker marks it native-blocked. |
 
@@ -183,7 +183,8 @@ native wire DTOs. Advanced callers that need the pinned native shape for parity
 debugging must use the matching explicit `Raw` method, for example
 `listChannelsRaw()`, `getBtcBalanceRaw()`, `decodeLnInvoiceRaw()`, or
 `listTransfersRaw()`. Those methods are members of the advanced-only
-`UtexoWalletRawApi` extension; importing the stable root alone cannot resolve
+`RlnWalletRawApi` extension and the facade’s `UtexoWalletRawApi` compatibility
+extension; importing the stable root alone cannot resolve
 them. Import `rgb_sdk_flutter_advanced.dart` for raw bridge classes,
 dependency-injected test wallets, RN-uppercase compatibility spellings such as
 `decodeRGBInvoice`, or RN-style managers. The root import intentionally does
@@ -232,33 +233,49 @@ silently treats malformed data as `false`.
 
 ## Choose a wallet engine
 
-`UtexoWallet` can wrap either engine in the single Flutter package. Engine
-selection is immutable and independent of network selection. The facade uses
-one native session, storage profile and operation queue. It propagates backend
-errors. A failed operation can only be recovered through the selected engine.
+`UtexoWallet` is a thin facade over one immutable `WalletEngine`. The independent
+`RgbLibWallet` and `RlnWallet` engines own their configuration, credentials,
+storage, native session, lifecycle and operation queues. The facade delegates
+through that existing engine and preserves its errors and recovery authority.
+It never opens a second engine or retries a failed operation through another.
 
 | Entry point | Engine and credentials |
 | --- | --- |
-| `UtexoWallet(config: ...)`, `UtexoWallet.rln(config: ...)`, `RgbSdkFlutter.wallet(config: ...)` | RLN uses `UtexoWalletConfig`, a `RlnSigner` or legacy password credentials, and `UtexoUnlockConfig`. |
-| `UtexoWallet.rgbLib(engine: ...)` | RGB_L1 uses an existing `RgbLibWallet` with its own `RgbLibWalletParams`, `RgbLibKeys`, and `RgbLibUnlockParams`. The engine and facade share the same lifecycle and native storage claim. |
+| `UtexoWallet(params: ..., keys: ..., online: ...)`, `RgbSdkFlutter.wallet(...)` | Defaults to RGB_L1. Requires `RgbLibWalletParams` and `RgbLibKeys`; online settings are optional at construction. |
+| `UtexoWallet(engine: engine)` or `RgbSdkFlutter.wallet(engine: engine)` | Uses the supplied `WalletEngine` object. Passing engine and construction parameters together is rejected before native work. |
+| `UtexoWallet.rln(config: ...)`, `RgbSdkFlutter.rlnWallet(config: ...)` | Explicit RLN selection with `RlnWalletConfig`, a `RlnSigner` or legacy password credentials, and `RlnUnlockConfig`. The aliases retain `UtexoWalletConfig` and `UtexoUnlockConfig` compatibility. |
+| `UtexoWallet.rgbLib(engine: ...)` | Convenience for wrapping an existing `RgbLibWallet`. |
 
-Check `protocol` or use `rgbLibEngine` from `UtexoWalletEngineAccess` to access
-the selected engine's capabilities. Existing direct `RgbLibWallet` callers can
-keep using that API. For example:
+Use `wallet.engine`, `protocol`, or the nullable `rgbLibEngine` and `rlnEngine`
+accessors from `UtexoWalletEngineAccess` to reach the selected typed engine.
+Direct engine callers retain the same APIs and lifecycle. For example:
 
 ```dart
 final engine = RgbLibWallet(params: params, keys: keys, online: online);
-final wallet = UtexoWallet.rgbLib(engine: engine);
+final wallet = UtexoWallet(engine: engine);
 try {
   // For an existing wallet, require its stored identity and recovery cohort.
   await engine.openExisting();
   final btc = await wallet.getBtcBalance(skipSync: true);
-  // After opening an eligible wallet, connect using RGB_L1 settings as needed.
+  // Connect using the engine's typed settings when needed.
   // await engine.goOnline();
 } finally {
   await wallet.destroy();
 }
 ```
+
+**Pre-release migration (NOV-007):** replace `UtexoWallet(config: ...)` with
+`UtexoWallet.rln(config: ...)`. Replace `RgbSdkFlutter.wallet(config: ...)` with
+`RgbSdkFlutter.rlnWallet(config: ...)`. To manage RLN directly, construct
+`RlnWallet(config: ...)` and optionally wrap that object with
+`UtexoWallet(engine: engine)`. Advanced injection uses `createAdvancedRlnWallet`;
+`createAdvancedUtexoWallet` remains an explicitly configured RLN compatibility
+factory. Existing RLN directories, stored operation envelopes and credentials
+keep their original backend. No wallet data is converted by this API change.
+
+`BurnWalletOwner` lets a facade identify its underlying journal owner.
+`BurnOperations` resolves that owner for both engine types, so direct access,
+multiple facades and WebRGB share one irreversible-operation fence and store.
 
 Call `wallet.init()` for an RGB_L1 create-or-open flow. Use
 `engine.goOnline(online)` or `engine.reinit(online)` for typed online settings.
@@ -283,7 +300,7 @@ independently of the facade entry point.
 
 ## Lifecycle Prerequisites
 
-For RLN, `UtexoWallet` owns the app-facing lifecycle. Call `init()` once, then
+For RLN, `RlnWallet` owns the lifecycle and `UtexoWallet` delegates to it. Call `init()` once, then
 `unlock()` with a network service configuration before wallet operations that
 need a running native node. After `shutdown()`, regular operations fail until
 `reinit()` succeeds. After `destroy()`, the wallet is disposed and cannot be
@@ -294,7 +311,7 @@ rule: call it after `init()` but before `unlock()` when recovering a stale VSS
 single-writer fence. It fails before initialization and does not require an
 unlocked node. `backupNow()` still requires an unlocked node.
 
-Internally, the wallet facade routes native node operations through its binding
+Internally, the RLN engine routes native node operations through its binding
 owner so app-facing calls share one serialized lifecycle/operation queue. Signer
 strategies may still use the same underlying native client for their private
 native signer handles, but each complete signer operation runs inside the
@@ -860,7 +877,8 @@ root checklist and are snapshotted by `tool/api_snapshot.json`.
 - `RgbLibWitnessVersion`, `RgbLibAssetSchema`, `RgbLibAssetMetadata`, `RgbLibMedia`
 - `RgbLibReceiveAssignment`, `RgbLibReceiveData`, `RgbLibInvoiceData`, `RgbLibTransfer`
 - `RgbLibNetworkInfo`, `RgbReceiveAssignmentKind`, `getRgbLibNetworkDefaults`
-- `BurnCapabilityWallet`
+- `BurnCapabilityWallet`, `BurnWalletOwner`
+- `RlnWallet`, `RlnWalletConfig`, `RlnUnlockConfig`, `WalletEngine`
 - `RlnInvoiceStatusValue`, `RlnInvoiceStatuses`, `RlnKeyMaterial`, `RlnMnemonicKeyMaterial`
 - `RlnOperationTimeoutException`, `RlnOperationTimeoutPolicy`, `RlnPaymentStatusValue`, `RlnPaymentStatuses`
 - `RlnSeedBytesKeyMaterial`, `RlnSeedHexKeyMaterial`, `RlnSigner`, `RlnSignerHost`, `SDKError`

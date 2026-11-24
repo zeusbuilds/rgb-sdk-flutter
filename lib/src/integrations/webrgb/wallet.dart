@@ -1,20 +1,25 @@
+import '../../errors/rgb_sdk_exception.dart';
 import '../../models/burn_models.dart';
 import '../../models/utexo_core_models.dart';
 import '../../wallet/burn_operations.dart';
 import '../../wallet/rgb_lib/rgb_lib_wallet.dart';
+import '../../wallet/rln_wallet.dart';
 import '../../wallet/utexo_wallet.dart';
 import '../../wallet/utexo_wallet_types.dart';
 
 /// Shared WebRGB calls without granting either engine the other's capabilities.
 final class WebRgbWallet {
-  factory WebRgbWallet.fromFacade(UtexoWallet wallet) {
-    final engine = wallet.rgbLibEngine;
-    return engine == null
-        ? WebRgbWallet._rln(wallet)
-        : WebRgbWallet.rgbLib(engine);
-  }
+  factory WebRgbWallet.fromFacade(UtexoWallet wallet) =>
+      switch (wallet.engine) {
+        final RgbLibWallet engine => WebRgbWallet.rgbLib(engine),
+        final RlnWallet engine => WebRgbWallet.rln(engine),
+        _ => throw const UnsupportedWalletFeatureException(
+          'WebRGB requires a supported native wallet engine.',
+          feature: 'WebRGB',
+        ),
+      };
 
-  WebRgbWallet._rln(UtexoWallet wallet)
+  WebRgbWallet.rln(RlnWallet wallet)
     : burnWallet = wallet,
       protocol = 'RGB_LN',
       getNetwork = wallet.getNetwork,

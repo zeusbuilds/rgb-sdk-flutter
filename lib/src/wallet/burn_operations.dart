@@ -7,7 +7,6 @@ import '../models/utexo_core_models.dart';
 import 'burn_destination.dart';
 import 'burn_recipient.dart';
 import 'rgb_lib/config.dart' show RgbLibWalletException;
-import 'utexo_wallet.dart' show UtexoWallet, UtexoWalletEngineAccess;
 
 /// Narrow wallet boundary for irreversible burn execution and proof recovery.
 abstract interface class BurnWallet {
@@ -19,6 +18,12 @@ abstract interface class BurnWallet {
 /// A wallet that can reject unsupported burns before creating a journal entry.
 abstract interface class BurnCapabilityWallet implements BurnWallet {
   Future<BfaCapabilities> getBfaCapabilities();
+}
+
+/// A wrapper that shares an existing engine's irreversible-operation journal.
+/// The owner must be the same object for every wrapper of that native session.
+abstract interface class BurnWalletOwner {
+  BurnWallet get burnWalletOwner;
 }
 
 /// Durable journal states, not RGB transfer or external payout statuses.
@@ -224,9 +229,10 @@ BurnOperationRecord normalizeBurnRecord(Object? value) {
   );
 }
 
-// A facade and its RGB_L1 engine share the same native session and journal.
-BurnWallet _burnWalletOwner(BurnWallet wallet) =>
-    wallet is UtexoWallet ? wallet.rgbLibEngine ?? wallet : wallet;
+// A facade and either engine share the same native session and journal.
+BurnWallet _burnWalletOwner(BurnWallet wallet) => wallet is BurnWalletOwner
+    ? (wallet as BurnWalletOwner).burnWalletOwner
+    : wallet;
 
 class _BurnRuntime {
   _BurnRuntime(this.store);

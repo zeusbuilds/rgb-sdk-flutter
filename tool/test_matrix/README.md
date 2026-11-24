@@ -3,7 +3,9 @@
 This directory contains the machine-readable implementation inventory:
 
 - `rln_methods.json`: declared `RlnClient` method coverage.
-- `wallet_methods.json`: declared `UtexoWallet` method coverage.
+- `wallet_methods.json`: declared `UtexoWallet` method coverage, including
+  advanced facade extensions. The validator also requires every standalone
+  `RlnWallet` and shared `WalletEngine` callable to have a reviewed row.
 - `core_exports.json`: declared package-level core-style exports.
 - `lsp_methods.json`: declared `UtexoLsp` core methods and deliberate Flutter
   lifecycle adaptations.

@@ -26,7 +26,8 @@ recovery integration. See [the beta.41 compatibility record](doc/UPSTREAM_PARITY
 The separate [BFA.8 candidate](doc/BFA8_NATIVE_CANDIDATE.md) is available for
 local development and qualification.
 
-The existing `UtexoWallet(config: ...)` constructor selects RLN. Its baseline is:
+The explicit `RlnWallet` / `UtexoWallet.rln(config: ...)` engine retains this
+independent RLN baseline:
 
 - `UTEXO-Protocol/rgb-sdk-rn` `dev` at
   `41ff170f794edff2a1822a672ddab37e29505f14`
@@ -57,16 +58,24 @@ obligations; the pinned consensus event-selection defect remains tracked.
 
 ## Choose a wallet engine
 
-Both engines ship in `rgb_sdk_flutter`. Each `UtexoWallet` stays bound to its
-selected engine for the session. Existing consumers can keep
-`UtexoWallet(config: ...)` or use `UtexoWallet.rln(config: ...)` to state the
-selection explicitly.
+Both independent engines ship in `rgb_sdk_flutter`. `UtexoWallet` is a thin
+facade over one immutable `WalletEngine`. The engine owns configuration,
+credentials, storage, native session, lifecycle and recovery. The facade and
+any direct engine reference share that same session and burn journal.
 
-For a qualified on-chain deployment, pass a configured `RgbLibWallet` to
-`UtexoWallet.rgbLib(engine: ...)`. Common balance, address, transfer,
-contract-registration and durable-send methods use that session. The supplied
-engine also exposes typed online settings, encrypted backups, and other
-RGB_L1-specific capabilities. See the [engine selection guide](doc/PUBLIC_API_REFERENCE.md#choose-a-wallet-engine).
+`UtexoWallet(params: ..., keys: ..., online: ...)` and
+`RgbSdkFlutter.wallet(...)` now default to RGB_L1. Pass an existing
+`RgbLibWallet` or `RlnWallet` through `engine:` to select it explicitly.
+`UtexoWallet.rln(config: ...)` and `RgbSdkFlutter.rlnWallet(...)` are the
+explicit RLN conveniences.
+
+This is a pre-release constructor change. Existing RLN consumers must replace
+`UtexoWallet(config: ...)` with `UtexoWallet.rln(config: ...)`, or change
+`RgbSdkFlutter.wallet(config: ...)` to `RgbSdkFlutter.rlnWallet(config: ...)`.
+Their wallet storage and recovery records stay with the RLN engine. The package
+default does not authorize switching an existing wallet's storage backend.
+Aster retains explicit backend selection and its production RGB_L1 gate.
+See the [engine selection and migration guide](doc/PUBLIC_API_REFERENCE.md#choose-a-wallet-engine).
 
 ## Features
 
@@ -198,13 +207,34 @@ Import the stable package entrypoint for app code:
 import 'package:rgb_sdk_flutter/rgb_sdk_flutter.dart';
 ```
 
-Create a wallet with app-owned storage and a signer:
+Create the default RGB_L1 wallet with app-owned storage and keys:
+
+```dart
+final keys = await generateKeys('regtest');
+final wallet = UtexoWallet(
+  params: RgbLibWalletParams(
+    network: 'regtest',
+    storageDirPath: appRgbNodeStoragePath,
+  ),
+  keys: RgbLibKeys.mnemonic(keys.mnemonic),
+);
+await wallet.init(); // Opens the local session; does not connect to services.
+final balance = await wallet.getBtcBalance(skipSync: true);
+await wallet.destroy();
+```
+
+Configure `RgbLibUnlockParams` on the engine before online operations. For
+existing RGB_L1 wallets, use the typed engine's `openExisting()` identity and
+recovery-cohort checks. The default is an API choice; production RGB_L1 remains
+gated by the qualification requirements above.
+
+Select RLN explicitly when using its storage, signer and connection settings:
 
 ```dart
 final keys = await generateKeys('regtest');
 
-final wallet = UtexoWallet(
-  config: UtexoWalletConfig(
+final wallet = UtexoWallet.rln(
+  config: RlnWalletConfig(
     storageDirPath: appRgbNodeStoragePath,
     daemonListeningPort: 9735,
     ldkPeerListeningPort: 9736,

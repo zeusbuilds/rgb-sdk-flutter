@@ -394,7 +394,7 @@
       "claimLevel": "unit_contract",
       "testIds": [
         "test/utexo_wallet_facade_test.dart::RGB_L1 facade preserves registration and received-mint semantics",
-        "test/utexo_wallet_facade_test.dart::legacy and named RLN constructors keep the same native backend"
+        "test/utexo_wallet_facade_test.dart::RLN constructor and package helper select RLN explicitly"
       ],
       "platformReportFamilies": [],
       "assertions": [

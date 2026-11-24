@@ -18,7 +18,9 @@ export 'src/models/utexo_core_models.dart';
 export 'src/utils/logger.dart';
 export 'src/wallet/network_defaults.dart';
 export 'src/wallet/rln_manager.dart';
+export 'src/wallet/rln_wallet.dart';
 export 'src/wallet/utexo_wallet.dart';
+export 'src/wallet/utexo_wallet_raw_compatibility.dart';
 
 /// RN spelling kept behind the advanced/parity import boundary.
 extension UtexoWalletRnCompatibility on UtexoWallet {

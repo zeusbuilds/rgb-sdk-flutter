@@ -1,4 +1,4 @@
-part of 'utexo_wallet.dart';
+part of 'rln_wallet.dart';
 
 UtexoUnlockConfig resolveUnlockConfig(
   String network,

@@ -9,7 +9,7 @@
       "support": "supported",
       "fixture": "unit_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_bfa.dart::UtexoWallet.getBfaCapabilities",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.getBfaCapabilities",
       "evidenceBucket": "unit_contract"
     },
     {
@@ -18,7 +18,7 @@
       "support": "supported",
       "fixture": "public_contract_import",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_bfa.dart::UtexoWallet.importRgbContract",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.importRgbContract",
       "evidenceBucket": "public_contract_import"
     },
     {
@@ -36,7 +36,7 @@
       "support": "supported",
       "fixture": "funded_rgb",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_bfa.dart::UtexoWallet.burn",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.burn",
       "evidenceBucket": "funded_rgb"
     },
     {
@@ -45,7 +45,7 @@
       "support": "supported",
       "fixture": "funded_rgb",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_bfa.dart::UtexoWallet.getConsignment",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.getConsignment",
       "evidenceBucket": "funded_rgb"
     },
     {
@@ -54,7 +54,7 @@
       "support": "supported",
       "fixture": "funded_rgb",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_bfa.dart::UtexoWallet.getConsignmentPath",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.getConsignmentPath",
       "evidenceBucket": "funded_rgb"
     },
     {
@@ -126,7 +126,7 @@
       "support": "supported",
       "fixture": "unit_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/rln_wallet_backend.dart::_RlnWalletBackend.isDisposed",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.isDisposed",
       "evidenceBucket": "unit_contract"
     },
     {
@@ -153,7 +153,7 @@
       "support": "supported",
       "fixture": "unit_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/rln_wallet_backend.dart::_RlnWalletBackend.getNetwork",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.getNetwork",
       "evidenceBucket": "unit_contract"
     },
     {
@@ -234,7 +234,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.issueAssetNiaRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.issueAssetNiaRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -252,7 +252,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.issueAssetIfaRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.issueAssetIfaRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -297,7 +297,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.inflateRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.inflateRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -378,7 +378,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.refreshTransfersRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.refreshTransfersRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -405,7 +405,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.estimateFeeRateRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.estimateFeeRateRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -423,7 +423,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.checkIndexerUrlRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.checkIndexerUrlRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -459,7 +459,7 @@
       "support": "supported",
       "fixture": "funded_lightning",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.createRlnLightningInvoice",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.createRlnLightningInvoice",
       "evidenceBucket": "funded_lightning"
     },
     {
@@ -495,7 +495,7 @@
       "support": "supported",
       "fixture": "unfunded_read",
       "contract": "implemented",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listPaymentsRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listPaymentsRaw",
       "evidenceBucket": "unfunded_read"
     },
     {
@@ -558,7 +558,7 @@
       "support": "supported",
       "fixture": "funded_lightning",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.payRlnLightningInvoice",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.payRlnLightningInvoice",
       "evidenceBucket": "funded_lightning"
     },
     {
@@ -759,7 +759,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.nodeInfoRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.nodeInfoRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -768,7 +768,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.getNodeInfoRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.getNodeInfoRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -777,7 +777,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.networkInfoRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.networkInfoRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -786,7 +786,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.getNetworkInfoRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.getNetworkInfoRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -795,7 +795,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.getBtcBalanceRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.getBtcBalanceRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -804,7 +804,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listUnspentsRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listUnspentsRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -813,7 +813,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listAssetsRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listAssetsRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -822,7 +822,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.getAssetBalanceRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.getAssetBalanceRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -831,7 +831,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.blindReceiveRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.blindReceiveRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -840,7 +840,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.witnessReceiveRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.witnessReceiveRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -849,7 +849,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.decodeRgbInvoiceRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.decodeRgbInvoiceRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -858,7 +858,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listTransactionsRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listTransactionsRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -867,7 +867,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listTransactionsByTxidRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listTransactionsByTxidRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -876,7 +876,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listTransfersRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listTransfersRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -885,7 +885,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listTransfersByTxidRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listTransfersByTxidRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -894,7 +894,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.decodeLnInvoiceRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.decodeLnInvoiceRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -903,7 +903,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.invoiceStatusRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.invoiceStatusRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -912,7 +912,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listPeersRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listPeersRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -921,7 +921,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.listChannelsRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.listChannelsRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -930,7 +930,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.openChannelRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.openChannelRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -939,7 +939,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.keysendRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.keysendRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -948,7 +948,7 @@
       "support": "supported",
       "fixture": "unit_mapper",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_raw.dart::UtexoWalletRawApi.getPaymentRaw",
+      "implementation": "lib/src/wallet/utexo_wallet_raw_compatibility.dart::UtexoWalletRawApi.getPaymentRaw",
       "evidenceBucket": "unit_mapper"
     },
     {
@@ -966,7 +966,7 @@
       "support": "supported",
       "fixture": "durable_send_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.createRecoverableBtcSendCommand",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.createRecoverableBtcSendCommand",
       "evidenceBucket": "durable_send_contract"
     },
     {
@@ -975,7 +975,7 @@
       "support": "supported",
       "fixture": "durable_send_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.createRecoverableRgbSendCommand",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.createRecoverableRgbSendCommand",
       "evidenceBucket": "durable_send_contract"
     },
     {
@@ -984,7 +984,7 @@
       "support": "supported",
       "fixture": "durable_send_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.prepareOnchainSend",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.prepareOnchainSend",
       "evidenceBucket": "durable_send_contract"
     },
     {
@@ -993,7 +993,7 @@
       "support": "supported",
       "fixture": "durable_send_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.commitOnchainSend",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.commitOnchainSend",
       "evidenceBucket": "durable_send_contract"
     },
     {
@@ -1002,7 +1002,7 @@
       "support": "supported",
       "fixture": "durable_send_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.onchainSendStatus",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.onchainSendStatus",
       "evidenceBucket": "durable_send_contract"
     },
     {
@@ -1011,7 +1011,7 @@
       "support": "supported",
       "fixture": "durable_send_contract",
       "contract": "covered",
-      "implementation": "lib/src/wallet/utexo_wallet_onchain.dart::UtexoWallet.cancelOnchainSend",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.cancelOnchainSend",
       "evidenceBucket": "durable_send_contract"
     },
     {
@@ -1022,7 +1022,7 @@
       "contract": "implemented",
       "ios": "required",
       "android": "required",
-      "implementation": "lib/src/wallet/utexo_wallet_asset_media.dart::UtexoWallet.getAssetMetadata",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.getAssetMetadata",
       "evidenceBucket": "funded_rgb_asset_types"
     },
     {
@@ -1033,7 +1033,7 @@
       "contract": "implemented",
       "ios": "required",
       "android": "required",
-      "implementation": "lib/src/wallet/utexo_wallet_asset_media.dart::UtexoWallet.issueAssetCfa",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.issueAssetCfa",
       "evidenceBucket": "funded_rgb_asset_types"
     },
     {
@@ -1044,7 +1044,7 @@
       "contract": "implemented",
       "ios": "required",
       "android": "required",
-      "implementation": "lib/src/wallet/utexo_wallet_asset_media.dart::UtexoWallet.issueAssetUda",
+      "implementation": "lib/src/wallet/utexo_wallet.dart::UtexoWallet.issueAssetUda",
       "evidenceBucket": "funded_rgb_asset_types"
     }
   ]

@@ -289,7 +289,7 @@ UtexoWallet _externalSignerWallet({
   required int daemonPort,
   required int peerPort,
 }) {
-  return UtexoWallet(
+  return UtexoWallet.rln(
     config: UtexoWalletConfig(
       storageDirPath: storageDirPath,
       daemonListeningPort: daemonPort,
@@ -312,7 +312,7 @@ UtexoWallet _passwordWallet({
   required int peerPort,
   required List<String> virtualPeerPubkeys,
 }) {
-  return UtexoWallet(
+  return UtexoWallet.rln(
     config: UtexoWalletConfig(
       storageDirPath: storageDirPath,
       daemonListeningPort: daemonPort,
