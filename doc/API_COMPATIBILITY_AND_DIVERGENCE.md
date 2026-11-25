@@ -6,10 +6,18 @@ changes are staged. It is a release gate, not background guidance.
 
 ## Source Precedence
 
-The November 7 RGB_L1 candidate deliberately advances beyond released RN
-beta.40's BFA.5 dependency to a separately versioned BFA.7 Flutter integration.
-The exact RN source/archive reference remains frozen. See
-[BFA.7 integration](BFA7_NATIVE_INTEGRATION.md) and its qualification record.
+The current RGB_L1 default uses BFA.8 at native source revision
+`cafe66e49d58038a69dd05f8065e3fe96a9d1601`, matching released RN beta.42's
+base. Flutter retains its separately versioned contract-registration and durable
+recovery overlay; its bridge identity and mobile archives are not the RN
+artifacts. See [the exact beta.42 audit](RN_BETA42_REFERENCE_AUDIT.md) and
+[BFA.8 integration](BFA8_NATIVE_CANDIDATE.md). Reference verification does not
+claim full beta.42 API parity: PSBT and generic begin/end carriers remain absent
+as recorded below. Production RGB_L1 remains gated.
+
+The immutable beta.40/BFA.5 and beta.41/BFA.6 reference locks remain unchanged.
+The earlier [BFA.7 integration](BFA7_NATIVE_INTEGRATION.md) and qualification
+record remain historical evidence, not evidence for every BFA.8 deployment.
 The October reference below remains the independent legacy-RLN boundary.
 
 The October 15 reference is RN beta.39 (`41ff170f794edff2a1822a672ddab37e29505f14`)
@@ -35,10 +43,10 @@ route. Native integer requests continue to use exact signed-64 Pigeon transport
 and overflow guards. RN's new JS-safe-number guards prevent JavaScript bridge
 rounding; they do not lower Flutter's exact native transport range.
 
-When RN source, core declarations, and native RLN artifacts disagree, use this
-order:
+When RN source, core declarations, and the selected native engine disagree, use
+this order:
 
-1. Native RLN runtime behavior and artifact capabilities.
+1. Selected native engine runtime behavior and artifact capabilities.
 2. `@utexo/rgb-sdk-core` declarations and mapper semantics.
 3. `rgb-sdk-rn` public TypeScript API shape.
 4. Existing Flutter compatibility surface.
@@ -58,7 +66,8 @@ ship.
 | Divergence | Owner | Tracker | Current decision | Evidence | Reversal trigger |
 | --- | --- | --- | --- | --- | --- |
 | Single-package engine architecture | Flutter maintainer | `NOV-006`, `NOV-007` | Match upstream composition: standalone `RlnWallet` and `RgbLibWallet`, one immutable selected engine per `UtexoWallet`, RGB_L1 default and explicit RLN choice. Flutter retains typed engine APIs where input/result models differ. | `test/utexo_wallet_facade_test.dart`, architecture guard in `tool/validate_public_api_docs.dart`, and [migration note](PUBLIC_API_REFERENCE.md#choose-a-wallet-engine). | Re-audit on an upstream engine contract change; preserve exact types and native recovery authority. |
-| Separate BFA.7 RGB_L1 native integration | Flutter/native maintainers | `NOV-001`, `NOV-003` | Pin base source, reviewed overlays, locked dependencies, UniFFI bridge 5 and matching Android/iOS artifacts independently of the frozen RN BFA.5 reference. Keep production and Aster activation gated. | `native/rgb_l1/source-manifest.json`, exact archive baseline, reconstruction/tooling tests and `BFA7_QUALIFICATION.md`. | Re-audit when upstream publishes compatible source and independently verified mobile artifacts; never substitute a differently generated Bare addon. |
+| Separate BFA.8 RGB_L1 native integration | Flutter/native maintainers | `NOV-001`, `NOV-003` | Default to the exact RN beta.42 BFA.8 base while pinning Flutter contract-registration/recovery overlays, locked dependencies, bridge identity 6 and matching Android/iOS archives separately. RN bridge identity 7 is a different wrapper contract. Keep production RGB_L1 gated. | `native/rgb_l1/source-bfa8-manifest.json`, exact archive baseline, reconstruction/tooling tests and `RN_BETA42_REFERENCE_AUDIT.md`; `BFA7_QUALIFICATION.md` remains historical. | Re-audit each source/overlay or native artifact change and independently qualify the exact candidate; never substitute a differently generated Bare addon. |
+| RN beta.42 PSBT and generic begin/end carriers | Flutter/native maintainers | `API-015`, `NOV-002` | Flutter still returns absent optional carriers and false capability flags. RN beta.42 now exposes these operations, so this is a known contract gap rather than upstream parity. Do not bypass Flutter durable payment authorization/recovery with raw begin/end calls. | Exact beta.41→beta.42 source delta in `RN_BETA42_REFERENCE_AUDIT.md`; existing capability and recovery contract tests. | Implement and qualify engine-specific signing, fee inspection, watch-only policy and exact-operation begin/end recovery before advertising either capability. |
 | RGB_L1 durable operation version 3 | Flutter/native maintainers | `NOV-002` | Bind canonical approval to wallet, source/overlay and native cohort; authenticate the outbox; retain cancellation tombstones and accepted receipts. Reconcile only exact positive evidence without submission replay. Restored snapshots cannot grant spending authority or prove absence. Legacy RLN versions 1/2 remain unchanged. | Frozen Dart/native vectors, native fault/backup tests, and real funded BTC/proxy lost-response qualification in `BFA7_QUALIFICATION.md`. | Upstream offers an equivalent reviewed native protocol and backup-freshness authority, followed by exact-candidate qualification. |
 | RGB_L1 standalone genesis registration | Flutter/native maintainers | `NOV-004` | Register only a bounded canonical public genesis with an exact expected ID, native schema/network checks and no balance credit; admission still requires issuer-approved contract bytes and metadata. | Native idempotent/zero-balance tests and actual funded fixture bootstrap; `test/rgb_lib_recovery_test.dart`. | Re-audit the wrapper when RN exposes an equivalent registration API. |
 | BFA.7 EVM mint-lock policy | Host deployment owner and Flutter maintainer | `NOV-004` | Accept the RN beta.41 default window or a per-chain override keyed by explicit EVM RPC. Require at least two backing-chain blocks for BFA.7 and the exact reviewed policy for hosted Dev. | Typed configuration and Dev admission tests, and exact fixture 31337 policy. | The underlying BFA engine or deployment changes its accepted lock policy. |
@@ -177,7 +186,8 @@ immutable commit. Tracker: `MODEL-002`, `MODEL-012`, `MODEL-015`, `API-026`,
   available deliberately, not automatically logged.
 - `PsbtWalletCarrier` and `BeginEndWalletCarrier` declare typed method contracts.
   `PsbtFeeEstimate` describes sat fees/vbytes/rate. The wallet still returns null
-  for these optional capabilities, matching RN; no implementation is fabricated.
+  for these optional capabilities; that matched RN at the time. Beta.42 now
+  exposes RGB_L1 carriers, and Flutter's remaining gap is registered above.
 - Unsupported wallet identity overrides (`xpubVan`, `xpubCol`,
   `masterFingerprint`) are rejected before native creation instead of ignored.
 - `createUtxos()` returns the requested count because native returns void.

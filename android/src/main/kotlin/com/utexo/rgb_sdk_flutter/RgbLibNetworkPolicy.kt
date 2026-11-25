@@ -23,7 +23,7 @@ internal object RgbLibNetworkPolicy {
   fun permitsSend(logical: String, endpoints: List<String>, sender: String?): Boolean =
     logical != "utexo" || (permitsReceive(logical, endpoints) && sender == DEV_PROXY)
 
-  fun permitsBurn(logical: String): Boolean = logical != "utexo"
+  fun permitsBurn(logical: String): Boolean = logical != "utexo" && logical != "mainnet"
 
   fun permitsOnline(
     logical: String, proxy: String?, proxyAuthEndpoints: List<String>,

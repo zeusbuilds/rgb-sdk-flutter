@@ -7,6 +7,18 @@ were removed because they overlapped and had drifted from the implementation.
 
 ## Document Control
 
+### November 25 BFA.8 default native artifacts
+
+| ID | Pri | Status | Finding and evidence | Required outcome |
+| --- | --- | --- | --- | --- |
+| NOV-008 | P1 | In progress | The reviewer-approved facade previously used BFA.8 only in staged consumers. The normal SDK pin now selects the sealed Flutter BFA.8 iOS and Android archives from the same rgb-lib source revision as RN beta.42. The SDK retains its registration and durable recovery overlay. Mint lookup binds the asset to the checked consignment and supports explicit incoming-only refresh. The SDK passed all 749 Dart tests. Aster loaded the exact native runtime and registered the reviewed Dev contract offline in six passing local smoke cases on each platform. | Publish the approved native qualification beta, verify downloads without local archive overrides, and pin Aster to the published SDK revision. Production RGB_L1, restored-wallet freshness, funded settlement, signed-app privacy and full begin/end parity retain their separate disposition. |
+
+API change and migration note for NOV-008. `RgbLibReceivedMint.assetId` is
+required for a returned observation. Existing lookups remain offline by default
+and can opt into `refreshIncoming: true`. Applications must rebuild both native
+wrappers and Dart together. Native overlays retain their original persisted
+recovery format and wallet/cohort identities.
+
 ### November 24 independent engines and RGB_L1 default
 
 | ID | Pri | Status | Finding and evidence | Required outcome |
@@ -863,13 +875,13 @@ is accepted implicitly. No release eligibility is claimed during remediation.
 
 | Measure | Count |
 | --- | ---: |
-| Total tracked findings | 295 |
+| Total tracked findings | 296 |
 | P0 | 14 |
-| P1 | 202 |
+| P1 | 203 |
 | P2 | 79 |
 | P3 | 0 |
 | Open | 2 |
-| In progress | 26 |
+| In progress | 27 |
 | Blocked upstream | 3 |
 | Needs decision | 0 |
 | Accepted constraint | 7 |
@@ -892,6 +904,7 @@ to clean-candidate platform qualification. Seven accepted constraints remain.
 | 7 | RLN 0.17 page size and upstream recovery | OCT-036, OCT-037 | 2 | 0/2/0/0 | Qualify exact native artifacts, independent current-platform execution and upstream recovery; do not inherit WDK host passes. |
 
 | 8 | RGB_L1 production admission | NOV-002, NOV-003, NOV-004 | 3 | 3/0/0/0 | Qualify durable payment recovery, exact native security and privacy, and the BTC/USDT deployment on both platforms. |
+| 9 | BFA.8 native distribution | NOV-008 | 1 | 0/1/0/0 | Verify published archives and Aster Git pin for normal installs. |
 
 ## P0 Execution Log
 

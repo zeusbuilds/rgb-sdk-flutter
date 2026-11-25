@@ -14,17 +14,18 @@ for RN/native parity diagnostics.
 
 Current package version: `0.2.0-beta.3`.
 
-The on-chain `RgbLibWallet` now uses a separately versioned BFA.7 Flutter
+The on-chain `RgbLibWallet` now uses a separately versioned BFA.8 Flutter
 native integration with standalone contract registration and durable
 prepare/commit/status/cancel recovery. It uses dedicated storage, an immutable
 recovery cohort and a protocol 1.0 RGB proxy. Restored backup snapshots stay
 fenced until freshness can be established. See
-[the BFA.7 integration and remaining gates](doc/BFA7_NATIVE_INTEGRATION.md).
-The RGB_L1 compatibility reference is React Native `1.0.0-beta.41` and shared
-Core `1.0.0-beta.10`. Flutter retains the BFA.7 artifacts and its durable
-recovery integration. See [the beta.41 compatibility record](doc/UPSTREAM_PARITY_BETA41.md).
-The separate [BFA.8 candidate](doc/BFA8_NATIVE_CANDIDATE.md) is available for
-local development and qualification.
+[the BFA.8 native integration and remaining gates](doc/BFA8_NATIVE_CANDIDATE.md).
+The RGB_L1 compatibility reference is React Native `1.0.0-beta.42` and shared
+Core `1.0.0-beta.10`. The default native pins select BFA.8 Flutter.1, bridge 6,
+including Flutter's contract registration and durable recovery overlay. Earlier
+[beta.41 qualification](doc/UPSTREAM_PARITY_BETA41.md) retains its original
+BFA.7 artifact identity; upgrading does not transfer its funded or privacy
+evidence to BFA.8. See the [beta.42 reference audit](doc/RN_BETA42_REFERENCE_AUDIT.md).
 
 The explicit `RlnWallet` / `UtexoWallet.rln(config: ...)` engine retains this
 independent RLN baseline:

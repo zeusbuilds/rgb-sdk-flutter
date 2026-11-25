@@ -63,18 +63,18 @@ final class RgbLibRuntimeInfo {
   });
 
   static const expectedVersion =
-      '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2';
+      '0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1';
   static const expectedSourceRevision =
-      '9ec49c08be2e68f08521281e3efbd760ec989cb9';
-  static const expectedBridgeVersion = 5;
+      'cafe66e49d58038a69dd05f8065e3fe96a9d1601';
+  static const expectedBridgeVersion = 6;
   static const expectedIntegrationTree =
-      '8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e';
+      'fa09a59c55cc61b5321e554759d7c456ebe0e559';
   static const expectedOverlayPatchSha256 =
-      'd3369ff9d4dfd5638781b259688ee9bd9f43e52464b61e6408ea7a75c81bc273';
+      '0cffabcbf7937e777c631fb8a47e645693c8cebf214fc4c502e89f08c7509ce5';
   static const expectedSourceLockSha256 =
-      '81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6';
+      '9954442c3343c29c74bc8364edae5fffef30576df2fbfbd2f73b25460deb9735';
   static const expectedSourceManifestSha256 =
-      'cf769ed49356e49a914dff638a4bddee9fd57fc6ebecf4b0193d8dd53aec2897';
+      'f0ebb77fe46ce5f4d3dea0c20b412ee2bf099f99c062a2d132d365793444966e';
 
   final String version;
   final String sourceRevision;
@@ -162,13 +162,16 @@ final class RgbLibAssetMetadata {
 /// This is an observation, not proof that the mint or backing lock completed.
 final class RgbLibReceivedMint {
   RgbLibReceivedMint._(RgbLibWire value)
-    : opid = value.requiredText('opid'),
+    : assetId = value.requiredText('assetId'),
+      opid = value.requiredText('opid'),
       lockId = value.requiredText('lockId'),
       amount = value.amount('amount'),
       beforeBlock = value.amount('beforeBlock'),
       evmChainId = value.amount('evmChainId'),
       bridgeContract = value.requiredText('bridgeContract');
 
+  /// Asset from the wallet-validated consignment carrying this mint.
+  final String assetId;
   final String opid;
   final String lockId;
   final BigInt amount;

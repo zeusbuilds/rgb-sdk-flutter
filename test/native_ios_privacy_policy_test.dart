@@ -7,13 +7,29 @@ import '../tool/native_ios_privacy_policy.dart';
 
 void main() {
   test('the exact BFA.7 successor retains its final-app privacy fence', () {
-    final review = rgbLibIosPrivacyDisposition();
+    final review = rgbLibIosPrivacyDispositionForInputs(
+      sourceCommit: '9ec49c08be2e68f08521281e3efbd760ec989cb9',
+      archiveSha256:
+          '60c33914222a62a822440bf155babd0b030a74f4fc166f7bd5c5955e6f49932c',
+    );
     expect(review['sourceCommit'], '9ec49c08be2e68f08521281e3efbd760ec989cb9');
     expect(review['status'], 'blocked-final-app-review');
     expect(review['productionReady'], false);
     expect(review['linkedDiskSpaceImports'], isEmpty);
     expect('${review['blockers']}', contains('signed-app'));
     expect('${review['blockers']}', contains('legacy RLN'));
+  });
+  test('the BFA.8 default requires its own exact-binary privacy review', () {
+    final review = rgbLibIosPrivacyDisposition();
+    expect(review['sourceCommit'], 'cafe66e49d58038a69dd05f8065e3fe96a9d1601');
+    expect(
+      review['archiveSha256'],
+      '4b2958a1bfe3db94a8dfee37a13eec2037255bfaedf7ce63536a23db69933cec',
+    );
+    expect(review['status'], 'unreviewed');
+    expect(review['productionReady'], false);
+    expect(review.containsKey('linkedDiskSpaceImports'), false);
+    expect('${review['blockers']}', contains('exact source and archive'));
   });
   test('older RGB_L1 archives retain their independent DiskSpace blocker', () {
     for (final inputs in [

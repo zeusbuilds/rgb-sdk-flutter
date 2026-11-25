@@ -1,10 +1,19 @@
-# BFA.8 Flutter native candidate
+# BFA.8 Flutter native integration
 
-The local candidate builds `0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1`
+The default SDK native baseline selects `0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1`
 with UniFFI 0.32.2 and Flutter bridge 6. Both upstream mobile artifacts name
 `cafe66e49d58038a69dd05f8065e3fe96a9d1601`. The BFA.8 source tag points to
-its first parent `2f7b21d8637baad548504ea870deb2c0d4d0a37d`. The candidate
+its first parent `2f7b21d8637baad548504ea870deb2c0d4d0a37d`. This integration
 uses the artifact commit, including the upstream bindgen compatibility merge.
+It matches the BFA.8 source used by React Native `1.0.0-beta.42`.
+
+The selected archives are the exact previously sealed Flutter candidate bytes.
+Their original `local_candidate: true` metadata and source manifest remain
+unchanged; promotion does not relabel their provenance or approve production.
+`tool/rgb_lib_native_baseline.json` records the download URLs, sizes and digests.
+The intended prerelease asset location is `UTEXO-Protocol/flutter-sdk`, tag
+`native-bfa8-flutter.1`; publication and fresh-download verification must finish
+before ordinary consumers can install without local archive overrides.
 
 Flutter carries forward exact-ID genesis-only registration, the guarded
 network clients, Dev Signet checkpoint, SQLite container rules, and durable
@@ -15,7 +24,7 @@ Runtime provenance separately verifies the actual BFA.8 source and lock.
 Restored snapshots retain the spending fence.
 
 The BFA.8 Android and iOS wrappers supply `false` for the upstream options
-that bypass schema and contract checks. The candidate admits NIA, UDA and
+that bypass schema and contract checks. The integration admits NIA, UDA and
 CFA schemas on mainnet, as required by BFA.8. It preserves exact BFA initial
 supply from the wallet database. BFA.8's observed circulating supply can
 include unfinalized EVM locks. It represents neither spendable balance nor
@@ -42,10 +51,15 @@ variables printed by the staging command. The staging receipt binds the
 exact iOS ZIP, Android AAR, wrapper inputs and sealed source manifest.
 `python3 tool/stage_bfa8_candidate.py --verify` rechecks that receipt.
 
-The default SDK download pin remains the published BFA.7 build. Aster's
-production RGB_L1 gate is closed. Use the BFA.8 candidate with dedicated
-qualification wallets. The local candidate receipt is ineligible for
-production release.
+The stage tool accepts both the historical BFA.7 wrapper source and the promoted
+BFA.8 default. It checks the complete native ABI patch before applying it, or
+checks that the complete patch is already present before leaving the wrappers
+unchanged. Existing immutable stage receipts remain verifiable.
+
+Aster's production RGB_L1 gate is closed. Use dedicated qualification wallets.
+The local candidate receipt is ineligible for production release. The package's
+RGB_L1 default does not authorize changing an existing Aster wallet's backend;
+Aster keeps explicit backend selection.
 
 ## Verification
 
@@ -78,6 +92,25 @@ RLN engine sharing its lifecycle with the facade. The SDK passed all 748 Dart
 tests, and Aster passed 2,090 tests with explicit backend selection. Both
 repositories passed analysis. These tests used isolated unfunded wallet storage;
 production RGB_L1 and funded BFA.8 settlement qualification remain gated.
+
+## Privacy and distribution status
+
+The BFA.8 iOS archive has no code-backed exact-binary required-reason API review
+yet. Its disposition is **unreviewed**, and production remains blocked. The
+earlier BFA.7 linked-component review applies only to its exact source/archive
+pair. Final signed-app API and aggregate privacy-manifest review, plus the
+independent RLN privacy disposition, remain required.
+
+The sealed BFA.8 source inventory contains 544 components, including build and
+non-mobile dependencies. Compared with published BFA.7 Flutter.2, only the
+`rustix`, `typed-path` and `zip` dependency versions changed; each includes
+license text. All recorded license-text digests match the source bundle, and
+the inherited-license payload is unchanged. The same 49 packages have no
+package-local license text, and `rgb-lib-uniffi` has no package-level declared
+license; inherited notices and the root source license retain their original
+scope. The comparison found no new missing-notice issue, but is not a complete
+linked-component SBOM or final licensing approval. Native binaries must be
+distributed with their matching source, inventory and notices.
 
 ## Dependency review
 

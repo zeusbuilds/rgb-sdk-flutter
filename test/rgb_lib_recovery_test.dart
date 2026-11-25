@@ -1117,6 +1117,7 @@ void main() {
     () async {
       final session = await wallet();
       final expected = <String, Object?>{
+        'assetId': _asset,
         'opid': 'native-operation-id',
         'lockId': 'transaction-bound-native-lock-id',
         'amount': '18446744073709551615',
@@ -1127,6 +1128,7 @@ void main() {
       dispatch = (call) =>
           call.method == 'getReceivedMint' ? expected : reply(call);
       final mint = (await session.getReceivedMint('native-witness-recipient'))!;
+      expect(mint.assetId, _asset);
       expect(mint.opid, expected['opid']);
       expect(mint.lockId, expected['lockId']);
       expect(mint.amount, BigInt.parse('18446744073709551615'));
@@ -1134,6 +1136,12 @@ void main() {
       expect(mint.evmChainId, BigInt.from(42161));
       expect(mint.bridgeContract, expected['bridgeContract']);
       expect(calls.last.arguments['recipientId'], 'native-witness-recipient');
+      expect(calls.last.arguments.containsKey('refreshIncoming'), isFalse);
+      await session.getReceivedMint(
+        'native-witness-recipient',
+        refreshIncoming: true,
+      );
+      expect(calls.last.arguments['refreshIncoming'], isTrue);
       dispatch = (call) =>
           call.method == 'getReceivedMint' ? null : reply(call);
       expect(await session.getReceivedMint('native-witness-recipient'), isNull);
@@ -1146,6 +1154,32 @@ void main() {
           throwsA(isA<NativeProtocolException>()),
         );
       }
+      dispatch = (call) => call.method == 'getReceivedMint'
+          ? ({...expected}..remove('assetId'))
+          : reply(call);
+      await expectLater(
+        session.getReceivedMint('native-witness-recipient'),
+        throwsA(isA<NativeProtocolException>()),
+      );
+      dispatch = (call) {
+        if (call.method == 'getReceivedMint') {
+          throw PlatformException(code: 'RGB_LIB_Proxy', message: 'test');
+        }
+        return reply(call);
+      };
+      await expectLater(
+        session.getReceivedMint(
+          'native-witness-recipient',
+          refreshIncoming: true,
+        ),
+        throwsA(
+          isA<RgbLibWalletException>().having(
+            (error) => error.code,
+            'code',
+            'NATIVE_ERROR',
+          ),
+        ),
+      );
       final count = calls.length;
       expect(
         () => session.getReceivedMint(''),

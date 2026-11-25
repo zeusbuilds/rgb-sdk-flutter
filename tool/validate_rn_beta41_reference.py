@@ -103,7 +103,7 @@ def verify(args):
         print('\n'.join(changes))
     print(f"Verified {lock['package']}@{lock['version']} at {lock['source']['commit']}, "
           f"Core {core_pin['version']}, {len(shared)} shipped source files and "
-          f'{len(changes)} changed paths. Flutter retains its BFA.7 native overlay.')
+          f'{len(changes)} changed paths. Flutter retains its separately pinned native overlay.')
 
 
 def main():

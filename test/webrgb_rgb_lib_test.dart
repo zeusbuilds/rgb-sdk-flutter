@@ -51,10 +51,14 @@ void main() {
       addTearDown(() => messenger.setMockMethodCallHandler(_channel, null));
       RgbLibWallet wallet() => RgbLibWallet(
         params: const RgbLibWalletParams(
-          network: 'mainnet',
+          network: 'regtest',
           storageDirPath: '/private/test',
         ),
         keys: RgbLibKeys.mnemonic('test-only fixture'),
+        online: RgbLibUnlockParams(
+          indexer: const RgbLibIndexer.esplora('http://127.0.0.1:29302'),
+          proxyEndpoint: 'rpc://127.0.0.1:29300/json-rpc',
+        ),
       );
 
       final store = MemoryBurnStore();
@@ -92,7 +96,7 @@ void main() {
 
       WebRgbBurnAssetArgs request([BurnDestination? destination]) =>
           WebRgbBurnAssetArgs(
-            network: 'mainnet',
+            network: 'regtest',
             assetId: _assetId,
             amount: '5',
             burnRecipient: _payout,
@@ -195,7 +199,7 @@ Object? _nativeReply(String method) => switch (method) {
   'openWallet' => 'handle',
   'getWalletIdentity' => {
     'id': 'identity',
-    'network': 'mainnet',
+    'network': 'regtest',
     'masterFingerprint': 'a1b2c3d4',
   },
   'closeWallet' || 'goOnline' => null,
@@ -237,7 +241,7 @@ Object? _nativeReply(String method) => switch (method) {
     },
   ],
   'refresh' => <Object?>[],
-  'getNetworkInfo' => {'network': 'mainnet', 'blockHeight': null},
+  'getNetworkInfo' => {'network': 'regtest', 'blockHeight': null},
   'burn' => {'txid': _txid, 'batchTransferIdx': 2},
   'getConsignment' => 'YWJj',
   _ => throw StateError('Unexpected test operation $method'),

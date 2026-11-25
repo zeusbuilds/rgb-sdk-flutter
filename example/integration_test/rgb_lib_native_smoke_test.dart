@@ -13,6 +13,48 @@ const _testMnemonic =
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('mainnet opens with the supported schema policy', (tester) async {
+    final scratch = await Directory.systemTemp.createTemp('rgb-lib-mainnet-');
+    final wallet = RgbLibWallet(
+      params: RgbLibWalletParams(
+        network: 'mainnet',
+        storageDirPath: '${scratch.path}/wallet',
+      ),
+      keys: RgbLibKeys.mnemonic(_testMnemonic),
+    );
+    try {
+      final runtime = await RgbLibWallet.getRuntimeInfo();
+      expect(runtime.capabilities.bfa, isTrue);
+      await wallet.init();
+      expect((await wallet.getWalletIdentity()).network, 'mainnet');
+      expect(await wallet.getAddress(), startsWith('bc1p'));
+      final capabilities = await wallet.getBfaCapabilities();
+      expect(capabilities.bfa, isFalse);
+      expect(capabilities.burn, isFalse);
+      expect(capabilities.consignment, isTrue);
+      await expectLater(
+        wallet.burn(
+          const BurnParams(
+            assetId: 'rgb:offline-smoke',
+            amount: '1',
+            feeRate: 1,
+            minConfirmations: 1,
+          ),
+        ),
+        throwsA(
+          isA<RgbLibWalletException>().having(
+            (error) => error.code,
+            'code',
+            'UNSUPPORTED_CAPABILITY',
+          ),
+        ),
+      );
+    } finally {
+      await wallet.destroy();
+      await scratch.delete(recursive: true);
+    }
+  });
+
   testWidgets(
     'pinned RGB Lib bridge opens, locks and quarantines restored authority',
     (WidgetTester tester) async {

@@ -29,14 +29,22 @@ extension RgbLibDurableOperations on RgbLibWallet {
   }
 
   /// Reads native-validated mint lock requirements, or null when none exist.
-  /// Does not create or authorize an EVM lock or assert mint completion.
-  Future<RgbLibReceivedMint?> getReceivedMint(String recipientId) {
+  /// Setting [refreshIncoming] first refreshes pending incoming transfers.
+  /// The result does not create an EVM lock or establish mint settlement.
+  Future<RgbLibReceivedMint?> getReceivedMint(
+    String recipientId, {
+    bool refreshIncoming = false,
+  }) {
     _required(recipientId, 'recipientId');
     return _call(
       'getReceivedMint',
       (value) =>
           value == null ? null : RgbLibWire(value, 'receivedMint').receivedMint,
-      arguments: {'recipientId': recipientId},
+      arguments: {
+        'recipientId': recipientId,
+        if (refreshIncoming) 'refreshIncoming': true,
+      },
+      online: refreshIncoming,
     );
   }
 

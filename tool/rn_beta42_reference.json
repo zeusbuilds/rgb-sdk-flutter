@@ -1,0 +1,43 @@
+{
+  "package": "@utexo/rgb-sdk-rn",
+  "version": "1.0.0-beta.42",
+  "repository": "https://github.com/UTEXO-Protocol/rgb-sdk-rn",
+  "source": {
+    "commit": "11d6c1a97adbc637bd45f1525134a914c272098e",
+    "fileCount": 70,
+    "filesSha256": "51b38c47765456e5233144cb42b0059621365ce74ecd2c976a52e149ffbaa16b"
+  },
+  "registry": {
+    "url": "https://registry.npmjs.org/@utexo/rgb-sdk-rn/-/rgb-sdk-rn-1.0.0-beta.42.tgz",
+    "sizeBytes": 155351,
+    "archiveSha256": "bb26c8b660e5977da370209dc9d43212c169771502b906ab1f5bf24b72fd3207",
+    "integritySha512": "sha512-qpVwFaR4nNkNfoKNtdJ7411IuGu+ud6duHoN6Cdkysgv7ovcjfSOQL2h9eOB51ZTI/NQDtrax7pIBB5fYMqyhw==",
+    "fileCount": 133,
+    "sharedSourceFileCount": 43
+  },
+  "core": {
+    "package": "@utexo/rgb-sdk-core",
+    "version": "1.0.0-beta.11",
+    "commit": "1ed3d61c0d887d6d77c5f417b2162b2ab5a89658",
+    "url": "https://registry.npmjs.org/@utexo/rgb-sdk-core/-/rgb-sdk-core-1.0.0-beta.11.tgz",
+    "sizeBytes": 318897,
+    "archiveSha256": "827b2465625ec72c67a4e963d9e705a17c265a05902939348e127364dbeb98b1",
+    "integritySha512": "sha512-EnZcLgwrb3phaLf7rIbKavpyZb+C2SEPq2EPdIULk7z0PDS1bR7pgylkXN00neB/k/RmkYlFD2aeD2jV//ooTg==",
+    "fileCount": 16,
+    "extractedFiles": {
+      "package.json": "eaa29adcd22df8324c91f6687c465de56c7845b04785cfa6d8263730c770b27d",
+      "dist/index.d.ts": "93b0c37a252dde3b267b86de8efe691d27f3e4501e618a7d63359671d5c2e972",
+      "dist/index.mjs": "26026652467a18376fbe29f9f464337d805774ac9f7ed6d8b15ad7f76029a520"
+    }
+  },
+  "delta": {
+    "added": 1,
+    "removed": 0,
+    "modified": 25,
+    "pathsSha256": "dbf7377a220a278cb13d296d6aeaa2e33ceb9fe5b421be5ecd045879b0fc9f3f"
+  },
+  "nativeReference": {
+    "path": "rn_beta42_rgb_lib_reference.json",
+    "sha256": "b6e0d48ee1add0aeaec68296d63d1438d0cc66e3d041d8b2fbbebaa1ff32c43d"
+  }
+}

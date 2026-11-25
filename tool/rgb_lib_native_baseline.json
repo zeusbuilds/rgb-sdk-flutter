@@ -1,32 +1,33 @@
 {
-  "version": "0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2",
-  "sourceTag": "v0.3.0-beta.7-upstream-dev-bfa.7",
-  "sourceRevision": "9ec49c08be2e68f08521281e3efbd760ec989cb9",
+  "version": "0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1",
+  "sourceTag": "v0.3.0-beta.7-upstream-dev-bfa.8",
+  "sourceRevision": "cafe66e49d58038a69dd05f8065e3fe96a9d1601",
   "uniffiVersion": "0.32.2",
-  "bridgeVersion": 5,
+  "bridgeVersion": 6,
   "swiftModule": "RGBLib",
   "ios": {
-    "url": "https://github.com/UTEXO-Protocol/flutter-sdk/releases/download/native-bfa7-flutter.2/rgb-lib-bfa-swift-0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2.zip",
-    "sha256": "60c33914222a62a822440bf155babd0b030a74f4fc166f7bd5c5955e6f49932c",
+    "url": "https://github.com/UTEXO-Protocol/flutter-sdk/releases/download/native-bfa8-flutter.1/rgb-lib-bfa-swift-0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1.zip",
+    "sha256": "4b2958a1bfe3db94a8dfee37a13eec2037255bfaedf7ce63536a23db69933cec",
     "minIosVersion": "16.0",
-    "sizeBytes": 164553560
+    "sizeBytes": 164655622
   },
-  "sourceLockSha256": "81af7c87fac88abbd40b1621ce2fa7655165b6b0c8bdd23faa313d25139330a6",
+  "sourceLockSha256": "9954442c3343c29c74bc8364edae5fffef30576df2fbfbd2f73b25460deb9735",
   "android": {
-    "mavenCoordinate": "com.utexo:rgb-lib-bfa-android:0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2",
-    "archiveSha256": "73301c7c7e7d3844aa30c0ff8ccc78b3ebd360327c652e7718b252877761fc42",
-    "archiveSizeBytes": 51476045,
+    "mavenCoordinate": "com.utexo:rgb-lib-bfa-android:0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1",
+    "archiveSha256": "c32f7a4bc0b287e9a6d08c7dc695e7451621dfcb62c331f86d42de0688221320",
+    "archiveSizeBytes": 51015247,
     "abis": [
       "arm64-v8a",
       "x86_64"
     ],
-    "repositoryUrl": "https://github.com/UTEXO-Protocol/flutter-sdk/releases/download/native-bfa7-flutter.2"
+    "repositoryUrl": "https://github.com/UTEXO-Protocol/flutter-sdk/releases/download/native-bfa8-flutter.1"
   },
-  "sourceOverlaySha256": "d3369ff9d4dfd5638781b259688ee9bd9f43e52464b61e6408ea7a75c81bc273",
-  "integrationTree": "8ac556ee67db70b93abb69b4ebd8fb0e6752dc0e",
-  "sourceManifestSha256": "cf769ed49356e49a914dff638a4bddee9fd57fc6ebecf4b0193d8dd53aec2897",
+  "sourceOverlaySha256": "0cffabcbf7937e777c631fb8a47e645693c8cebf214fc4c502e89f08c7509ce5",
+  "integrationTree": "fa09a59c55cc61b5321e554759d7c456ebe0e559",
+  "sourceManifestSha256": "f0ebb77fe46ce5f4d3dea0c20b412ee2bf099f99c062a2d132d365793444966e",
   "nativeOverlay": "flutter-bfa7-durable-v1",
   "features": {
-    "dispatchedRgbRevocation": true
+    "dispatchedRgbRevocation": true,
+    "durableHostedBridge": true
   }
 }

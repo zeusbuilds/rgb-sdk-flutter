@@ -129,13 +129,17 @@
          (registration && _runtime?.contractRegistration != true)) {
        throw const RgbLibWalletException(
          'This wallet cannot sign the requested operation.',
-@@ -1088,9 +1092,10 @@
+@@ -1088,9 +1092,14 @@
          _closing == null &&
          !_closeRequired;
      return BfaCapabilities(
 -      burn: ready && network != 'utexo' && !watchOnly && capabilities.burn,
 +      burn:
-+          ready && _allowsBfaSchema && network != 'utexo' && !watchOnly && capabilities.burn,
++          ready &&
++          _allowsBfaSchema &&
++          network != 'utexo' &&
++          !watchOnly &&
++          capabilities.burn,
        consignment: ready && capabilities.consignment,
 -      bfa: ready && capabilities.bfa,
 +      bfa: ready && _allowsBfaSchema && capabilities.bfa,
@@ -144,7 +148,7 @@
  
 --- a/example/integration_test/rgb_lib_native_smoke_test.dart
 +++ b/example/integration_test/rgb_lib_native_smoke_test.dart
-@@ -12,6 +12,42 @@
+@@ -12,6 +12,48 @@
  
  void main() {
    IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -169,15 +173,21 @@
 +      expect(capabilities.burn, isFalse);
 +      expect(capabilities.consignment, isTrue);
 +      await expectLater(
-+        wallet.burn(const BurnParams(
-+          assetId: 'rgb:offline-smoke',
-+          amount: '1',
-+          feeRate: 1,
-+          minConfirmations: 1,
-+        )),
-+        throwsA(isA<RgbLibWalletException>().having(
-+          (error) => error.code, 'code', 'UNSUPPORTED_CAPABILITY',
-+        )),
++        wallet.burn(
++          const BurnParams(
++            assetId: 'rgb:offline-smoke',
++            amount: '1',
++            feeRate: 1,
++            minConfirmations: 1,
++          ),
++        ),
++        throwsA(
++          isA<RgbLibWalletException>().having(
++            (error) => error.code,
++            'code',
++            'UNSUPPORTED_CAPABILITY',
++          ),
++        ),
 +      );
 +    } finally {
 +      await wallet.destroy();

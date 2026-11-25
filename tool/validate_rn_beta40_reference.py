@@ -157,7 +157,7 @@ def verify(args):
                                 .read_text(encoding='utf-8'))
     validate_flutter_native_upgrade(flutter_native, reference_native)
     if flutter_native != reference_native:
-        print('Flutter BFA.7 overlay is separate from the frozen RN beta.40 native reference.')
+        print('Flutter native overlay is separate from the frozen RN beta.40 native reference.')
 
     changes = verify_source_delta(older, source, lock['delta'])
     if args.list_changes:
@@ -167,19 +167,28 @@ def verify(args):
 
 
 def validate_flutter_native_upgrade(current, reference):
-    """Validate the explicit BFA.7 divergence; never accept an arbitrary new pin."""
+    """Admit only the reviewed BFA.7/BFA.8 overlays, with exact source provenance."""
     if current == reference:
         return
     root = LOCK.parent.parent
-    manifest_path = root / 'native/rgb_l1/source-manifest.json'
-    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-    require(current['version'] == manifest['version']
-            == '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2',
+    reviewed = {
+        '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2': (
+            'source-manifest.json', '9ec49c08be2e68f08521281e3efbd760ec989cb9', 5,
+            {'dispatchedRgbRevocation': True}),
+        '0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1': (
+            'source-bfa8-manifest.json', 'cafe66e49d58038a69dd05f8065e3fe96a9d1601', 6,
+            {'dispatchedRgbRevocation': True, 'durableHostedBridge': True}),
+    }
+    require(current.get('version') in reviewed,
             'Flutter native upgrade has an unreviewed version')
-    require(current['sourceRevision'] == manifest['source']['revision']
-            == '9ec49c08be2e68f08521281e3efbd760ec989cb9',
+    manifest_name, revision, bridge_version, features = reviewed[current['version']]
+    manifest_path = root / 'native/rgb_l1' / manifest_name
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    require(current['version'] == manifest['version'],
+            'Flutter native upgrade does not match its reviewed manifest')
+    require(current['sourceRevision'] == manifest['source']['revision'] == revision,
             'Flutter native upgrade has an unreviewed source')
-    require(current['bridgeVersion'] == manifest['bridgeVersion'] == 5
+    require(current['bridgeVersion'] == manifest['bridgeVersion'] == bridge_version
             and current['uniffiVersion'] == manifest['build']['uniffi'] == '0.32.2'
             and current['swiftModule'] == reference['swiftModule'] == 'RGBLib',
             'Flutter native upgrade ABI differs from its reviewed contract')
@@ -199,7 +208,7 @@ def validate_flutter_native_upgrade(current, reference):
     require(sqlite['version'] == '0.37.0'
             and sqlite['crateSha256'] == 'b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1'
             and sqlite['iosCompileFlags'] == ['SQLITE_ENABLE_LOCKING_STYLE=0', 'RGB_SQLITE_IOS_CONTAINER_ONLY=1']
-            and current.get('features') == manifest.get('features') == {'dispatchedRgbRevocation': True},
+            and current.get('features') == manifest.get('features') == features,
             'Flutter native SQLite/capability contract differs from its reviewed scope')
     for patch in manifest['corePatches'] + [manifest['esplora']['patch'], sqlite['patch']]:
         path = manifest_path.parent / patch['path']

@@ -45,8 +45,11 @@ jobs:
       - name: Validate release package metadata
         run: dart run tool/validate_release_package.dart
 
-      - name: Verify published React Native beta.41 reference
-        run: python3 tool/validate_rn_beta41_reference.py --check-latest
+      - name: Verify immutable React Native history and current beta.42 reference
+        run: |
+          python3 tool/validate_rn_beta40_reference.py
+          python3 tool/validate_rn_beta41_reference.py
+          python3 tool/validate_rn_beta42_reference.py --check-latest
 
       - name: Test native source, archive and reference admission
         run: >-

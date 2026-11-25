@@ -27,7 +27,7 @@ enum RgbLibNetworkPolicy {
     logical != "utexo" || (permitsReceive(logical, endpoints: endpoints) && sender == devProxy)
   }
 
-  static func permitsBurn(_ logical: String) -> Bool { logical != "utexo" }
+  static func permitsBurn(_ logical: String) -> Bool { logical != "utexo" && logical != "mainnet" }
 
   static func permitsOnline(_ logical: String, proxy: String?, proxyAuthEndpoints: [String],
                             chainIds: [String], rpcUrls: [String], minimums: [String], maximums: [String]) -> Bool {

@@ -68,6 +68,7 @@ final class RgbLibWallet implements WalletEngine {
   @override
   String getNetwork() => network;
   bool get watchOnly => _keys.readMnemonic == null;
+  bool get _allowsBfaSchema => network != 'mainnet';
   @override
   bool isDisposed() => _disposed;
 
@@ -497,7 +498,10 @@ final class RgbLibWallet implements WalletEngine {
   }) => _accept(() async {
     _requireIdentity();
     if ((signing && watchOnly) ||
-        (burn && (network == 'utexo' || _runtime?.capabilities.burn != true)) ||
+        (burn &&
+            (!_allowsBfaSchema ||
+                network == 'utexo' ||
+                _runtime?.capabilities.burn != true)) ||
         (registration && _runtime?.contractRegistration != true)) {
       throw const RgbLibWalletException(
         'This wallet cannot sign the requested operation.',
@@ -1088,9 +1092,14 @@ final class RgbLibWallet implements WalletEngine {
         _closing == null &&
         !_closeRequired;
     return BfaCapabilities(
-      burn: ready && network != 'utexo' && !watchOnly && capabilities.burn,
+      burn:
+          ready &&
+          _allowsBfaSchema &&
+          network != 'utexo' &&
+          !watchOnly &&
+          capabilities.burn,
       consignment: ready && capabilities.consignment,
-      bfa: ready && capabilities.bfa,
+      bfa: ready && _allowsBfaSchema && capabilities.bfa,
     );
   }
 

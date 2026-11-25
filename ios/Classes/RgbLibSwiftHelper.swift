@@ -282,8 +282,15 @@ final class RgbLibSwiftHelper {
     profile.removeValue(forKey: "cachedAddress")
     let session: RgbLibSession
     do {
+      let supportedSchemas: [RGBLib.AssetSchema] = net == "mainnet"
+        ? [.nia, .uda, .cfa]
+        : [.nia, .uda, .cfa, .ifa, .bfa]
       let wallet = try RGBLib.Wallet(
-        walletData: RGBLib.WalletData(dataDir: lease.root.path, bitcoinNetwork: rgbNetworkFromName(net), databaseType: .sqlite, maxAllocationsPerUtxo: max, supportedSchemas: [.nia, .uda, .cfa, .ifa, .bfa]),
+        walletData: RGBLib.WalletData(
+          dataDir: lease.root.path, bitcoinNetwork: rgbNetworkFromName(net), databaseType: .sqlite,
+          maxAllocationsPerUtxo: max, supportedSchemas: supportedSchemas,
+          allowRecklessSchemas: false
+        ),
         keys: RGBLib.SinglesigKeys(accountXpubVanilla: keys.vanilla, accountXpubColored: keys.colored, vanillaKeychain: nil, masterFingerprint: keys.fingerprint, mnemonic: mnemonic, witnessVersion: witness)
       )
       session = RgbLibSession(wallet: wallet, lease: lease, profile: profile, reuse: try p.bool("reuseAddresses"))
@@ -401,6 +408,10 @@ final class RgbLibSwiftHelper {
   private static func consignment(_ s: RgbLibSession, _ p: RgbParams) throws -> URL {
     let w = s.wallet!
     let paths = Set(try w.listTransfers(assetFilter: .id(assetId: p.string("assetId")), scope: .txid(txid: p.string("txid"))).compactMap { $0.consignmentPath })
+    return try walletConsignment(w, paths)
+  }
+
+  private static func walletConsignment(_ w: RGBLib.Wallet, _ paths: Set<String>) throws -> URL {
     guard paths.count == 1, let path = paths.first else { throw RgbBridgeFailure(code: "CONSIGNMENT_NOT_FOUND", message: "No unique consignment for this transfer") }
     let file = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL
     let root = URL(fileURLWithPath: w.getWalletDir()).resolvingSymlinksInPath().standardizedFileURL.path
@@ -409,6 +420,10 @@ final class RgbLibSwiftHelper {
     }
     return file
   }
+  private static func receivedMintTransfers(_ w: RGBLib.Wallet, _ recipient: String) throws -> [RGBLib.Transfer] {
+    try w.listTransfers(assetFilter: .anyOrNone, scope: .all).filter { $0.recipientId == recipient }
+  }
+
   private static func send(_ s: RgbLibSession, _ p: RgbParams) throws -> Any {
     let invoice = try RGBLib.Invoice(invoiceString: p.string("invoice")).invoiceData()
     let logical = s.profile["network"] as! String, sender = try p.string("senderTransportEndpoint")
@@ -515,7 +530,32 @@ final class RgbLibSwiftHelper {
       let recipient = try p.string("recipientId")
       // Validate with the actual parser before core's recipient-named path lookup.
       _ = try RGBLib.RecipientInfo(recipientId: recipient).recipientType()
-      return try w.getReceivedMint(recipientId: recipient).map { rgbDto($0) } ?? (NSNull() as Any)
+      if p.has("refreshIncoming"), try p.bool("refreshIncoming") {
+        let statuses: [RGBLib.RefreshTransferStatus] = [
+          .waitingCounterparty, .waitingSafeHeight, .waitingBroadcast, .waitingConfirmations
+        ]
+        let incoming = statuses.map { RGBLib.RefreshFilter(status: $0, incoming: true) }
+        let refreshed = try w.refresh(online: s.requireOnline(), assetId: nil, filter: incoming, skipSync: false)
+        let transfers = try receivedMintTransfers(w, recipient)
+        if let failure = transfers.lazy.compactMap({ refreshed[$0.batchTransferIdx]?.failure }).first {
+          throw failure
+        }
+      }
+      guard let mint = try w.getReceivedMint(recipientId: recipient) else { return NSNull() }
+      let paths = Set(try receivedMintTransfers(w, recipient).compactMap { $0.consignmentPath })
+      let file = try walletConsignment(w, paths)
+      let inspection = try RGBLib.inspectConsignment(consignmentPath: file.path, bundleFilter: .terminals)
+      let matchesMint = inspection.witnesses.contains { witness in
+        witness.operations.contains { operation in
+          operation.assetId == inspection.assetId && operation.transitions.contains { $0.opid == mint.opid }
+        }
+      }
+      guard matchesMint else {
+        throw RgbBridgeFailure(code: "CONSIGNMENT_NOT_FOUND", message: "No consignment carries this received mint")
+      }
+      var result = rgbDto(mint)
+      result["assetId"] = inspection.assetId
+      return result
     case "importContract": return try w.importContract(contractBase64: p.string("contractBase64"), expectedAssetId: p.string("expectedAssetId"))
     case "bridgeBlindReceive", "prepareBridgeBurn", "commitBridgeBurn", "observeBridgeBurn", "cancelBridgeBurn", "bridgeBurnProof":
       #if RGB_LIB_DURABLE_HOSTED_BRIDGE
@@ -605,11 +645,24 @@ final class RgbLibSwiftHelper {
     case "issueAssetNia": return try rgbDto(w.issueAssetNia(ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }))
     case "issueAssetCfa": return try rgbDto(w.issueAssetCfa(name: p.string("name"), details: p.optional("details"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, filePath: p.optional("filePath")))
     case "issueAssetUda": return try rgbDto(w.issueAssetUda(ticker: p.string("ticker"), name: p.string("name"), details: p.optional("details"), precision: p.number("precision", UInt8.self), mediaFilePath: p.optional("mediaFilePath"), attachmentsFilePaths: p.strings("attachmentsFilePaths")))
-    case "issueAssetIfa": return try rgbDto(w.issueAssetIfa(ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self), amounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, inflationAmounts: p.strings("inflationAmounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, rejectListUrl: p.optional("rejectListUrl"), linkRight: false, linkedFromContract: nil))
+    case "issueAssetIfa":
+      let amounts = try p.strings("amounts").map { value -> UInt64 in
+        guard let amount = UInt64(value) else { throw rgbInvalid("Invalid amount") }
+        return amount
+      }
+      let inflationAmounts = try p.strings("inflationAmounts").map { value -> UInt64 in
+        guard let amount = UInt64(value) else { throw rgbInvalid("Invalid amount") }
+        return amount
+      }
+      return try rgbDto(w.issueAssetIfa(
+        ticker: p.string("ticker"), name: p.string("name"), precision: p.number("precision", UInt8.self),
+        amounts: amounts, inflationAmounts: inflationAmounts, rejectListUrl: p.optional("rejectListUrl"),
+        linkRight: false, linkedFromContract: nil, skipContractChecks: false
+      ))
     case "inflate": return try rgbDto(w.inflate(online: s.requireOnline(), assetId: p.string("assetId"), inflationAmounts: p.strings("amounts").map { guard let n = UInt64($0) else { throw rgbInvalid("Invalid amount") }; return n }, feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self)))
     case "burn":
       guard RgbLibNetworkPolicy.permitsBurn(s.profile["network"] as! String) else {
-        throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Hosted Dev burns are unavailable")
+        throw RgbBridgeFailure(code: "UNSUPPORTED_CAPABILITY", message: "Burning is unavailable on this network")
       }
       return try rgbDto(w.burn(online: s.requireOnline(), assetId: p.string("assetId"), amount: p.amount("amount"), burnReason: p.optional("burnReason"), feeRate: p.amount("feeRate"), minConfirmations: p.number("minConfirmations", UInt8.self)))
     case "failTransfers": return try w.failTransfers(online: s.requireOnline(), batchTransferIdx: p.has("batchTransferIdx") ? p.number("batchTransferIdx", Int32.self) : nil, noAssetOnly: p.bool("noAssetOnly"), skipSync: p.bool("skipSync"))

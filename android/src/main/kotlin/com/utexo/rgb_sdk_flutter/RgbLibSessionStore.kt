@@ -206,8 +206,17 @@ internal class RgbLibSessionStore(
         write(marker, profile)
         created = true
       }
+      val supportedSchemas = if (net == "mainnet") {
+        listOf(AssetSchema.NIA, AssetSchema.UDA, AssetSchema.CFA)
+      } else {
+        listOf(AssetSchema.NIA, AssetSchema.UDA, AssetSchema.CFA, AssetSchema.IFA, AssetSchema.BFA)
+      }
       wallet = Wallet(
-        WalletData(lease.root.path, network(net), DatabaseType.SQLITE, max, AssetSchema.entries.toList()),
+        WalletData(
+          dataDir = lease.root.path, bitcoinNetwork = network(net), databaseType = DatabaseType.SQLITE,
+          maxAllocationsPerUtxo = max, supportedSchemas = supportedSchemas,
+          allowRecklessSchemas = false
+        ),
         SinglesigKeys(keys.first, keys.second, null, keys.third, mnemonic, witness)
       )
       val session = Session(wallet, lease, profile, p.getBoolean("reuseAddresses"))
@@ -315,12 +324,19 @@ internal class RgbLibSessionStore(
 
   private fun consignment(s: Session, p: JSONObject): File {
     val paths = s.wallet.listTransfers(AssetFilter.Id(p.getString("assetId")),TransferScope.Txid(p.getString("txid"))).mapNotNull { it.consignmentPath }.distinct()
+    return walletConsignment(s.wallet, paths)
+  }
+
+  private fun walletConsignment(wallet: Wallet, paths: List<String>): File {
     if (paths.size != 1) throw RgbLibBridgeError("CONSIGNMENT_NOT_FOUND","No unique consignment for this transfer")
     val file = File(paths.single()).canonicalFile
-    if (!file.isFile || !file.path.startsWith(File(s.wallet.getWalletDir()).canonicalPath + File.separator))
+    if (!file.isFile || !file.path.startsWith(File(wallet.getWalletDir()).canonicalPath + File.separator))
       throw RgbLibBridgeError("INVALID_CONSIGNMENT_PATH","Consignment is outside wallet storage")
     return file
   }
+  private fun receivedMintTransfers(wallet: Wallet, recipient: String): List<Transfer> =
+    wallet.listTransfers(AssetFilter.AnyOrNone, TransferScope.All).filter { it.recipientId == recipient }
+
   private fun send(s: Session,p: JSONObject): Any {
     val invoice = Invoice(p.getString("invoice")).use { it.invoiceData() }
     val logical = s.profile.getString("network")
@@ -416,7 +432,32 @@ internal class RgbLibSessionStore(
         // The core resolves a recipient-named local path; validate with its
         // actual recipient parser before allowing any filesystem lookup.
         RecipientInfo(recipient).use { it.recipientType() }
-        w.getReceivedMint(recipient)?.let { rgbDto(it) }
+        val refreshIncoming = if (p.has("refreshIncoming")) {
+          (p.get("refreshIncoming") as? Boolean) ?: fail("Invalid refreshIncoming")
+        } else false
+        if (refreshIncoming) {
+          val statuses = listOf(
+            RefreshTransferStatus.WAITING_COUNTERPARTY,
+            RefreshTransferStatus.WAITING_SAFE_HEIGHT,
+            RefreshTransferStatus.WAITING_BROADCAST,
+            RefreshTransferStatus.WAITING_CONFIRMATIONS,
+          )
+          val refreshed = w.refresh(online(s), null, statuses.map { RefreshFilter(it, true) }, false)
+          receivedMintTransfers(w, recipient)
+            .firstNotNullOfOrNull { refreshed[it.batchTransferIdx]?.failure }?.let { throw it }
+        }
+        w.getReceivedMint(recipient)?.let { mint ->
+          val paths = receivedMintTransfers(w, recipient).mapNotNull { it.consignmentPath }.distinct()
+          val file = walletConsignment(w, paths)
+          val inspection = inspectConsignment(file.path, BundleFilter.Terminals)
+          val matchesMint = inspection.witnesses.any { witness ->
+            witness.operations.any { operation ->
+              operation.assetId == inspection.assetId && operation.transitions.any { it.opid == mint.opid }
+            }
+          }
+          if (!matchesMint) throw RgbLibBridgeError("CONSIGNMENT_NOT_FOUND", "No consignment carries this received mint")
+          rgbDto(mint) + ("assetId" to inspection.assetId)
+        }
       }
       "importContract" -> w.importContract(p.getString("contractBase64"),p.getString("expectedAssetId"))
       in RgbLibHostedBridge.operations -> {
@@ -484,11 +525,17 @@ internal class RgbLibSessionStore(
       "issueAssetNia" -> rgbDto(w.issueAssetNia(p.getString("ticker"),p.getString("name"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() }))
       "issueAssetCfa" -> rgbDto(w.issueAssetCfa(p.getString("name"),optional(p,"details"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() },optional(p,"filePath")))
       "issueAssetUda" -> rgbDto(w.issueAssetUda(p.getString("ticker"),p.getString("name"),optional(p,"details"),number(p,"precision",18).toUByte(),optional(p,"mediaFilePath"),strings(p,"attachmentsFilePaths")))
-      "issueAssetIfa" -> rgbDto(w.issueAssetIfa(p.getString("ticker"),p.getString("name"),number(p,"precision",18).toUByte(),strings(p,"amounts").map { it.toULong() },strings(p,"inflationAmounts").map { it.toULong() },optional(p,"rejectListUrl"),false,null))
+      "issueAssetIfa" -> rgbDto(w.issueAssetIfa(
+        ticker = p.getString("ticker"), name = p.getString("name"), precision = number(p,"precision",18).toUByte(),
+        amounts = strings(p,"amounts").map { it.toULong() },
+        inflationAmounts = strings(p,"inflationAmounts").map { it.toULong() },
+        rejectListUrl = optional(p,"rejectListUrl"), linkRight = false, linkedFromContract = null,
+        skipContractChecks = false
+      ))
       "inflate" -> rgbDto(w.inflate(online(s),p.getString("assetId"),strings(p,"amounts").map { it.toULong() },amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte()))
       "burn" -> {
         if (!RgbLibNetworkPolicy.permitsBurn(s.profile.getString("network")))
-          throw RgbLibBridgeError("UNSUPPORTED_CAPABILITY", "Hosted Dev burns are unavailable")
+          throw RgbLibBridgeError("UNSUPPORTED_CAPABILITY", "Burning is unavailable on this network")
         rgbDto(w.burn(online(s),p.getString("assetId"),amount(p,"amount"),optional(p,"burnReason"),amount(p,"feeRate"),number(p,"minConfirmations",255).toUByte()))
       }
       "failTransfers" -> w.failTransfers(online(s),if(p.isNull("batchTransferIdx")) null else number(p,"batchTransferIdx",Int.MAX_VALUE.toLong()).toInt(),p.getBoolean("noAssetOnly"),p.getBoolean("skipSync"))

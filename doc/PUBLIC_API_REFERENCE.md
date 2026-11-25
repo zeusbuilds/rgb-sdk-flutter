@@ -286,9 +286,11 @@ unsupported error if they use that signature, RLN node management, Lightning,
 LSP or the raw RLN methods. `engine.getNetworkInfo()` retains a nullable tip
 when the wallet has no current indexed height.
 
-Use `wallet.getReceivedMint(recipientId)` for a read-only RGB_L1 mint-lock
-observation on an invoice recipient. The result is nullable and preserves
-exact amounts. It establishes neither settlement nor spending authority.
+Use `wallet.getReceivedMint(recipientId)` for an offline RGB_L1 mint-lock
+observation on an invoice recipient. The nullable result gives the asset ID
+from the checked consignment and preserves exact amounts. Pass
+`refreshIncoming: true` to check pending incoming transfers first. A
+recipient's refresh failure is returned as an error, not a missing mint.
 Durable commands and contract registration retain the chosen backend's
 original identity, validation, and recovery rules. Use the typed engine for
 protocol-specific input such as full UInt64 RGB send amounts, mint assignments,
@@ -790,13 +792,15 @@ progress pending transfers and is blocked on restored snapshots. Local
 inspection and exact read-only Status remain available under the documented
 recovery boundary.
 
-`getReceivedMint(recipientId)` returns a nullable `RgbLibReceivedMint` observation
-from the native BFA.7 wallet. Its six fields are `opid`, transaction-bound `lockId`,
-exact `BigInt` `amount`, backing-EVM `beforeBlock`, `evmChainId`, and
-`bridgeContract`. No asset identifier is invented. Null means no native-validated
-mint remains available for this recipient (including a failed receive). These
-requirements authorize neither an EVM lock nor a completed mint. WebRGB mint
-route authorization remains unavailable until its transport policy is qualified.
+`getReceivedMint(recipientId, refreshIncoming: false)` returns a nullable
+`RgbLibReceivedMint` observation from the BFA.8 wallet. Its fields are
+`assetId`, `opid`, transaction-bound `lockId`, exact `BigInt` `amount`,
+backing-EVM `beforeBlock`, `evmChainId` and `bridgeContract`. The bridge
+checks the mint operation against the wallet's consignment before returning the
+asset ID. The default is offline. An explicit incoming refresh needs an online
+wallet, uses incoming-only filters, and propagates refresh failures for the
+requested recipient. Null means no checked mint is available for that recipient.
+Use the result as lock requirements, with settlement verified separately.
 
 `listOnchainSendReceipts` returns a `RgbLibOnchainSendReceiptPage` of accepted
 `RgbLibOnchainSendReceipt` entries. Gross amounts and approved fee rates remain

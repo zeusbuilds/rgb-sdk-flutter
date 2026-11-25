@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "description": "AST-normalized public API and bridge snapshot. Update only with a tracker row and migration note.",
   "dartExportedSurface": {
-    "count": 2627,
-    "hash": "988f83ce0b53128de3904977956d4e90f9eb0eb7a2ade6c30bca54d38bc7b500",
+    "count": 2628,
+    "hash": "8ae3ccac3317fb12400013696b37bc9e6d35d5387572521b4768d1a66d66a5f6",
     "files": [
       "lib/rgb_sdk_flutter.dart",
       "lib/rgb_sdk_flutter_advanced.dart",
@@ -82,7 +82,7 @@
   },
   "stableWalletSurface": {
     "count": 144,
-    "hash": "58e0e20a6de224aa9af3bf13460e1e8ed9ac50bbdeb235f91818a85ca4eeae09",
+    "hash": "5ffe9e728d697661d9b1e44063e93fdc86c0f11aa52f6f0902cff6bac898733a",
     "files": [
       "lib/src/wallet/utexo_wallet.dart",
       "lib/src/wallet/rln_wallet.dart",
@@ -165,7 +165,7 @@
       "Future<RgbLibReceiveData> blindReceive({String? assetId, BigInt? amount, int durationSeconds = 86400, int minConfirmations = 0, RgbLibReceiveAssignment? assignmentKind})",
       "Future<RgbLibReceiveData> onchainReceive({bool witness = true, String? assetId, BigInt? amount, int durationSeconds = 86400, int minConfirmations = 0, RgbLibReceiveAssignment? assignmentKind})",
       "Future<RgbLibReceiveData> witnessReceive({String? assetId, BigInt? amount, int durationSeconds = 86400, int minConfirmations = 0, RgbLibReceiveAssignment? assignmentKind})",
-      "Future<RgbLibReceivedMint?> getReceivedMint(String recipientId)",
+      "Future<RgbLibReceivedMint?> getReceivedMint(String recipientId, {bool refreshIncoming = false})",
       "Future<RgbLibRuntimeInfo> getRuntimeInfo()",
       "Future<RgbLibWalletIdentity> getWalletIdentity()",
       "Future<RlnInvoiceStatusValue> getLightningReceiveStatus(String id)",
@@ -301,8 +301,8 @@
     ]
   },
   "nativeBridgeSurface": {
-    "count": 769,
-    "hash": "0d64aecfe6ce38b0b1739dabb615605ab0e91f318a9d0c38fed77ec75c679682",
+    "count": 789,
+    "hash": "88cd5e23b2418dee720ae5c320a9f15b58a5d4c8fa0af15ebdb54c8c0e2ea477",
     "files": [
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RgbSdkFlutterPlugin.kt",
       "android/src/main/kotlin/com/utexo/rgb_sdk_flutter/RlnAssetMapper.kt",

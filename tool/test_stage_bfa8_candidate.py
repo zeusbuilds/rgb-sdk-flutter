@@ -7,9 +7,55 @@ import tempfile
 import unittest
 
 if __package__:
-    from .stage_bfa8_candidate import digest, verify_sdk_inputs
+    from .stage_bfa8_candidate import (
+        PREVIOUS_VERSION, VERSION, configure_wrapper_abi, digest, verify_sdk_inputs,
+    )
 else:
-    from stage_bfa8_candidate import digest, verify_sdk_inputs
+    from stage_bfa8_candidate import (
+        PREVIOUS_VERSION, VERSION, configure_wrapper_abi, digest, verify_sdk_inputs,
+    )
+
+
+class StageWrapperAbiTest(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name).resolve()
+        self.sdk = self.root / 'sdk'
+        self.sdk.mkdir()
+        self.files = [self.sdk / name for name in ('Wallet.swift', 'Wallet.kt')]
+        for path in self.files:
+            path.write_text('old ABI\n')
+        self.patch = self.root / 'wrapper.patch'
+        self.patch.write_text(''.join(
+            f'diff --git a/{path.name} b/{path.name}\n'
+            f'--- a/{path.name}\n+++ b/{path.name}\n'
+            '@@ -1 +1 @@\n-old ABI\n+new ABI\n'
+            for path in self.files
+        ))
+
+    def test_old_baseline_applies_all_wrapper_changes(self):
+        configure_wrapper_abi(self.sdk, self.patch, PREVIOUS_VERSION)
+        self.assertEqual([path.read_text() for path in self.files], ['new ABI\n'] * 2)
+
+    def test_promoted_baseline_verifies_without_reapplying(self):
+        configure_wrapper_abi(self.sdk, self.patch, PREVIOUS_VERSION)
+        before = [digest(path) for path in self.files]
+        configure_wrapper_abi(self.sdk, self.patch, VERSION)
+        self.assertEqual([digest(path) for path in self.files], before)
+
+    def test_partial_or_wrong_version_wrappers_are_rejected_without_mutation(self):
+        self.files[0].write_text('new ABI\n')
+        before = [digest(path) for path in self.files]
+        for version in (VERSION, PREVIOUS_VERSION):
+            with self.subTest(version=version):
+                with self.assertRaisesRegex(ValueError, 'declared BFA native ABI'):
+                    configure_wrapper_abi(self.sdk, self.patch, version)
+                self.assertEqual([digest(path) for path in self.files], before)
+
+    def test_unknown_baseline_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'Unsupported SDK native baseline'):
+            configure_wrapper_abi(self.sdk, self.patch, 'unreviewed-bfa-version')
 
 
 class StageSourceIntegrityTest(unittest.TestCase):

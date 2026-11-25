@@ -19,6 +19,8 @@ SPEC.loader.exec_module(REFERENCE)
 
 
 class NativeDivergenceTests(unittest.TestCase):
+    manifest_name = 'source-manifest.json'
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -27,8 +29,9 @@ class NativeDivergenceTests(unittest.TestCase):
         shutil.copytree(ROOT / 'native/rgb_l1', self.root / 'native/rgb_l1')
         self.lock = self.root / 'tool/reference.json'
         self.reference = json.loads((ROOT / 'tool/rn_beta40_rgb_lib_reference.json').read_text())
-        manifest_path = self.root / 'native/rgb_l1/source-manifest.json'
+        manifest_path = self.root / 'native/rgb_l1' / self.manifest_name
         manifest = json.loads(manifest_path.read_text())
+        self.manifest = manifest
         self.current = copy.deepcopy(self.reference)
         self.current.update(
             version=manifest['version'], sourceRevision=manifest['source']['revision'],
@@ -61,10 +64,11 @@ class NativeDivergenceTests(unittest.TestCase):
 
     def test_native_patch_tamper_is_rejected(self):
         directory = self.root / 'native/rgb_l1'
-        for relative in ('source-overlay.patch',
-                         'patches/rgb-lib-bfa.7-registration.patch',
-                         'patches/esplora-client-0.12.3-guarded-blocking.patch',
-                         'patches/libsqlite3-sys-0.37.0-ios-container.patch'):
+        manifest = self.manifest
+        patch_paths = [manifest['integration']['patch']] + [
+            entry['path'] for entry in manifest['corePatches']
+            + [manifest['esplora']['patch'], manifest['sqlite3']['patch']]]
+        for relative in patch_paths:
             path = directory / relative
             original = path.read_bytes()
             path.write_bytes(original + b'\ntampered\n')
@@ -81,6 +85,10 @@ class NativeDivergenceTests(unittest.TestCase):
                 with self.subTest(platform=platform, field=field, value=value):
                     with self.assertRaises(ValueError):
                         self.verify(changed)
+
+
+class Bfa8NativeDivergenceTests(NativeDivergenceTests):
+    manifest_name = 'source-bfa8-manifest.json'
 
 
 if __name__ == '__main__':

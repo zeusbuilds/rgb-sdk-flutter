@@ -22,6 +22,7 @@ SOURCE_MANIFEST = Path('native/rgb_l1/source-bfa8-manifest.json')
 BUILD_SCRIPT = Path('tool/build_rgb_lib_bfa7.py')
 WRAPPER_PATCH = Path('tool/bfa8_candidate_wrappers.patch')
 VERSION = '0.3.0-beta.7-upstream-dev-bfa.8-bfa-flutter.1'
+PREVIOUS_VERSION = '0.3.0-beta.7-upstream-dev-bfa.7-bfa-flutter.2'
 SOURCE_TAG = 'v0.3.0-beta.7-upstream-dev-bfa.8'
 TAG_COMMIT = '2f7b21d8637baad548504ea870deb2c0d4d0a37d'
 REVISION = 'cafe66e49d58038a69dd05f8065e3fe96a9d1601'
@@ -189,7 +190,32 @@ def replace_once(path, old, new):
     path.write_text(text.replace(old, new))
 
 
+def configure_wrapper_abi(sdk, patch, source_version):
+    """Apply the historical ABI delta, or verify it is already fully present.
+
+    Staging may start from the old BFA.7 checkout or from the promoted BFA.8
+    default. A reverse check makes the latter an explicit, validated no-op;
+    failed forward application alone never means that a patch is present.
+    """
+    environment = os.environ.copy()
+    environment['GIT_CEILING_DIRECTORIES'] = str(sdk.parent)
+    if source_version == VERSION:
+        arguments = ['--reverse', '--check']
+    elif source_version == PREVIOUS_VERSION:
+        arguments = ['--check']
+    else:
+        raise ValueError(f'Unsupported SDK native baseline for BFA.8 staging: {source_version}.')
+    checked = subprocess.run(['git', '-C', sdk, 'apply', *arguments, patch],
+                             env=environment, capture_output=True, text=True)
+    if checked.returncode != 0:
+        raise ValueError('SDK wrappers do not match their declared BFA native ABI: '
+                         + checked.stderr.strip())
+    if source_version == PREVIOUS_VERSION:
+        subprocess.run(['git', '-C', sdk, 'apply', patch], env=environment, check=True)
+
+
 def configure_sdk(sdk, manifest, record, patch):
+    source_pin = read_json(sdk / 'tool/rgb_lib_native_baseline.json')
     identity = record['identity']
     archives = record['artifacts']
     swift = archives[f'rgb-lib-bfa-swift-{VERSION}.zip']
@@ -214,6 +240,20 @@ def configure_sdk(sdk, manifest, record, patch):
                     'archiveSha256': android['sha256'], 'archiveSizeBytes': android['sizeBytes'],
                     'abis': ['arm64-v8a', 'x86_64']},
     }
+    if source_pin['version'] == VERSION:
+        # Promotion adds remote download URLs, while a local stage must still
+        # require the exact admitted archives. Check every shared identity
+        # field before replacing download configuration with local overrides.
+        for field, value in pin.items():
+            if field == 'localCandidate':
+                continue
+            actual = source_pin.get(field)
+            if isinstance(value, dict):
+                if not isinstance(actual, dict) or any(actual.get(k) != v for k, v in value.items()):
+                    raise ValueError(f'Promoted BFA.8 baseline differs from its sealed archive: {field}.')
+            elif actual != value:
+                raise ValueError(f'Promoted BFA.8 baseline differs from its sealed archive: {field}.')
+    configure_wrapper_abi(sdk, patch, source_pin['version'])
     write_json(sdk / 'tool/rgb_lib_native_baseline.json', pin)
 
     runtime = sdk / 'lib/src/wallet/rgb_lib/wire.dart'
@@ -237,12 +277,6 @@ def configure_sdk(sdk, manifest, record, patch):
                  'require(rgbLibAndroidArtifactDirectory.isPresent) {\n'
                  '    "BFA.8 candidate requires RGB_LIB_ANDROID_ARTIFACT_DIR."\n'
                  '}\nval rgbLibExpectedSize =')
-
-    environment = os.environ.copy()
-    environment['GIT_CEILING_DIRECTORIES'] = str(sdk.parent)
-    subprocess.run(['git', '-C', sdk, 'apply', '--check', patch], env=environment, check=True)
-    subprocess.run(['git', '-C', sdk, 'apply', patch], env=environment, check=True)
-
 
 def verify_sdk_inputs(sdk, expected_hashes):
     for relative in COMPILABLE_ROOTS:

@@ -46,6 +46,7 @@ const _rgbRuntime = {
 };
 
 const _mint = {
+  'assetId': _assetId,
   'opid': 'native-operation-id',
   'lockId': 'transaction-bound-native-lock-id',
   'amount': '18446744073709551615',
@@ -865,6 +866,7 @@ void main() {
       expect(rgbCalls.last.arguments['expectedAssetId'], _assetId);
 
       final mint = await wallet.getReceivedMint(_recipientId);
+      expect(mint?.assetId, _assetId);
       expect(mint?.amount, BigInt.parse('18446744073709551615'));
       expect(mint?.evmChainId, BigInt.from(42161));
       expect(rgbCalls.last.arguments['recipientId'], _recipientId);

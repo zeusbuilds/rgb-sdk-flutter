@@ -16,7 +16,7 @@ void main() {
     'DEPLOYMENT_UNQUALIFIED',
   );
 
-  test('reviewed Dev contract and deployment match the runtime', () {
+  test('reviewed Dev contract and runtime pins retain qualification gates', () {
     final requirements = _json('tool/dev_signet_deployment_requirements.json');
     final nativeBaseline = _json('tool/rgb_lib_native_baseline.json');
     final bitcoin = requirements['bitcoin'] as Map<String, Object?>;
@@ -56,7 +56,9 @@ void main() {
       crypto.sha256.convert(approvedBytes).toString(),
       rgb['approvedContractSha256'],
     );
-    expect(bundled['generation'], 'BFA.7');
+    expect(bundled['generation'], 'BFA.8');
+    expect(bundled['offlineContractRegistrationVerified'], isTrue);
+    expect(bundled['hostedSettlementQualified'], isFalse);
     expect(bundled['sourceRevision'], nativeBaseline['sourceRevision']);
     expect(bundled['sourceRevision'], RgbLibRuntimeInfo.expectedSourceRevision);
     expect(bundled['standaloneContractRegistration'], isTrue);

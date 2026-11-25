@@ -720,8 +720,11 @@ extension UtexoWalletEngineAccess on UtexoWallet {
     _ => null,
   };
 
-  /// Read-only native mint lookup. Null is not evidence of settlement.
-  Future<RgbLibReceivedMint?> getReceivedMint(String recipientId) async {
+  /// Native mint lookup, with an optional incoming-only refresh.
+  Future<RgbLibReceivedMint?> getReceivedMint(
+    String recipientId, {
+    bool refreshIncoming = false,
+  }) async {
     final selected = rgbLibEngine;
     if (selected == null) {
       throw const UnsupportedWalletFeatureException(
@@ -729,7 +732,10 @@ extension UtexoWalletEngineAccess on UtexoWallet {
         feature: 'getReceivedMint',
       );
     }
-    return selected.getReceivedMint(recipientId);
+    return selected.getReceivedMint(
+      recipientId,
+      refreshIncoming: refreshIncoming,
+    );
   }
 }
 
