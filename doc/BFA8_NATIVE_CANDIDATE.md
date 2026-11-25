@@ -11,9 +11,11 @@ The selected archives are the exact previously sealed Flutter candidate bytes.
 Their original `local_candidate: true` metadata and source manifest remain
 unchanged; promotion does not relabel their provenance or approve production.
 `tool/rgb_lib_native_baseline.json` records the download URLs, sizes and digests.
-The intended prerelease asset location is `UTEXO-Protocol/flutter-sdk`, tag
-`native-bfa8-flutter.1`; publication and fresh-download verification must finish
-before ordinary consumers can install without local archive overrides.
+Both archives are available from the
+[Flutter BFA.8 native prerelease](https://github.com/UTEXO-Protocol/flutter-sdk/releases/tag/native-bfa8-flutter.1).
+Fresh anonymous downloads from the SDK's pinned URLs matched the sealed sizes
+and SHA-256 digests. Consumers of SDK commit `82bb992` use these archives by
+default.
 
 Flutter carries forward exact-ID genesis-only registration, the guarded
 network clients, Dev Signet checkpoint, SQLite container rules, and durable
